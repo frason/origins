@@ -1,1 +1,322 @@
-// TODO: Species definition, mutations, breeding
+/**
+ * Species Definition, Mutations, and Lineage Tracking
+ * Implements creature reproduction with genetic drift and family tree tracking
+ */
+
+import { Creature, CreatureParams } from './creature';
+import { RngFn, randChoice } from './rng';
+import {
+  Traits,
+  EnergyStrategy,
+  TRAIT_MUTATION_RATES,
+  TRAIT_MIN,
+  TRAIT_MAX,
+} from '../utils/traits';
+import { MUTATION_DRIFT } from '../utils/constants';
+
+/**
+ * Species represents a distinct genetic lineage with tracking info
+ */
+export interface Species {
+  id: string;
+  name: string;
+  ancestorId: string | null; // First ancestor creature id, or null if unknown
+  firstSeenTick: number; // Tick when species first appeared
+  lastSeenTick: number | null; // Tick when species went extinct, or null if still alive
+  traitSnapshot: Traits; // Traits of the ancestor or first observed creature
+}
+
+/**
+ * Mutate a creature's traits based on mutation rates and RNG.
+ * Each numeric trait drifts by ±(MUTATION_DRIFT × currentValue × mutationRate).
+ * energyStrategy mutates with 5% probability to a random alternative strategy.
+ * All results are clamped to TRAIT_MIN and TRAIT_MAX.
+ *
+ * @param traits - parent traits to mutate
+ * @param rng - deterministic RNG function
+ * @returns new mutated traits
+ */
+export function mutateTraits(traits: Traits, rng: RngFn): Traits {
+  const mutated: Traits = { ...traits };
+
+  // List of numeric trait names (excluding energyStrategy)
+  const numericTraits = [
+    'size',
+    'speed',
+    'visionRange',
+    'hearingRange',
+    'camouflage',
+    'armor',
+    'boneDensity',
+    'metabolism',
+    'reproductionRate',
+    'brainSize',
+    'consciousnessLevel',
+    'communication',
+    'collectiveConnection',
+  ] as const;
+
+  // Mutate each numeric trait
+  for (const traitName of numericTraits) {
+    const currentValue = traits[traitName];
+    const mutationRate = TRAIT_MUTATION_RATES[traitName];
+
+    // Calculate drift: ±(MUTATION_DRIFT × currentValue × mutationRate)
+    const driftAmount = MUTATION_DRIFT * currentValue * mutationRate;
+
+    // Randomly decide sign of drift (+/-)
+    const sign = rng() < 0.5 ? -1 : 1;
+    const newValue = currentValue + sign * driftAmount;
+
+    // Clamp to min/max bounds
+    const min = TRAIT_MIN[traitName] ?? 0;
+    const max = TRAIT_MAX[traitName] ?? Infinity;
+    (mutated as any)[traitName] = Math.max(min, Math.min(max, newValue));
+  }
+
+  // Mutate energyStrategy with 5% probability
+  if (rng() < 0.05) {
+    const strategies: EnergyStrategy[] = [
+      'herbivore',
+      'carnivore',
+      'omnivore',
+      'scavenger',
+    ];
+    // Pick a random strategy (might be same as current)
+    mutated.energyStrategy = randChoice(rng, strategies);
+  }
+
+  return mutated;
+}
+
+/**
+ * Reproduce a creature, creating an offspring with mutated traits.
+ * The child inherits:
+ * - parentId: parent's id
+ * - lineageId: parent's lineageId (maintains lineage)
+ * - speciesId: parent's speciesId
+ * - Mutated traits from mutateTraits()
+ * - Initial energy: a fraction of parent's energy (half of parent's current energy, minimum 50)
+ * - Position: same as parent (offspring starts at parent location)
+ * - Age: 0
+ *
+ * @param parent - the parent creature
+ * @param rng - deterministic RNG function
+ * @returns new offspring creature
+ */
+export function reproduceCreature(parent: Creature, rng: RngFn): Creature {
+  const mutatedTraits = mutateTraits(parent.traits, rng);
+
+  // Branch lineage when energyStrategy changes or any numeric trait drifts >15% from parent
+  const energyStrategyChanged = mutatedTraits.energyStrategy !== parent.traits.energyStrategy;
+  const numericKeys = (Object.keys(mutatedTraits) as (keyof Traits)[]).filter(
+    (k) => k !== 'energyStrategy'
+  ) as Exclude<keyof Traits, 'energyStrategy'>[];
+  const significantDrift = numericKeys.some((trait) => {
+    const parentVal = parent.traits[trait] as number;
+    if (parentVal === 0) return false;
+    return Math.abs((mutatedTraits[trait] as number) - parentVal) / Math.abs(parentVal) > 0.15;
+  });
+  const childLineageId =
+    energyStrategyChanged || significantDrift ? crypto.randomUUID() : parent.lineageId;
+
+  return new Creature({
+    speciesId: parent.speciesId,
+    lineageId: childLineageId,
+    parentId: parent.id,
+    traits: mutatedTraits,
+    x: parent.x,
+    y: parent.y,
+    energy: Math.max(50, parent.energy * 0.5),
+    age: 0,
+    lifecycleState: 'alive',
+    corpseDecayTicks: 0,
+  });
+}
+
+/**
+ * LineageTree tracks all creatures and their family relationships.
+ * Supports querying lineage (ancestor chain) and tracking species extinction.
+ */
+export class LineageTree {
+  private creatures: Map<string, Creature> = new Map();
+  private species: Map<string, Species> = new Map();
+  private speciesMembers: Map<string, Set<string>> = new Map(); // speciesId -> set of creatureIds
+
+  /**
+   * Add a creature to the lineage tree.
+   * If this creature introduces a new species (by lineageId), create a Species record.
+   *
+   * @param creature - the creature to add
+   * @param tick - current simulation tick
+   */
+  addCreature(creature: Creature, tick: number): void {
+    this.creatures.set(creature.id, creature);
+
+    // Track species membership
+    if (!this.speciesMembers.has(creature.lineageId)) {
+      this.speciesMembers.set(creature.lineageId, new Set());
+    }
+    this.speciesMembers.get(creature.lineageId)!.add(creature.id);
+
+    // Create or update Species record
+    if (!this.species.has(creature.lineageId)) {
+      this.species.set(creature.lineageId, {
+        id: creature.lineageId,
+        name: `Species_${creature.lineageId.slice(0, 8)}`, // Auto-name based on ID
+        ancestorId: creature.parentId, // First known ancestor
+        firstSeenTick: tick,
+        lastSeenTick: null,
+        traitSnapshot: { ...creature.traits },
+      });
+    } else {
+      // Update lastSeenTick to keep it current
+      const species = this.species.get(creature.lineageId)!;
+      species.lastSeenTick = null; // Still alive
+    }
+  }
+
+  /**
+   * Mark a species as extinct at a given tick.
+   *
+   * @param speciesId - the species id (lineageId) to mark extinct
+   * @param tick - tick when extinction occurred
+   */
+  markExtinct(speciesId: string, tick: number): void {
+    const species = this.species.get(speciesId);
+    if (species) {
+      species.lastSeenTick = tick;
+    }
+  }
+
+  /**
+   * Get the complete ancestor chain for a creature (including itself).
+   * Walks backward through parent relationships until reaching a root.
+   *
+   * @param creatureId - the creature id to trace
+   * @returns array of creatures from root ancestor to target creature
+   */
+  getLineage(creatureId: string): Creature[] {
+    const lineage: Creature[] = [];
+    let currentId: string | null = creatureId;
+
+    while (currentId !== null) {
+      const creature = this.creatures.get(currentId);
+      if (!creature) {
+        break; // Stop if we can't find the creature
+      }
+
+      lineage.unshift(creature); // Prepend to build root-to-target order
+      currentId = creature.parentId;
+    }
+
+    return lineage;
+  }
+
+  /**
+   * Get all creatures in the tree.
+   */
+  getAllCreatures(): Creature[] {
+    return Array.from(this.creatures.values());
+  }
+
+  /**
+   * Get all species records.
+   */
+  getAllSpecies(): Species[] {
+    return Array.from(this.species.values());
+  }
+
+  /**
+   * Get a specific creature by id.
+   */
+  getCreature(creatureId: string): Creature | undefined {
+    return this.creatures.get(creatureId);
+  }
+
+  /**
+   * Get a specific species record by id.
+   */
+  getSpecies(speciesId: string): Species | undefined {
+    return this.species.get(speciesId);
+  }
+
+  /**
+   * Get all creatures belonging to a species.
+   */
+  getSpeciesMembers(speciesId: string): Creature[] {
+    const memberIds = this.speciesMembers.get(speciesId);
+    if (!memberIds) {
+      return [];
+    }
+    return Array.from(memberIds)
+      .map((id) => this.creatures.get(id)!)
+      .filter((c) => c !== undefined);
+  }
+
+  /**
+   * Serialize the LineageTree to a JSON-compatible object.
+   */
+  toJSON(): object {
+    return {
+      creatures: Array.from(this.creatures.values()).map((c) => c.toJSON()),
+      species: Array.from(this.species.values()),
+      speciesMembers: Array.from(this.speciesMembers.entries()).map(
+        ([speciesId, memberIds]) => ({
+          speciesId,
+          memberIds: Array.from(memberIds),
+        })
+      ),
+    };
+  }
+
+  /**
+   * Reconstruct a LineageTree from a JSON snapshot.
+   * The snapshot should have been created by toJSON().
+   *
+   * @param data - JSON object containing lineage tree state
+   * @returns reconstructed LineageTree instance
+   * @throws if data format is invalid
+   */
+  static fromJSON(data: any): LineageTree {
+    if (!data || typeof data !== 'object') {
+      throw new Error('Invalid LineageTree JSON: expected object');
+    }
+
+    const tree = new LineageTree();
+
+    // Restore creatures
+    if (Array.isArray(data.creatures)) {
+      for (const creatureData of data.creatures) {
+        const creature = Creature.fromJSON(creatureData);
+        tree.creatures.set(creature.id, creature);
+      }
+    }
+
+    // Restore species
+    if (Array.isArray(data.species)) {
+      for (const speciesData of data.species) {
+        if (speciesData.id && typeof speciesData.id === 'string') {
+          tree.species.set(speciesData.id, speciesData);
+        }
+      }
+    }
+
+    // Restore species members
+    if (Array.isArray(data.speciesMembers)) {
+      for (const entry of data.speciesMembers) {
+        if (
+          entry.speciesId &&
+          Array.isArray(entry.memberIds)
+        ) {
+          tree.speciesMembers.set(
+            entry.speciesId,
+            new Set(entry.memberIds)
+          );
+        }
+      }
+    }
+
+    return tree;
+  }
+}
