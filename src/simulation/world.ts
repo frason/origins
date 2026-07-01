@@ -1,4 +1,54 @@
 import { WORLD_WIDTH, WORLD_HEIGHT } from '../utils/constants';
+import type { SimulationConstants } from '../utils/constants';
+
+/**
+ * Compute solar energy grid with radial dissipation from center.
+ *
+ * Cells at grid center (50, 50) receive maximum solar energy (BASE_SOLAR_ENERGY).
+ * Cells further from center receive proportionally less based on Euclidean distance.
+ *
+ * Formula:
+ *   cellSolarEnergy = BASE_SOLAR_ENERGY * (1 - (distanceFromCenter / maxDistance) * SOLAR_EDGE_FALLOFF_FACTOR)
+ *
+ * Where:
+ *   - distanceFromCenter: Euclidean distance from cell to grid center (50, 50)
+ *   - maxDistance: distance from center to corner ≈ 70.7
+ *   - SOLAR_EDGE_FALLOFF_FACTOR: controls edge falloff (0.7 → center=10, corners≈3)
+ *
+ * All values are clamped to minimum of 1.0 to ensure no cell is completely dark.
+ *
+ * @param constants - simulation constants including baseSolarEnergy and solarEdgeFalloffFactor
+ * @returns 100×100 matrix of solar energy values (deterministic, no randomness)
+ */
+export function computeSolarEnergyGrid(constants: SimulationConstants): number[][] {
+  const { worldWidth, worldHeight, baseSolarEnergy, solarEdgeFalloffFactor } = constants;
+  const centerX = worldWidth / 2;
+  const centerY = worldHeight / 2;
+  const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
+  const MIN_SOLAR_ENERGY = 1;
+
+  const grid: number[][] = [];
+
+  for (let y = 0; y < worldHeight; y++) {
+    const row: number[] = [];
+    for (let x = 0; x < worldWidth; x++) {
+      // Calculate Euclidean distance from this cell to grid center
+      const dx = x - centerX;
+      const dy = y - centerY;
+      const distanceFromCenter = Math.sqrt(dx * dx + dy * dy);
+
+      // Apply radial dissipation formula
+      const solarEnergy =
+        baseSolarEnergy * (1 - (distanceFromCenter / maxDistance) * solarEdgeFalloffFactor);
+
+      // Clamp to minimum of 1.0
+      row.push(Math.max(solarEnergy, MIN_SOLAR_ENERGY));
+    }
+    grid.push(row);
+  }
+
+  return grid;
+}
 
 /**
  * Cell interface representing a single grid cell in the world.
@@ -22,25 +72,38 @@ export class World {
 
   /**
    * Initialize a world with the given dimensions.
-   * All cells are initialized to zero values.
+   * If SimulationConstants are provided, cells are initialized with solar energy values.
+   * Otherwise, all cells are initialized to zero values.
    *
    * @param width - number of cells horizontally (default: WORLD_WIDTH)
    * @param height - number of cells vertically (default: WORLD_HEIGHT)
+   * @param constants - optional simulation constants for solar energy grid initialization
    */
-  constructor(width: number = WORLD_WIDTH, height: number = WORLD_HEIGHT) {
+  constructor(
+    width: number = WORLD_WIDTH,
+    height: number = WORLD_HEIGHT,
+    constants?: SimulationConstants
+  ) {
     this._width = width;
     this._height = height;
 
-    // Initialize grid with all cells at zero
+    // Compute solar energy grid if constants provided, otherwise default to zeros
+    const solarGrid = constants ? computeSolarEnergyGrid(constants) : null;
+
+    // Initialize grid with solar energy or zeros
     const cellCount = width * height;
     this.cells = new Array(cellCount);
-    for (let i = 0; i < cellCount; i++) {
-      this.cells[i] = {
-        energy: 0,
-        nutrients: 0,
-        producerBiomass: 0,
-        toxicity: 0,
-      };
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const index = y * width + x;
+        const energy = solarGrid ? solarGrid[y][x] : 0;
+        this.cells[index] = {
+          energy,
+          nutrients: 0,
+          producerBiomass: 0,
+          toxicity: 0,
+        };
+      }
     }
   }
 

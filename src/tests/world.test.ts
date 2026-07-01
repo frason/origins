@@ -1,4 +1,5 @@
-import { World, Cell } from '../simulation/world';
+import { World, Cell, computeSolarEnergyGrid } from '../simulation/world';
+import { SIMULATION_CONSTANTS } from '../utils/constants';
 
 describe('World - Grid Data Model', () => {
   describe('Initialization', () => {
@@ -214,7 +215,7 @@ describe('World - Grid Data Model', () => {
 
       try {
         world.getCell(-5, 10);
-        fail('Should have thrown');
+        expect.fail('Should have thrown');
       } catch (e: any) {
         expect(e.message).toContain('out of bounds');
         expect(e.message).toContain('x=-5');
@@ -303,6 +304,154 @@ describe('World - Grid Data Model', () => {
       };
 
       expect(() => World.fromJSON(data)).toThrow('cell count');
+    });
+  });
+});
+
+// ============================================================================
+// Solar Energy Grid Tests
+// ============================================================================
+
+describe('Solar Energy Grid - Radial Dissipation', () => {
+  describe('computeSolarEnergyGrid function', () => {
+    it('should return a 100×100 grid', () => {
+      const grid = computeSolarEnergyGrid(SIMULATION_CONSTANTS);
+
+      expect(Array.isArray(grid)).toBe(true);
+      expect(grid.length).toBe(100);
+
+      for (let row of grid) {
+        expect(Array.isArray(row)).toBe(true);
+        expect(row.length).toBe(100);
+      }
+    });
+
+    it('should return number values for all cells', () => {
+      const grid = computeSolarEnergyGrid(SIMULATION_CONSTANTS);
+
+      for (let y = 0; y < 100; y++) {
+        for (let x = 0; x < 100; x++) {
+          expect(typeof grid[y][x]).toBe('number');
+          expect(isFinite(grid[y][x])).toBe(true);
+        }
+      }
+    });
+
+    it('should set center cell (50, 50) to BASE_SOLAR_ENERGY (10)', () => {
+      const grid = computeSolarEnergyGrid(SIMULATION_CONSTANTS);
+
+      const centerEnergy = grid[50][50];
+      expect(centerEnergy).toBeCloseTo(SIMULATION_CONSTANTS.baseSolarEnergy, 5);
+    });
+
+    it('should have corner cells with energy less than center', () => {
+      const grid = computeSolarEnergyGrid(SIMULATION_CONSTANTS);
+
+      const centerEnergy = grid[50][50];
+      const corner1 = grid[0][0];
+      const corner2 = grid[0][99];
+      const corner3 = grid[99][0];
+      const corner4 = grid[99][99];
+
+      expect(corner1).toBeLessThan(centerEnergy);
+      expect(corner2).toBeLessThan(centerEnergy);
+      expect(corner3).toBeLessThan(centerEnergy);
+      expect(corner4).toBeLessThan(centerEnergy);
+    });
+
+    it('should have all cell values >= 1 (no cell completely dark)', () => {
+      const grid = computeSolarEnergyGrid(SIMULATION_CONSTANTS);
+
+      for (let y = 0; y < 100; y++) {
+        for (let x = 0; x < 100; x++) {
+          expect(grid[y][x]).toBeGreaterThanOrEqual(1);
+        }
+      }
+    });
+
+    it('should have all cell values <= BASE_SOLAR_ENERGY (no cell brighter than center)', () => {
+      const grid = computeSolarEnergyGrid(SIMULATION_CONSTANTS);
+
+      const baseSolarEnergy = SIMULATION_CONSTANTS.baseSolarEnergy;
+      for (let y = 0; y < 100; y++) {
+        for (let x = 0; x < 100; x++) {
+          expect(grid[y][x]).toBeLessThanOrEqual(baseSolarEnergy);
+        }
+      }
+    });
+
+    it('should be deterministic (same constants produce same results)', () => {
+      const grid1 = computeSolarEnergyGrid(SIMULATION_CONSTANTS);
+      const grid2 = computeSolarEnergyGrid(SIMULATION_CONSTANTS);
+
+      for (let y = 0; y < 100; y++) {
+        for (let x = 0; x < 100; x++) {
+          expect(grid2[y][x]).toBe(grid1[y][x]);
+        }
+      }
+    });
+
+    it('should respect SOLAR_EDGE_FALLOFF_FACTOR parameter', () => {
+      // Create constants with different falloff factors
+      const lowFalloff = { ...SIMULATION_CONSTANTS, solarEdgeFalloffFactor: 0.2 };
+      const highFalloff = { ...SIMULATION_CONSTANTS, solarEdgeFalloffFactor: 0.9 };
+
+      const gridLow = computeSolarEnergyGrid(lowFalloff);
+      const gridHigh = computeSolarEnergyGrid(highFalloff);
+
+      // Corner cells should have MORE energy with low falloff, LESS with high falloff
+      expect(gridLow[0][0]).toBeGreaterThan(gridHigh[0][0]);
+
+      // Center should remain the same
+      expect(gridLow[50][50]).toBeCloseTo(gridHigh[50][50], 5);
+    });
+
+    it('should handle different falloff factors without errors', () => {
+      const factors = [0.0, 0.3, 0.7, 1.0];
+
+      for (const factor of factors) {
+        const constants = { ...SIMULATION_CONSTANTS, solarEdgeFalloffFactor: factor };
+        const grid = computeSolarEnergyGrid(constants);
+
+        // Should not throw and should return valid grid
+        expect(grid.length).toBe(100);
+        expect(grid[0].length).toBe(100);
+
+        // All values should still be valid
+        for (let y = 0; y < 100; y++) {
+          for (let x = 0; x < 100; x++) {
+            expect(grid[y][x]).toBeGreaterThanOrEqual(1);
+          }
+        }
+      }
+    });
+  });
+
+  describe('World initialization with solar energy grid', () => {
+    it('should initialize cells with solar energy values when constants provided', () => {
+      // Create a World with SIMULATION_CONSTANTS
+      const world = new World(100, 100, SIMULATION_CONSTANTS);
+
+      // Center cell (50, 50) should have BASE_SOLAR_ENERGY ≈ 10
+      const centerCell = world.getCell(50, 50);
+      expect(centerCell.energy).toBeCloseTo(SIMULATION_CONSTANTS.baseSolarEnergy, 5);
+      expect(centerCell.energy).toBeCloseTo(10, 5);
+
+      // Corner cell (0, 0) should have less energy than center
+      const cornerCell = world.getCell(0, 0);
+      expect(cornerCell.energy).toBeLessThan(centerCell.energy);
+      expect(cornerCell.energy).toBeLessThan(10);
+
+      // All cells should have energy >= 1 (minimum solar energy)
+      let cellsChecked = 0;
+      for (let x = 0; x < 100; x += 10) {
+        for (let y = 0; y < 100; y += 10) {
+          const cell = world.getCell(x, y);
+          expect(cell.energy).toBeGreaterThanOrEqual(1);
+          cellsChecked++;
+        }
+      }
+      expect(cellsChecked).toBeGreaterThan(0);
     });
   });
 });
