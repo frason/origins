@@ -1,5 +1,5 @@
 import { World } from './world';
-import { PRODUCER_GROWTH_RATE, WORLD_WIDTH, WORLD_HEIGHT } from '../utils/constants';
+import { PRODUCER_GROWTH_RATE } from '../utils/constants';
 
 /**
  * Enumeration of energy types available in the world.

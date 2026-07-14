@@ -149,7 +149,7 @@ describe('Traits - Definitions and Constants', () => {
     it('should not have entry for energyStrategy', () => {
       // energyStrategy is excluded from mutation rates
       expect(
-        TRAIT_MUTATION_RATES['energyStrategy' as any]
+        (TRAIT_MUTATION_RATES as Record<string, number>)['energyStrategy']
       ).toBeUndefined();
     });
   });

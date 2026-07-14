@@ -1,8 +1,9 @@
 import { World } from './world';
 import { Creature } from './creature';
-import { RngFn, createRng } from './rng';
+import { createRng } from './rng';
 import { WORLD_WIDTH, WORLD_HEIGHT, SIMULATION_CONSTANTS } from '../utils/constants';
-import { growProducers, EnergyType } from './producer';
+import { growProducers } from './producer';
+import { reproduceCreature } from './species';
 import {
   decideTick,
   applyMovement,
@@ -211,25 +212,13 @@ export function tickEngine(state: EngineState): EngineState {
     }
   }
 
-  // Step 7: Reproduction
+  // Step 7: Reproduction (with mutation and lineage branching via species.ts)
   const offspring: Creature[] = [];
   for (const creature of creatures) {
     if (canReproduce(creature)) {
       payReproductionCost(creature);
 
-      // Create offspring (no mutations yet; will be implemented in future)
-      const child = new Creature({
-        speciesId: creature.speciesId,
-        lineageId: creature.lineageId,
-        parentId: creature.id,
-        traits: { ...creature.traits },
-        x: creature.x,
-        y: creature.y,
-        energy: 50, // Initial energy for newborn
-        age: 0,
-        lifecycleState: 'alive',
-        corpseDecayTicks: 0,
-      });
+      const child = reproduceCreature(creature, rng);
 
       offspring.push(child);
       newEvents.push({
@@ -238,6 +227,15 @@ export function tickEngine(state: EngineState): EngineState {
         creatureId: child.id,
         speciesId: child.speciesId,
       });
+      if (child.lineageId !== creature.lineageId) {
+        newEvents.push({
+          type: 'mutation',
+          tick: state.tick,
+          creatureId: child.id,
+          speciesId: child.speciesId,
+          detail: `lineage branch: ${creature.lineageId} → ${child.lineageId}`,
+        });
+      }
     }
   }
 

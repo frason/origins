@@ -3,7 +3,7 @@
  * Implements creature reproduction with genetic drift and family tree tracking
  */
 
-import { Creature, CreatureParams } from './creature';
+import { Creature } from './creature';
 import { RngFn, randChoice } from './rng';
 import {
   Traits,
@@ -117,8 +117,15 @@ export function reproduceCreature(parent: Creature, rng: RngFn): Creature {
     if (parentVal === 0) return false;
     return Math.abs((mutatedTraits[trait] as number) - parentVal) / Math.abs(parentVal) > 0.15;
   });
+  // Derive branch IDs from the seeded RNG so same-seed runs stay identical
   const childLineageId =
-    energyStrategyChanged || significantDrift ? crypto.randomUUID() : parent.lineageId;
+    energyStrategyChanged || significantDrift
+      ? `lineage_${Math.floor(rng() * 0xffffffff)
+          .toString(16)
+          .padStart(8, '0')}_${Math.floor(rng() * 0xffffffff)
+          .toString(16)
+          .padStart(8, '0')}`
+      : parent.lineageId;
 
   return new Creature({
     speciesId: parent.speciesId,
