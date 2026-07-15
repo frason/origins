@@ -30,3 +30,10 @@ artifacts/
 
 # Sensitive / generated env files
 .env.rtf
+
+# Agent-team scratch/transient artifacts (regenerated every karen/lead run,
+# never meant to be committed — see issue #52/#53)
+state/verdict.txt
+state/tmp_body_*.md
+state/tmp_issue_*.md
+.codex/
