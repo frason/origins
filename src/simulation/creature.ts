@@ -1,7 +1,7 @@
 import { Traits } from '../utils/traits';
 import { World } from './world';
 import { RngFn } from './rng';
-import { MAX_ENERGY_MULTIPLIER } from '../utils/constants';
+import { MAX_ENERGY_MULTIPLIER, FORAGE_BIOMASS_THRESHOLD } from '../utils/constants';
 
 /**
  * Lifecycle states for creatures
@@ -11,7 +11,7 @@ export type LifecycleState = 'alive' | 'dead' | 'corpse';
 /**
  * Decision types for per-tick creature behavior
  */
-export type DecisionType = 'move-to-food' | 'flee' | 'idle' | 'eat' | 'reproduce';
+export type DecisionType = 'move-to-food' | 'flee' | 'idle' | 'eat' | 'reproduce' | 'wander';
 
 /**
  * Parameters for Creature construction (all fields except auto-generated id)
@@ -277,7 +277,9 @@ export function scanEnvironment(
         const distance = chebyshevDistance(creature.x, creature.y, x, y);
         if (distance <= creature.traits.visionRange) {
           const cell = world.getCell(x, y);
-          if (cell.producerBiomass > 0) {
+          // Only cells with meaningful biomass count as forage; otherwise a
+          // creature camps its own cell eating each tick's tiny regrowth
+          if (cell.producerBiomass >= FORAGE_BIOMASS_THRESHOLD) {
             foodLocations.push({
               x,
               y,
@@ -337,8 +339,9 @@ export function decideTick(
     return 'move-to-food';
   }
 
-  // Default: idle
-  return 'idle';
+  // Nothing visible and not full: wander in search of food rather than
+  // starving in place
+  return 'wander';
 }
 
 /**
@@ -449,13 +452,35 @@ export function applyMovement(
 
   let targetLocation: { x: number; y: number } | null = null;
 
-  if (decision === 'move-to-food') {
-    // Combine all food targets
-    const allFoodTargets = [
-      ...scan.foodLocations,
-      ...scan.foodCreatures.map((c) => ({ x: c.x, y: c.y })),
-    ];
-    targetLocation = findNearestTarget(creature.x, creature.y, allFoodTargets);
+  if (decision === 'wander') {
+    // Random direction, up to speed cells — search behavior when no food is visible
+    const dx = Math.floor(rng() * 3) - 1;
+    const dy = Math.floor(rng() * 3) - 1;
+    const range = Math.max(1, Math.floor(creature.traits.speed));
+    targetLocation = { x: creature.x + dx * range, y: creature.y + dy * range };
+  } else if (decision === 'move-to-food') {
+    if (scan.foodCreatures.length > 0) {
+      // Chase the nearest prey
+      targetLocation = findNearestTarget(
+        creature.x,
+        creature.y,
+        scan.foodCreatures.map((c) => ({ x: c.x, y: c.y }))
+      );
+    } else {
+      // Graze toward the best-value cell: richest biomass discounted by distance,
+      // not simply the nearest — otherwise a barely-regrown own cell always wins
+      let best: { x: number; y: number } | null = null;
+      let bestScore = -Infinity;
+      for (const loc of scan.foodLocations) {
+        const distance = chebyshevDistance(creature.x, creature.y, loc.x, loc.y);
+        const score = loc.biomass / (1 + distance);
+        if (score > bestScore) {
+          bestScore = score;
+          best = { x: loc.x, y: loc.y };
+        }
+      }
+      targetLocation = best;
+    }
   } else if (decision === 'flee') {
     // Move away from nearest threat
     if (scan.threats.length > 0) {

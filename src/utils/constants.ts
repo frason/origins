@@ -25,6 +25,13 @@ export const PRODUCER_GROWTH_RATE = 0.1;
 /** Base metabolism for size=1 creature: 2 units/tick */
 export const BASE_METABOLISM = 2;
 
+/**
+ * Minimum producer biomass for a cell to count as a foraging target.
+ * Below this, grazers ignore the cell and move on — prevents creatures
+ * from camping their own cell to eat each tick's tiny regrowth.
+ */
+export const FORAGE_BIOMASS_THRESHOLD = 5;
+
 // ============================================================================
 // Feeding Constants
 // ============================================================================
@@ -36,8 +43,12 @@ export const FEEDING_EFFICIENCY = 0.8;
 // Reproduction Constants
 // ============================================================================
 
-/** Energy threshold required for a creature to reproduce */
-export const REPRODUCTION_ENERGY_THRESHOLD = 200;
+/**
+ * Energy threshold required for a creature to reproduce.
+ * Must sit within reach of grazing-equilibrium energy (~130–170 with default
+ * producer growth), or the population ages out with zero replacement births.
+ */
+export const REPRODUCTION_ENERGY_THRESHOLD = 150;
 
 /** Energy cost to produce one offspring */
 export const REPRODUCTION_ENERGY_COST = 100;

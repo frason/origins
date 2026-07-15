@@ -4,78 +4,16 @@ import ControlPanel from './ui/ControlPanel';
 import SpeciesPanel from './ui/SpeciesPanel';
 import StatsPanel from './ui/StatsPanel';
 import { useStore, WorldSnapshot, CreatureSnapshot } from './state/store';
-import { Creature } from './simulation/creature';
-import { createEngine, tickEngine, EngineState } from './simulation/engine';
-import { DEFAULT_TRAITS, Traits } from './utils/traits';
-
-const WORLD_SEED = 12345;
+import { tickEngine, EngineState } from './simulation/engine';
+import { start as startDemoWorld } from './simulation/runner';
+import { eventLog } from './state/eventLog';
 
 /**
- * Deterministic starter population clustered around the high-energy center.
- * Herbivore-heavy so the food web has a base; a few predators and scavengers on top.
+ * Build a fresh engine with the demo world scenario.
+ * Uses the runner module to initialize the ecosystem with producers, herbivores, carnivores, and decomposers.
  */
-function buildStarterCreatures(): Creature[] {
-  const specs: Array<{
-    speciesId: string;
-    strategy: Traits['energyStrategy'];
-    x: number;
-    y: number;
-    energy: number;
-  }> = [];
-
-  // 14 herbivores in a ring around center
-  for (let i = 0; i < 14; i++) {
-    const angle = (i / 14) * Math.PI * 2;
-    specs.push({
-      speciesId: 'herbivore_001',
-      strategy: 'herbivore',
-      x: Math.round(50 + Math.cos(angle) * 12),
-      y: Math.round(50 + Math.sin(angle) * 12),
-      energy: 140,
-    });
-  }
-  // 3 omnivores mid-ring
-  for (let i = 0; i < 3; i++) {
-    const angle = (i / 3) * Math.PI * 2 + 0.5;
-    specs.push({
-      speciesId: 'omnivore_001',
-      strategy: 'omnivore',
-      x: Math.round(50 + Math.cos(angle) * 20),
-      y: Math.round(50 + Math.sin(angle) * 20),
-      energy: 160,
-    });
-  }
-  // 2 carnivores on the outskirts
-  specs.push({ speciesId: 'carnivore_001', strategy: 'carnivore', x: 30, y: 70, energy: 180 });
-  specs.push({ speciesId: 'carnivore_001', strategy: 'carnivore', x: 70, y: 30, energy: 180 });
-  // 1 scavenger
-  specs.push({ speciesId: 'scavenger_001', strategy: 'scavenger', x: 50, y: 65, energy: 120 });
-
-  return specs.map(
-    (s) =>
-      new Creature({
-        speciesId: s.speciesId,
-        lineageId: s.speciesId,
-        parentId: null,
-        traits: { ...DEFAULT_TRAITS, energyStrategy: s.strategy },
-        x: s.x,
-        y: s.y,
-        energy: s.energy,
-      })
-  );
-}
-
-/** Build a fresh engine with seeded initial producer biomass (proportional to solar energy). */
 function buildEngine(): EngineState {
-  Creature.resetIdCounter();
-  const engine = createEngine(WORLD_SEED, buildStarterCreatures());
-  for (let y = 0; y < engine.world.height; y++) {
-    for (let x = 0; x < engine.world.width; x++) {
-      const cell = engine.world.getCell(x, y);
-      engine.world.setCell(x, y, { producerBiomass: cell.energy * 2 });
-    }
-  }
-  return engine;
+  return startDemoWorld();
 }
 
 function snapshotOf(engine: EngineState): WorldSnapshot {
@@ -97,6 +35,7 @@ function snapshotOf(engine: EngineState): WorldSnapshot {
         energy: c.energy,
         age: c.age,
         lifecycleState: c.lifecycleState,
+        energyStrategy: c.traits.energyStrategy,
       })
     ),
   };
@@ -104,17 +43,57 @@ function snapshotOf(engine: EngineState): WorldSnapshot {
 
 export default function App() {
   const engineRef = useRef<EngineState | null>(null);
+  const lastEventCountRef = useRef<number>(0);
   const isRunning = useStore((s) => s.isRunning);
   const speed = useStore((s) => s.speed);
 
   const publish = useCallback((engine: EngineState) => {
     const store = useStore.getState();
+
+    // Build species list from creatures
+    const speciesMap = new Map<string, { speciesId: string; population: number; strategy?: string; createdAtTick: number }>();
+    for (const creature of engine.creatures) {
+      if (creature.lifecycleState === 'alive') {
+        const entry = speciesMap.get(creature.speciesId) || {
+          speciesId: creature.speciesId,
+          population: 0,
+          strategy: creature.traits.energyStrategy,
+          createdAtTick: engine.tick, // TODO: track actual creation tick
+        };
+        entry.population++;
+        speciesMap.set(creature.speciesId, entry);
+      }
+    }
+    const speciesList = Array.from(speciesMap.values()).map((s) => ({
+      speciesId: s.speciesId,
+      population: s.population,
+      energyStrategy: s.strategy,
+      createdAtTick: s.createdAtTick,
+    }));
+
+    // Forward new events to eventLog (skip 'death' events; only log species-level extinctions)
+    const newEvents = engine.events.slice(lastEventCountRef.current);
+    for (const event of newEvents) {
+      // Filter out individual creature deaths; only log births, mutations, and extinctions
+      if (event.type === 'death') continue;
+      eventLog.logEvent({
+        type: event.type as any, // type conversion: engine.extinction matches eventLog.extinction
+        tick: event.tick,
+        speciesId: event.speciesId || '',
+        detail: event.detail || '',
+      });
+    }
+    lastEventCountRef.current = engine.events.length;
+
     store.setWorldState(snapshotOf(engine));
     store.setTick(engine.tick);
+    store.setSpeciesList(speciesList as any);
   }, []);
 
   const reset = useCallback(() => {
     useStore.getState().setRunning(false);
+    eventLog.clearEvents();
+    lastEventCountRef.current = 0;
     const engine = buildEngine();
     engineRef.current = engine;
     publish(engine);

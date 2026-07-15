@@ -1,1 +1,17 @@
-Implemented mutation system and lineage tracking in src/simulation/species.ts. mutateTraits applies ±drift to all numeric traits (clamped) with 5% energyStrategy flip. reproduceCreature now branches lineageId via crypto.randomUUID() when energyStrategy changes or any numeric trait drifts >15% from parent. LineageTree tracks all creatures with addCreature, markExtinct, getLineage, toJSON, fromJSON.
+KAREN verification — Issue #31 (verify solar radial dissipation after #30 fix)
+
+Verdict: FAILED (6 PASS / 1 FAIL out of 7 done-when items)
+
+PASS:
+- computeSolarEnergyGrid(constants) exists, returns 100×100 matrix (world.ts:23-51).
+- World is seeded with the solar grid via `createEngine()` → `new World(w,h,constants)` (engine.ts:77), the real production wiring path.
+- Center cell (50,50) energy ≈ 10, corner (0,0) < 10, all cells ≥ 1 (min clamp) — confirmed by world.test.ts:429-450 using `new World(100,100, SIMULATION_CONSTANTS)`.
+- SOLAR_EDGE_FALLOFF_FACTOR present in constants.ts (line 20) and SimulationConstants interface (line 95), default 0.7.
+
+FAIL:
+- `npm test` does not exit 0. `CI=true npm test -- --run` → 9/10 suites pass, but engine.test.ts has 1 failure: "should apply metabolism each tick" expected 196, got 96.
+  Root cause: an uncommitted working-tree edit to src/utils/constants.ts lowers REPRODUCTION_ENERGY_THRESHOLD 200→150, so the test's 200-energy creature now also reproduces (-100) same tick as metabolism (-4) = 96, not the expected 196. This is unrelated to the solar feature but blocks the required "npm test exits 0" gate.
+
+Note: raw `new World()` (zero-arg) intentionally stays at energy 0 (world.test.ts:16,30) — solar seeding is opt-in via constants, which is how the production factory (createEngine) already uses it. Not treated as a gap.
+
+Gap to close: reconcile REPRODUCTION_ENERGY_THRESHOLD change with engine.test.ts's metabolism-isolation test (either revert threshold or adjust test's starting energy), then re-run npm test to confirm 0 failures.

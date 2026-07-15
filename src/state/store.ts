@@ -32,6 +32,7 @@ export interface CreatureSnapshot {
   energy: number;
   age: number;
   lifecycleState: 'alive' | 'dead' | 'corpse';
+  energyStrategy?: string; // 'herbivore' | 'carnivore' | 'omnivore' | 'scavenger'
 }
 
 // TODO: Import these from engine when types are finalized (issues #5–#13)
@@ -55,13 +56,16 @@ export interface WorldSnapshot {
 }
 
 /**
- * Placeholder: SpeciesSummary will contain aggregated species data
- * for the SpeciesPanel (population count, traits, lineage info, etc.)
+ * SpeciesSummary: aggregated species data for the SpeciesPanel
+ * Shows population, traits, and lineage info for each active species
  */
 export interface SpeciesSummary {
-  // TODO: Filled in when engine types are imported
-  // Expected fields: speciesId, name, population, traits, lineageDepth, etc.
-  [key: string]: unknown;
+  speciesId: string;
+  name?: string; // User-assigned name, defaults to speciesId if not set
+  population: number; // Number of living creatures in this species
+  energyStrategy?: string; // 'herbivore' | 'carnivore' | 'omnivore' | 'scavenger'
+  createdAtTick: number; // Tick when this species was first created
+  [key: string]: unknown; // Allow forward compatibility
 }
 
 /**
@@ -80,6 +84,7 @@ export interface StoreState {
   setTick: (tick: number) => void;
   setRunning: (running: boolean) => void;
   setSpeed: (speed: number) => void;
+  setSpeciesList: (list: SpeciesSummary[]) => void;
   updateConstants: (partial: Partial<SimulationConstants>) => void;
 }
 
@@ -108,6 +113,10 @@ export const useStore = create<StoreState>((set) => ({
 
   setSpeed: (speed: number) => {
     set({ speed: Math.max(0.1, speed) }); // Ensure speed > 0
+  },
+
+  setSpeciesList: (list: SpeciesSummary[]) => {
+    set({ speciesList: list });
   },
 
   updateConstants: (partial: Partial<SimulationConstants>) => {
