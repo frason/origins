@@ -143,7 +143,7 @@ function extractCreatures(worldState: any): Array<{
  */
 const WorldView: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { worldState, tick } = useStore();
+  const { worldState, tick, setSelectedTile } = useStore();
   const [cellSize, setCellSize] = useState(4);
 
   /**
@@ -170,6 +170,32 @@ const WorldView: React.FC = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  /**
+   * Handle canvas click to select a tile
+   */
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleCanvasClick = (event: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const pixelX = event.clientX - rect.left;
+      const pixelY = event.clientY - rect.top;
+
+      // Convert pixel coordinates to grid coordinates
+      const gridX = Math.floor(pixelX / cellSize);
+      const gridY = Math.floor(pixelY / cellSize);
+
+      // Clamp to grid bounds
+      if (gridX >= 0 && gridX < GRID_WIDTH && gridY >= 0 && gridY < GRID_HEIGHT) {
+        setSelectedTile({ x: gridX, y: gridY });
+      }
+    };
+
+    canvas.addEventListener('click', handleCanvasClick);
+    return () => canvas.removeEventListener('click', handleCanvasClick);
+  }, [cellSize, setSelectedTile]);
 
   /**
    * Main render loop using requestAnimationFrame

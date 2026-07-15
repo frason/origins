@@ -3,6 +3,7 @@ import WorldView from './ui/WorldView';
 import ControlPanel from './ui/ControlPanel';
 import SpeciesPanel from './ui/SpeciesPanel';
 import StatsPanel from './ui/StatsPanel';
+import TileInfoPanel from './ui/TileInfoPanel';
 import { useStore, WorldSnapshot, CreatureSnapshot } from './state/store';
 import { Creature } from './simulation/creature';
 import { createEngine, tickEngine, EngineState } from './simulation/engine';
@@ -184,6 +185,7 @@ export default function App() {
           <SpeciesPanel />
         </div>
       </div>
+      <TileInfoPanel />
     </div>
   );
 }

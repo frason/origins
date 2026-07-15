@@ -65,6 +65,14 @@ export interface SpeciesSummary {
 }
 
 /**
+ * Represents a selected tile in the world grid
+ */
+export interface SelectedTile {
+  x: number;
+  y: number;
+}
+
+/**
  * Global state shape for the store
  */
 export interface StoreState {
@@ -74,6 +82,7 @@ export interface StoreState {
   speed: number;
   speciesList: SpeciesSummary[];
   constants: SimulationConstants;
+  selectedTile: SelectedTile | null;
 
   // Actions
   setWorldState: (state: WorldSnapshot) => void;
@@ -81,6 +90,7 @@ export interface StoreState {
   setRunning: (running: boolean) => void;
   setSpeed: (speed: number) => void;
   updateConstants: (partial: Partial<SimulationConstants>) => void;
+  setSelectedTile: (tile: SelectedTile | null) => void;
 }
 
 /**
@@ -93,6 +103,7 @@ export const useStore = create<StoreState>((set) => ({
   speed: 1,
   speciesList: [],
   constants: { ...SIMULATION_CONSTANTS },
+  selectedTile: null,
 
   setWorldState: (state: WorldSnapshot) => {
     set({ worldState: state });
@@ -117,5 +128,9 @@ export const useStore = create<StoreState>((set) => ({
         ...partial,
       },
     }));
+  },
+
+  setSelectedTile: (tile: SelectedTile | null) => {
+    set({ selectedTile: tile });
   },
 }));

@@ -16,6 +16,7 @@ describe('Store (Zustand)', () => {
       speed: 1,
       speciesList: [],
       constants: { ...SIMULATION_CONSTANTS },
+      selectedTile: null,
     });
   });
 
@@ -116,6 +117,22 @@ describe('Store (Zustand)', () => {
       // Speed below 0.1 should be clamped to 0.1
       store.setSpeed(0.05);
       expect(useStore.getState().speed).toBe(0.1);
+    });
+
+    it('should set and clear selected tile', () => {
+      const store = useStore.getState();
+
+      // Set a selected tile
+      store.setSelectedTile({ x: 25, y: 50 });
+      expect(useStore.getState().selectedTile).toEqual({ x: 25, y: 50 });
+
+      // Set a different tile
+      store.setSelectedTile({ x: 75, y: 10 });
+      expect(useStore.getState().selectedTile).toEqual({ x: 75, y: 10 });
+
+      // Clear selected tile
+      store.setSelectedTile(null);
+      expect(useStore.getState().selectedTile).toBeNull();
     });
   });
 });
