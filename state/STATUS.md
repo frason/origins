@@ -214,9 +214,9 @@ entangling its diff). Should build on the existing uncommitted `search` Decision
 ## Up next
 
 1. **#52 gets the very next worker slot, guaranteed** — it is now the only low-numbered
-   `agent-todo` issue, and its body was rewritten this pass with karen's exact 3 gaps so attempt
-   2 doesn't repeat attempt 1's misses. Attempt count is 1/10 (plenty of budget left under the
-   `max_worker_attempts: 10` stopgap).
+   `agent-todo` issue, and its body was rewritten this pass (attempt 3) to exclude
+   STATUS.md/worker_output.txt from its clean-tree check, with both now committed by the lead.
+   Attempt count is 2/10 (plenty of budget left under the `max_worker_attempts: 10` stopgap).
 2. After #52 closes, **#53** then **#54** dispatch next (only two issues left in `agent-todo`).
    #54 landing is the actual fix that stops this starvation pattern from recurring — after that,
    normal fair dispatch resumes.
