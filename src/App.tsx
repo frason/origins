@@ -100,6 +100,9 @@ function snapshotOf(engine: EngineState): WorldSnapshot {
       (c): CreatureSnapshot => ({
         id: c.id,
         speciesId: c.speciesId,
+        lineageId: c.lineageId,
+        parentId: c.parentId,
+        traits: { ...c.traits },
         x: c.x,
         y: c.y,
         energy: c.energy,
@@ -107,6 +110,7 @@ function snapshotOf(engine: EngineState): WorldSnapshot {
         lifecycleState: c.lifecycleState,
       })
     ),
+    events: engine.events.map((event) => ({ ...event })),
   };
 }
 

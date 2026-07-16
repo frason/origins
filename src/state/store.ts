@@ -14,6 +14,7 @@
 
 import { create } from 'zustand';
 import { SimulationConstants, SIMULATION_CONSTANTS } from '../utils/constants';
+import type { Traits } from '../utils/traits';
 
 // Cell interface for world state
 export interface CellSnapshot {
@@ -27,11 +28,22 @@ export interface CellSnapshot {
 export interface CreatureSnapshot {
   id: string;
   speciesId: string;
+  lineageId: string;
+  parentId: string | null;
+  traits: Traits;
   x: number;
   y: number;
   energy: number;
   age: number;
   lifecycleState: 'alive' | 'dead' | 'corpse';
+}
+
+export interface EventSnapshot {
+  type: 'birth' | 'death' | 'mutation' | 'extinction';
+  tick: number;
+  creatureId?: string;
+  speciesId?: string;
+  detail?: string;
 }
 
 // TODO: Import these from engine when types are finalized (issues #5–#13)
@@ -49,6 +61,9 @@ export interface WorldSnapshot {
 
   // All creatures in the world
   creatures: CreatureSnapshot[];
+
+  // Significant engine events up to this snapshot.
+  events: EventSnapshot[];
 
   // Allow additional fields for forward compatibility
   [key: string]: unknown;

@@ -1,10 +1,8 @@
-/**
- * SpeciesPanel — living population grouped by species.
- * Lineage tree view comes later (LineageTree integration).
- */
+/** SpeciesPanel — living species, active lineages, traits, and recent mutations. */
 
 import { CSSProperties } from 'react';
 import { useStore } from '../state/store';
+import { shortLineageId, summarizeSpecies } from './speciesModel';
 
 const panelStyle: CSSProperties = {
   backgroundColor: '#222',
@@ -15,32 +13,82 @@ const panelStyle: CSSProperties = {
   fontSize: '0.85rem',
 };
 
-export default function SpeciesPanel() {
-  const worldState = useStore((s) => s.worldState);
+const strategyColors: Record<string, string> = {
+  herbivore: '#69b96b',
+  carnivore: '#e36d6d',
+  omnivore: '#d7ad57',
+  scavenger: '#a98bd4',
+};
 
-  const counts = new Map<string, number>();
-  if (worldState) {
-    for (const c of worldState.creatures) {
-      if (c.lifecycleState === 'alive') {
-        counts.set(c.speciesId, (counts.get(c.speciesId) ?? 0) + 1);
-      }
-    }
-  }
-  const rows = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+export default function SpeciesPanel() {
+  const worldState = useStore((state) => state.worldState);
+  const species = summarizeSpecies(worldState?.creatures ?? []);
+  const mutations = (worldState?.events ?? [])
+    .filter((event) => event.type === 'mutation')
+    .slice(-3)
+    .reverse();
 
   return (
     <div style={panelStyle}>
-      <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Species</div>
-      {rows.length === 0 ? (
+      <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Evolution</div>
+      {species.length === 0 ? (
         <div style={{ color: '#777' }}>No living creatures</div>
       ) : (
-        rows.map(([speciesId, count]) => (
+        species.map((item) => (
           <div
-            key={speciesId}
-            style={{ display: 'flex', justifyContent: 'space-between', padding: '0.15rem 0' }}
+            key={item.speciesId}
+            style={{ borderTop: '1px solid #383838', padding: '0.55rem 0' }}
           >
-            <span style={{ color: '#bbb' }}>{speciesId}</span>
-            <span>{count}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
+              <span style={{ color: strategyColors[item.strategy] ?? '#bbb', fontWeight: 600 }}>
+                {item.speciesId}
+              </span>
+              <span>{item.population}</span>
+            </div>
+            <div style={{ color: '#888', fontSize: '0.72rem', margin: '0.15rem 0 0.35rem' }}>
+              {item.strategy} · {item.lineages.length}{' '}
+              {item.lineages.length === 1 ? 'lineage' : 'lineages'}
+            </div>
+            {item.lineages.slice(0, 4).map((lineage) => (
+              <div
+                key={lineage.lineageId}
+                title={lineage.lineageId}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto',
+                  gap: '0.5rem',
+                  color: '#aaa',
+                  fontSize: '0.72rem',
+                  padding: '0.1rem 0 0.1rem 0.5rem',
+                }}
+              >
+                <span>
+                  ↳ {shortLineageId(lineage.lineageId)} · size{' '}
+                  {lineage.representativeTraits.size.toFixed(2)} · speed{' '}
+                  {lineage.representativeTraits.speed.toFixed(2)}
+                </span>
+                <span>{lineage.population}</span>
+              </div>
+            ))}
+            {item.lineages.length > 4 && (
+              <div style={{ color: '#777', fontSize: '0.7rem', paddingLeft: '0.5rem' }}>
+                +{item.lineages.length - 4} more lineages
+              </div>
+            )}
+          </div>
+        ))
+      )}
+
+      <div style={{ fontWeight: 600, margin: '0.75rem 0 0.35rem' }}>Recent mutations</div>
+      {mutations.length === 0 ? (
+        <div style={{ color: '#777', fontSize: '0.75rem' }}>No lineage branches yet</div>
+      ) : (
+        mutations.map((event, index) => (
+          <div
+            key={`${event.tick}-${event.creatureId ?? index}`}
+            style={{ color: '#bba7d8', fontSize: '0.72rem', padding: '0.15rem 0' }}
+          >
+            tick {event.tick}: {event.detail ?? `${event.speciesId} mutated`}
           </div>
         ))
       )}
