@@ -11,7 +11,7 @@ export type LifecycleState = 'alive' | 'dead' | 'corpse';
 /**
  * Decision types for per-tick creature behavior
  */
-export type DecisionType = 'move-to-food' | 'flee' | 'idle' | 'eat' | 'reproduce';
+export type DecisionType = 'move-to-food' | 'flee' | 'search' | 'idle' | 'eat' | 'reproduce';
 
 /**
  * Parameters for Creature construction (all fields except auto-generated id)
@@ -302,9 +302,10 @@ export function scanEnvironment(
  *
  * Priority:
  * 1. If threatened by predators, flee
- * 2. If food is nearby, move toward it
- * 3. If at full energy, idle
- * 4. Otherwise, consider reproducing or idling
+ * 2. If at full energy, idle (no need to eat)
+ * 3. If hungry and food is nearby, move toward it
+ * 4. If hungry but no food visible, search/explore to find food
+ * 5. Otherwise, idle
  *
  * @param creature - the creature making the decision
  * @param world - the world grid
@@ -332,9 +333,17 @@ export function decideTick(
     return 'idle';
   }
 
+  // Creature is hungry (below max energy)
+  const isHungry = creature.energy < MAX_ENERGY;
+
   // If there is food nearby, attempt to move toward it
   if (scan.foodLocations.length > 0 || scan.foodCreatures.length > 0) {
     return 'move-to-food';
+  }
+
+  // If hungry but no food visible, search for food
+  if (isHungry) {
+    return 'search';
   }
 
   // Default: idle
@@ -421,6 +430,7 @@ export function calculateNextPosition(
  * Decisions:
  * - 'move-to-food': move toward nearest food (creature or biomass)
  * - 'flee': move away from nearest threat
+ * - 'search': move in a direction to explore and find food
  * - 'idle': no movement
  * - 'eat': no movement (handled elsewhere)
  * - 'reproduce': no movement (handled elsewhere)
@@ -456,6 +466,34 @@ export function applyMovement(
       ...scan.foodCreatures.map((c) => ({ x: c.x, y: c.y })),
     ];
     targetLocation = findNearestTarget(creature.x, creature.y, allFoodTargets);
+  } else if (decision === 'search') {
+    // With no visible food, bias exploration toward the solar-rich center.
+    // Once there, fan outward in a seeded direction so the search remains
+    // deterministic without leaving every creature stacked on one cell.
+    const centerX = Math.floor(world.width / 2);
+    const centerY = Math.floor(world.height / 2);
+
+    if (creature.x === centerX && creature.y === centerY) {
+      const directionIndex = Math.floor(rng() * 8);
+      const directions = [
+        { dx: 0, dy: -1 },
+        { dx: 1, dy: -1 },
+        { dx: 1, dy: 0 },
+        { dx: 1, dy: 1 },
+        { dx: 0, dy: 1 },
+        { dx: -1, dy: 1 },
+        { dx: -1, dy: 0 },
+        { dx: -1, dy: -1 },
+      ];
+      const direction = directions[directionIndex];
+      const searchDistance = Math.max(1, Math.ceil(creature.traits.visionRange * 0.7));
+      targetLocation = {
+        x: creature.x + direction.dx * searchDistance,
+        y: creature.y + direction.dy * searchDistance,
+      };
+    } else {
+      targetLocation = { x: centerX, y: centerY };
+    }
   } else if (decision === 'flee') {
     // Move away from nearest threat
     if (scan.threats.length > 0) {

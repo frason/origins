@@ -523,6 +523,86 @@ describe('Movement and Decision Logic', () => {
     });
   });
 
+  describe('search behavior', () => {
+    it('should search when hungry but no food visible', () => {
+      const creature = new Creature({
+        speciesId: 'species_1',
+        lineageId: 'lineage_1',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore', visionRange: 5, speed: 2 },
+        x: 50,
+        y: 50,
+        energy: 50, // Below max energy
+      });
+
+      // No food nearby - should trigger search
+      const decision = decideTick(creature, world, [creature], rng);
+      expect(decision).toBe('search');
+    });
+
+    it('should move when searching', () => {
+      const creature = new Creature({
+        speciesId: 'species_1',
+        lineageId: 'lineage_1',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'omnivore', visionRange: 5, speed: 2 },
+        x: 50,
+        y: 50,
+        energy: 50, // Below max energy
+      });
+
+      const originalX = creature.x;
+      const originalY = creature.y;
+
+      applyMovement(creature, 'search', world, [creature], rng);
+
+      // Creature should have moved away from original position
+      const distance = Math.max(
+        Math.abs(creature.x - originalX),
+        Math.abs(creature.y - originalY)
+      );
+      expect(distance).toBeGreaterThan(0);
+      expect(distance).toBeLessThanOrEqual(2); // speed is 2
+    });
+
+    it('should respect world bounds when searching', () => {
+      const creature = new Creature({
+        speciesId: 'species_1',
+        lineageId: 'lineage_1',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'omnivore', visionRange: 5, speed: 5 },
+        x: 0,
+        y: 0,
+        energy: 50,
+      });
+
+      applyMovement(creature, 'search', world, [creature], rng);
+
+      // Should be within bounds
+      expect(creature.x).toBeGreaterThanOrEqual(0);
+      expect(creature.x).toBeLessThan(100);
+      expect(creature.y).toBeGreaterThanOrEqual(0);
+      expect(creature.y).toBeLessThan(100);
+    });
+
+    it('should move toward the solar-rich center when food is not visible', () => {
+      const creature = new Creature({
+        speciesId: 'species_1',
+        lineageId: 'lineage_1',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'omnivore', visionRange: 2, speed: 2 },
+        x: 5,
+        y: 5,
+        energy: 50,
+      });
+
+      applyMovement(creature, 'search', world, [creature], rng);
+
+      expect(creature.x).toBe(7);
+      expect(creature.y).toBe(7);
+    });
+  });
+
   describe('Integration: Decision and Movement', () => {
     it('complete flow: detect food and move toward it', () => {
       const creature = new Creature({
