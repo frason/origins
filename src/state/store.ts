@@ -15,6 +15,7 @@
 import { create } from 'zustand';
 import { SimulationConstants, SIMULATION_CONSTANTS } from '../utils/constants';
 import type { Traits } from '../utils/traits';
+import type { Biome } from '../simulation/world';
 
 // Cell interface for world state
 export interface CellSnapshot {
@@ -22,6 +23,10 @@ export interface CellSnapshot {
   nutrients: number;
   producerBiomass: number;
   toxicity: number;
+  elevation: number;
+  moisture: number;
+  temperature: number;
+  biome: Biome;
 }
 
 // Creature interface for world state

@@ -111,6 +111,26 @@ export default function TileInfoPanel() {
       </div>
 
       <div style={sectionStyle}>
+        <div style={sectionTitleStyle}>Landscape</div>
+        <div style={rowStyle}>
+          <span style={labelStyle}>Biome</span>
+          <span style={{ textTransform: 'capitalize' }}>{cell.biome}</span>
+        </div>
+        <div style={rowStyle}>
+          <span style={labelStyle}>Elevation</span>
+          <span>{cell.elevation.toFixed(2)}</span>
+        </div>
+        <div style={rowStyle}>
+          <span style={labelStyle}>Moisture</span>
+          <span>{cell.moisture.toFixed(2)}</span>
+        </div>
+        <div style={rowStyle}>
+          <span style={labelStyle}>Temperature</span>
+          <span>{cell.temperature.toFixed(2)}</span>
+        </div>
+      </div>
+
+      <div style={sectionStyle}>
         <div style={sectionTitleStyle}>Cell Resources</div>
         <div style={rowStyle}>
           <span style={labelStyle}>Energy</span>

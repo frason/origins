@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useStore } from '../state/store';
+import type { Biome } from '../simulation/world';
 
 /**
  * Rendering constants for the canvas grid
@@ -9,6 +10,16 @@ const GRID_HEIGHT = 100;
 const MAX_CELL_ENERGY = 100; // Maximum energy per cell for brightness calculation
 const MAX_BIOMASS = 50; // Maximum producer biomass for green overlay opacity
 const CREATURE_RADIUS = 1; // Radius of creature dots (2px diameter)
+
+const BIOME_COLORS: Record<Biome, [number, number, number]> = {
+  ocean: [24, 67, 108],
+  desert: [181, 148, 80],
+  grassland: [92, 126, 67],
+  forest: [42, 91, 55],
+  wetland: [54, 104, 91],
+  tundra: [139, 153, 151],
+  mountain: [105, 101, 96],
+};
 
 /**
  * Generate a deterministic color from a species ID using a simple hash function.
@@ -78,20 +89,21 @@ function getColorFromSpeciesId(speciesId: string): [number, number, number] {
  */
 function extractGrid(
   worldState: any
-): Array<Array<{ energy: number; producerBiomass: number }>> | null {
+): Array<Array<{ energy: number; producerBiomass: number; biome: Biome }>> | null {
   if (!worldState) return null;
 
   // Handle serialized World format (cells as 1D array)
   if (worldState.cells && Array.isArray(worldState.cells) && worldState.width && worldState.height) {
-    const grid: Array<Array<{ energy: number; producerBiomass: number }>> = [];
+    const grid: Array<Array<{ energy: number; producerBiomass: number; biome: Biome }>> = [];
     for (let y = 0; y < worldState.height; y++) {
-      const row: Array<{ energy: number; producerBiomass: number }> = [];
+      const row: Array<{ energy: number; producerBiomass: number; biome: Biome }> = [];
       for (let x = 0; x < worldState.width; x++) {
         const index = y * worldState.width + x;
         const cell = worldState.cells[index];
         row.push({
           energy: cell?.energy ?? 0,
           producerBiomass: cell?.producerBiomass ?? 0,
+          biome: cell?.biome ?? 'grassland',
         });
       }
       grid.push(row);
@@ -105,6 +117,7 @@ function extractGrid(
       row.map((cell: any) => ({
         energy: cell?.energy ?? 0,
         producerBiomass: cell?.producerBiomass ?? 0,
+        biome: cell?.biome ?? 'grassland',
       }))
     );
   }
@@ -246,13 +259,14 @@ const WorldView: React.FC = () => {
           const pixelX = x * cellSize;
           const pixelY = y * cellSize;
 
-          // Calculate background color based on energy
-          // HSL lightness = energy / MAX_CELL_ENERGY * 100%
+          // Tint the deterministic biome palette by local energy.
           const energyRatio = Math.min(1, cell.energy / MAX_CELL_ENERGY);
-          const lightness = energyRatio * 100;
-
-          // Draw cell background (neutral hue, varied lightness)
-          ctx.fillStyle = `hsl(0, 0%, ${lightness}%)`;
+          const brightness = 0.55 + energyRatio * 0.8;
+          const [baseR, baseG, baseB] = BIOME_COLORS[cell.biome];
+          ctx.fillStyle = `rgb(${Math.min(255, Math.round(baseR * brightness))}, ${Math.min(
+            255,
+            Math.round(baseG * brightness)
+          )}, ${Math.min(255, Math.round(baseB * brightness))})`;
           ctx.fillRect(pixelX, pixelY, cellSize, cellSize);
 
           // Apply green overlay for producer biomass

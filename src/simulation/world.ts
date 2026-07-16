@@ -1,6 +1,98 @@
 import { WORLD_WIDTH, WORLD_HEIGHT } from '../utils/constants';
 import type { SimulationConstants } from '../utils/constants';
 
+export type Biome =
+  | 'ocean'
+  | 'desert'
+  | 'grassland'
+  | 'forest'
+  | 'wetland'
+  | 'tundra'
+  | 'mountain';
+
+export interface TerrainCell {
+  elevation: number;
+  moisture: number;
+  temperature: number;
+  biome: Biome;
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function smoothstep(value: number): number {
+  return value * value * (3 - 2 * value);
+}
+
+/** Coordinate hash returning a stable value in [0, 1]. */
+function coordinateNoise(seed: number, x: number, y: number): number {
+  let hash = (seed ^ Math.imul(x, 374761393) ^ Math.imul(y, 668265263)) | 0;
+  hash = Math.imul(hash ^ (hash >>> 13), 1274126177);
+  return ((hash ^ (hash >>> 16)) >>> 0) / 0xffffffff;
+}
+
+function valueNoise(seed: number, x: number, y: number, scale: number): number {
+  const scaledX = x / scale;
+  const scaledY = y / scale;
+  const x0 = Math.floor(scaledX);
+  const y0 = Math.floor(scaledY);
+  const tx = smoothstep(scaledX - x0);
+  const ty = smoothstep(scaledY - y0);
+  const top = coordinateNoise(seed, x0, y0) * (1 - tx) + coordinateNoise(seed, x0 + 1, y0) * tx;
+  const bottom =
+    coordinateNoise(seed, x0, y0 + 1) * (1 - tx) +
+    coordinateNoise(seed, x0 + 1, y0 + 1) * tx;
+  return top * (1 - ty) + bottom * ty;
+}
+
+function layeredNoise(seed: number, x: number, y: number): number {
+  return (
+    valueNoise(seed, x, y, 32) * 0.55 +
+    valueNoise(seed + 1013, x, y, 16) * 0.3 +
+    valueNoise(seed + 2027, x, y, 8) * 0.15
+  );
+}
+
+export function classifyBiome(
+  elevation: number,
+  moisture: number,
+  temperature: number
+): Biome {
+  if (elevation < 0.3) return 'ocean';
+  if (elevation > 0.78) return 'mountain';
+  if (temperature < 0.24) return 'tundra';
+  if (moisture < 0.24) return 'desert';
+  if (moisture > 0.72) return 'wetland';
+  if (moisture > 0.5) return 'forest';
+  return 'grassland';
+}
+
+/** Generate smooth deterministic terrain from a world seed. */
+export function generateTerrain(width: number, height: number, seed: number): TerrainCell[][] {
+  const terrain: TerrainCell[][] = [];
+  for (let y = 0; y < height; y++) {
+    const row: TerrainCell[] = [];
+    for (let x = 0; x < width; x++) {
+      const elevation = clamp01(layeredNoise(seed, x, y));
+      const moisture = clamp01(layeredNoise(seed + 4099, x, y));
+      const latitude = height <= 1 ? 0.5 : y / (height - 1);
+      const equatorWarmth = 1 - Math.abs(latitude * 2 - 1);
+      const temperature = clamp01(
+        equatorWarmth * 0.72 + layeredNoise(seed + 8191, x, y) * 0.28 - elevation * 0.22
+      );
+      row.push({
+        elevation,
+        moisture,
+        temperature,
+        biome: classifyBiome(elevation, moisture, temperature),
+      });
+    }
+    terrain.push(row);
+  }
+  return terrain;
+}
+
 /**
  * Compute solar energy grid with radial dissipation from center.
  *
@@ -59,6 +151,10 @@ export interface Cell {
   nutrients: number;
   producerBiomass: number;
   toxicity: number;
+  elevation: number;
+  moisture: number;
+  temperature: number;
+  biome: Biome;
 }
 
 /**
@@ -82,13 +178,15 @@ export class World {
   constructor(
     width: number = WORLD_WIDTH,
     height: number = WORLD_HEIGHT,
-    constants?: SimulationConstants
+    constants?: SimulationConstants,
+    seed: number = 0
   ) {
     this._width = width;
     this._height = height;
 
     // Compute solar energy grid if constants provided, otherwise default to zeros
     const solarGrid = constants ? computeSolarEnergyGrid(constants) : null;
+    const terrain = generateTerrain(width, height, seed);
 
     // Initialize grid with solar energy or zeros
     const cellCount = width * height;
@@ -102,6 +200,7 @@ export class World {
           nutrients: 0,
           producerBiomass: 0,
           toxicity: 0,
+          ...terrain[y][x],
         };
       }
     }
@@ -218,7 +317,13 @@ export class World {
     // Create a world and populate cells directly
     const world = new World(width, height);
     for (let i = 0; i < cells.length; i++) {
-      world.cells[i] = { ...cells[i] };
+      world.cells[i] = {
+        elevation: 0.5,
+        moisture: 0.5,
+        temperature: 0.5,
+        biome: 'grassland',
+        ...cells[i],
+      };
     }
 
     return world;

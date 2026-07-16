@@ -43,6 +43,10 @@ describe('World - Grid Data Model', () => {
         nutrients: 10.2,
         producerBiomass: 5.7,
         toxicity: 0.3,
+        elevation: 0.6,
+        moisture: 0.7,
+        temperature: 0.8,
+        biome: 'forest',
       };
 
       world.setCell(50, 50, testCell);

@@ -82,7 +82,7 @@ export function createEngine(
     worldHeight,
   };
 
-  const world = new World(worldWidth, worldHeight, constants);
+  const world = new World(worldWidth, worldHeight, constants, seed);
 
   // Deep copy initial creatures
   const creatures = initialCreatures.map(
