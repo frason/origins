@@ -8,6 +8,7 @@ import { useStore, WorldSnapshot, CreatureSnapshot } from './state/store';
 import { Creature } from './simulation/creature';
 import { createEngine, tickEngine, EngineState } from './simulation/engine';
 import { DEFAULT_TRAITS, Traits } from './utils/traits';
+import { SimulationConstants } from './utils/constants';
 
 const WORLD_SEED = 12345;
 
@@ -67,9 +68,15 @@ function buildStarterCreatures(): Creature[] {
 }
 
 /** Build a fresh engine with seeded initial producer biomass (proportional to solar energy). */
-function buildEngine(): EngineState {
+function buildEngine(constants: SimulationConstants): EngineState {
   Creature.resetIdCounter();
-  const engine = createEngine(WORLD_SEED, buildStarterCreatures());
+  const engine = createEngine(
+    WORLD_SEED,
+    buildStarterCreatures(),
+    constants.worldWidth,
+    constants.worldHeight,
+    constants
+  );
   for (let y = 0; y < engine.world.height; y++) {
     for (let x = 0; x < engine.world.width; x++) {
       const cell = engine.world.getCell(x, y);
@@ -115,8 +122,9 @@ export default function App() {
   }, []);
 
   const reset = useCallback(() => {
-    useStore.getState().setRunning(false);
-    const engine = buildEngine();
+    const store = useStore.getState();
+    store.setRunning(false);
+    const engine = buildEngine(store.constants);
     engineRef.current = engine;
     publish(engine);
   }, [publish]);
@@ -124,7 +132,7 @@ export default function App() {
   // Initialize world once
   useEffect(() => {
     if (!engineRef.current) {
-      const engine = buildEngine();
+      const engine = buildEngine(useStore.getState().constants);
       engineRef.current = engine;
       publish(engine);
     }
@@ -148,7 +156,7 @@ export default function App() {
       while (acc >= tickMs) {
         const prev = engineRef.current;
         if (prev) {
-          engineRef.current = tickEngine(prev);
+          engineRef.current = tickEngine(prev, useStore.getState().constants);
           ticked = true;
         }
         acc -= tickMs;

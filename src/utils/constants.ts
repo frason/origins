@@ -70,6 +70,22 @@ export const DEFAULT_MUTATION_RATE = 0.05;
 export const MUTATION_DRIFT = 0.1;
 
 // ============================================================================
+// Biodiversity Pressure Constants
+// ============================================================================
+
+/** Monoculture dominance threshold: species with >80% of population incurs penalty */
+export const MONOCULTURE_DOMINANCE_THRESHOLD = 0.80;
+
+/** Extra mortality rate for creatures in dominant species (applied when >threshold) */
+export const MONOCULTURE_MORTALITY_PENALTY = 0.05;
+
+/** Maximum sustainable global creature population (soft carrying capacity) */
+export const MAX_GLOBAL_POPULATION = 500;
+
+/** Overcrowding mortality rate when population exceeds max (additional probability of death per tick) */
+export const OVERCROWDING_MORTALITY_RATE = 0.05;
+
+// ============================================================================
 // Simulation Constants Interface
 // ============================================================================
 
@@ -91,6 +107,10 @@ export interface SimulationConstants {
   corpseDecayRate: number;
   defaultMutationRate: number;
   mutationDrift: number;
+  monocultureDominanceThreshold: number;
+  monocultureMortalityPenalty: number;
+  maxGlobalPopulation: number;
+  overcrowdingMortalityRate: number;
 }
 
 /**
@@ -111,4 +131,8 @@ export const SIMULATION_CONSTANTS: SimulationConstants = {
   corpseDecayRate: CORPSE_DECAY_RATE,
   defaultMutationRate: DEFAULT_MUTATION_RATE,
   mutationDrift: MUTATION_DRIFT,
+  monocultureDominanceThreshold: MONOCULTURE_DOMINANCE_THRESHOLD,
+  monocultureMortalityPenalty: MONOCULTURE_MORTALITY_PENALTY,
+  maxGlobalPopulation: MAX_GLOBAL_POPULATION,
+  overcrowdingMortalityRate: OVERCROWDING_MORTALITY_RATE,
 };

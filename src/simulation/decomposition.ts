@@ -10,8 +10,11 @@ import { MAX_CREATURE_AGE_TICKS, CORPSE_DECAY_RATE } from '../utils/constants';
  *
  * @param creature - the creature to check
  */
-export function checkAgeAndStarvation(creature: Creature): void {
-  if (creature.age >= MAX_CREATURE_AGE_TICKS || creature.energy <= 0) {
+export function checkAgeAndStarvation(
+  creature: Creature,
+  maxAge: number = MAX_CREATURE_AGE_TICKS
+): void {
+  if (creature.age >= maxAge || creature.energy <= 0) {
     creature.lifecycleState = 'dead';
     creature.corpseDecayTicks = 10;
   }
@@ -29,12 +32,16 @@ export function checkAgeAndStarvation(creature: Creature): void {
  * @param creature - the dead creature whose corpse is decaying
  * @param world - the world to add nutrients to
  */
-export function decayCorpse(creature: Creature, world: World): void {
+export function decayCorpse(
+  creature: Creature,
+  world: World,
+  decayRate: number = CORPSE_DECAY_RATE
+): void {
   // Decrement decay ticks
   creature.corpseDecayTicks--;
 
   // Add nutrients to the cell based on remaining energy
-  const nutrientsToAdd = creature.energy * CORPSE_DECAY_RATE;
+  const nutrientsToAdd = creature.energy * decayRate;
   const cell = world.getCell(creature.x, creature.y);
   world.setCell(creature.x, creature.y, {
     nutrients: cell.nutrients + nutrientsToAdd,

@@ -1,7 +1,12 @@
 import { World } from './world';
 import { Creature } from './creature';
-import { createRng } from './rng';
-import { WORLD_WIDTH, WORLD_HEIGHT, SIMULATION_CONSTANTS } from '../utils/constants';
+import { createRng, RngFn } from './rng';
+import {
+  WORLD_WIDTH,
+  WORLD_HEIGHT,
+  SIMULATION_CONSTANTS,
+  SimulationConstants,
+} from '../utils/constants';
 import { growProducers } from './producer';
 import { reproduceCreature } from './species';
 import {
@@ -49,6 +54,7 @@ export interface EngineState {
   tick: number;
   seed: number;
   events: SimEvent[];
+  constants: SimulationConstants;
 }
 
 /**
@@ -65,11 +71,13 @@ export function createEngine(
   seed: number,
   initialCreatures: Creature[],
   worldWidth: number = WORLD_WIDTH,
-  worldHeight: number = WORLD_HEIGHT
+  worldHeight: number = WORLD_HEIGHT,
+  constantOverrides: Partial<SimulationConstants> = {}
 ): EngineState {
   // Create constants with proper world dimensions
   const constants = {
     ...SIMULATION_CONSTANTS,
+    ...constantOverrides,
     worldWidth,
     worldHeight,
   };
@@ -99,6 +107,7 @@ export function createEngine(
     tick: 0,
     seed,
     events: [],
+    constants,
   };
 }
 
@@ -122,7 +131,17 @@ export function createEngine(
  * @param state - current engine state (unchanged)
  * @returns new engine state after one tick (immutable)
  */
-export function tickEngine(state: EngineState): EngineState {
+export function tickEngine(
+  state: EngineState,
+  constantOverrides: Partial<SimulationConstants> = {}
+): EngineState {
+  const constants: SimulationConstants = {
+    ...SIMULATION_CONSTANTS,
+    ...state.constants,
+    ...constantOverrides,
+    worldWidth: state.world.width,
+    worldHeight: state.world.height,
+  };
   // Deep copy world state from JSON
   const newWorld = World.fromJSON(state.world.toJSON());
 
@@ -154,7 +173,7 @@ export function tickEngine(state: EngineState): EngineState {
   const rng = createRng(state.seed ^ state.tick);
 
   // Step 2: Producer Growth
-  growProducers(newWorld, 'solar');
+  growProducers(newWorld, 'solar', constants.producerGrowthRate);
 
   // Step 3 & 4: Creature Decisions and Movement
   const decisions = new Map<string, DecisionType>();
@@ -177,7 +196,14 @@ export function tickEngine(state: EngineState): EngineState {
           creature.traits.energyStrategy === 'omnivore') &&
         cell.producerBiomass > 0
       ) {
-        feedOnProducer(creature, cell, newWorld, creature.x, creature.y);
+        feedOnProducer(
+          creature,
+          cell,
+          newWorld,
+          creature.x,
+          creature.y,
+          constants.feedingEfficiency
+        );
       }
 
       // Carnivores and omnivores feed on other creatures
@@ -192,7 +218,7 @@ export function tickEngine(state: EngineState): EngineState {
             prey.x === creature.x &&
             prey.y === creature.y
           ) {
-            feedOnCreature(creature, prey);
+            feedOnCreature(creature, prey, constants.feedingEfficiency);
             break; // Only eat one prey per tick
           }
         }
@@ -208,17 +234,22 @@ export function tickEngine(state: EngineState): EngineState {
   // Step 6: Energy Updates (Metabolism)
   for (const creature of creatures) {
     if (creature.lifecycleState === 'alive') {
-      applyMetabolism(creature);
+      applyMetabolism(creature, constants.baseMetabolism);
     }
   }
 
   // Step 7: Reproduction (with mutation and lineage branching via species.ts)
   const offspring: Creature[] = [];
   for (const creature of creatures) {
-    if (canReproduce(creature)) {
-      payReproductionCost(creature);
+    if (canReproduce(creature, constants.reproductionEnergyThreshold)) {
+      payReproductionCost(creature, constants.reproductionEnergyCost);
 
-      const child = reproduceCreature(creature, rng);
+      const child = reproduceCreature(
+        creature,
+        rng,
+        constants.mutationDrift,
+        constants.defaultMutationRate
+      );
 
       offspring.push(child);
       newEvents.push({
@@ -246,8 +277,11 @@ export function tickEngine(state: EngineState): EngineState {
   for (const creature of creatures) {
     if (creature.lifecycleState !== 'alive') continue;
     creature.age++;
-    checkAgeAndStarvation(creature);
+    checkAgeAndStarvation(creature, constants.maxCreatureAgeTicks);
   }
+
+  // Step 8.5: Biodiversity Pressure (density-dependent mortality and monoculture penalties)
+  applyBiodiversityPressure(creatures, rng, constants);
 
   // Log death events for creatures that just died
   for (const creature of creatures) {
@@ -264,7 +298,7 @@ export function tickEngine(state: EngineState): EngineState {
   // Step 9: Decomposition
   for (const creature of creatures) {
     if (creature.lifecycleState === 'dead' && creature.corpseDecayTicks > 0) {
-      decayCorpse(creature, newWorld);
+      decayCorpse(creature, newWorld, constants.corpseDecayRate);
     }
   }
 
@@ -312,7 +346,77 @@ export function tickEngine(state: EngineState): EngineState {
     tick: state.tick + 1,
     seed: state.seed,
     events: state.events.concat(newEvents),
+    constants,
   };
+}
+
+/**
+ * Apply biodiversity pressure penalties to prevent monoculture and overcrowding.
+ * Increases mortality risk for:
+ * 1. Creatures in dominant species (>80% of population)
+ * 2. Random creatures when global population exceeds carrying capacity
+ *
+ * @param creatures - all creatures in the simulation (mutated in-place)
+ * @param rng - deterministic RNG for stochastic mortality
+ */
+function applyBiodiversityPressure(
+  creatures: Creature[],
+  rng: RngFn,
+  constants: SimulationConstants
+): void {
+  // Count creatures per species (alive only)
+  const aliveCreatures = creatures.filter((c) => c.lifecycleState === 'alive');
+  if (aliveCreatures.length === 0) {
+    return;
+  }
+
+  const speciesCounts = new Map<string, number>();
+  for (const creature of aliveCreatures) {
+    speciesCounts.set(
+      creature.speciesId,
+      (speciesCounts.get(creature.speciesId) || 0) + 1
+    );
+  }
+
+  // Find dominant species
+  let dominantSpecies: string | null = null;
+  let dominantCount = 0;
+  for (const [speciesId, count] of speciesCounts) {
+    if (count > dominantCount) {
+      dominantCount = count;
+      dominantSpecies = speciesId;
+    }
+  }
+
+  // Check if a species is monopolizing (>80% of population)
+  const isDominanceMonopoly =
+    dominantSpecies &&
+    dominantCount / aliveCreatures.length > constants.monocultureDominanceThreshold;
+
+  // Check if population exceeds carrying capacity
+  const isOvercrowded = aliveCreatures.length > constants.maxGlobalPopulation;
+
+  // Apply penalties
+  for (const creature of creatures) {
+    if (creature.lifecycleState !== 'alive') continue;
+
+    let mortalityBonus = 0;
+
+    // Penalty for creatures in the dominant species during monopoly
+    if (isDominanceMonopoly && creature.speciesId === dominantSpecies) {
+      mortalityBonus += constants.monocultureMortalityPenalty;
+    }
+
+    // Penalty for all creatures during overcrowding
+    if (isOvercrowded) {
+      mortalityBonus += constants.overcrowdingMortalityRate;
+    }
+
+    // Apply stochastic mortality if any penalty was incurred
+    if (mortalityBonus > 0 && rng() < mortalityBonus) {
+      creature.lifecycleState = 'dead';
+    }
+  }
 }
 
 /**

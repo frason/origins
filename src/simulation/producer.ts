@@ -43,7 +43,11 @@ export const MAX_PRODUCER_BIOMASS = 100;
  * @param world - World instance to update
  * @param energyType - Type of energy driving producer growth
  */
-export function growProducers(world: World, energyType: EnergyType): void {
+export function growProducers(
+  world: World,
+  energyType: EnergyType,
+  growthRate: number = PRODUCER_GROWTH_RATE
+): void {
   const multiplier = ENERGY_TYPE_MULTIPLIERS[energyType];
 
   for (let y = 0; y < world.height; y++) {
@@ -51,7 +55,7 @@ export function growProducers(world: World, energyType: EnergyType): void {
       const cell = world.getCell(x, y);
 
       // Calculate growth amount: rate × energy × multiplier
-      const growth = PRODUCER_GROWTH_RATE * cell.energy * multiplier;
+      const growth = growthRate * cell.energy * multiplier;
 
       // Update biomass and cap at maximum
       const newBiomass = Math.min(cell.producerBiomass + growth, MAX_PRODUCER_BIOMASS);

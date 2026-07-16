@@ -14,9 +14,12 @@ import {
  *
  * @param creature - the creature to apply metabolism to
  */
-export function applyMetabolism(creature: Creature): void {
+export function applyMetabolism(
+  creature: Creature,
+  baseMetabolism: number = BASE_METABOLISM
+): void {
   // Calculate metabolic cost: BASE_METABOLISM × size × metabolism multiplier
-  const metabolicCost = BASE_METABOLISM * creature.traits.size * creature.traits.metabolism;
+  const metabolicCost = baseMetabolism * creature.traits.size * creature.traits.metabolism;
 
   // Deduct energy
   creature.energy -= metabolicCost;
@@ -45,7 +48,8 @@ export function feedOnProducer(
   cell: Cell,
   world: World,
   x: number,
-  y: number
+  y: number,
+  feedingEfficiency: number = FEEDING_EFFICIENCY
 ): number {
   // Determine how much biomass is available
   const availableBiomass = cell.producerBiomass;
@@ -58,7 +62,7 @@ export function feedOnProducer(
   const biomassConsumed = availableBiomass;
 
   // Calculate energy gained with feeding efficiency
-  const energyGained = biomassConsumed * FEEDING_EFFICIENCY;
+  const energyGained = biomassConsumed * feedingEfficiency;
 
   // Transfer energy to creature
   creature.energy += energyGained;
@@ -78,12 +82,16 @@ export function feedOnProducer(
  * @param prey - the creature being hunted
  * @returns the amount of energy transferred to the predator
  */
-export function feedOnCreature(predator: Creature, prey: Creature): number {
+export function feedOnCreature(
+  predator: Creature,
+  prey: Creature,
+  feedingEfficiency: number = FEEDING_EFFICIENCY
+): number {
   // Mark prey as dead
   prey.lifecycleState = 'dead';
 
   // Calculate energy transfer with feeding efficiency
-  const energyTransferred = prey.energy * FEEDING_EFFICIENCY;
+  const energyTransferred = prey.energy * feedingEfficiency;
 
   // Transfer energy to predator
   predator.energy += energyTransferred;
@@ -98,8 +106,11 @@ export function feedOnCreature(predator: Creature, prey: Creature): number {
  * @param creature - the creature to check
  * @returns true if creature can reproduce, false otherwise
  */
-export function canReproduce(creature: Creature): boolean {
-  return creature.energy >= REPRODUCTION_ENERGY_THRESHOLD && creature.lifecycleState === 'alive';
+export function canReproduce(
+  creature: Creature,
+  threshold: number = REPRODUCTION_ENERGY_THRESHOLD
+): boolean {
+  return creature.energy >= threshold && creature.lifecycleState === 'alive';
 }
 
 /**
@@ -108,6 +119,9 @@ export function canReproduce(creature: Creature): boolean {
  *
  * @param creature - the creature paying the reproduction cost
  */
-export function payReproductionCost(creature: Creature): void {
-  creature.energy -= REPRODUCTION_ENERGY_COST;
+export function payReproductionCost(
+  creature: Creature,
+  cost: number = REPRODUCTION_ENERGY_COST
+): void {
+  creature.energy -= cost;
 }

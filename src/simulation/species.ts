@@ -12,7 +12,7 @@ import {
   TRAIT_MIN,
   TRAIT_MAX,
 } from '../utils/traits';
-import { MUTATION_DRIFT } from '../utils/constants';
+import { DEFAULT_MUTATION_RATE, MUTATION_DRIFT } from '../utils/constants';
 
 /**
  * Species represents a distinct genetic lineage with tracking info
@@ -36,7 +36,12 @@ export interface Species {
  * @param rng - deterministic RNG function
  * @returns new mutated traits
  */
-export function mutateTraits(traits: Traits, rng: RngFn): Traits {
+export function mutateTraits(
+  traits: Traits,
+  rng: RngFn,
+  mutationDrift: number = MUTATION_DRIFT,
+  strategyMutationRate: number = DEFAULT_MUTATION_RATE
+): Traits {
   const mutated: Traits = { ...traits };
 
   // List of numeric trait names (excluding energyStrategy)
@@ -62,7 +67,7 @@ export function mutateTraits(traits: Traits, rng: RngFn): Traits {
     const mutationRate = TRAIT_MUTATION_RATES[traitName];
 
     // Calculate drift: ±(MUTATION_DRIFT × currentValue × mutationRate)
-    const driftAmount = MUTATION_DRIFT * currentValue * mutationRate;
+    const driftAmount = mutationDrift * currentValue * mutationRate;
 
     // Randomly decide sign of drift (+/-)
     const sign = rng() < 0.5 ? -1 : 1;
@@ -75,7 +80,7 @@ export function mutateTraits(traits: Traits, rng: RngFn): Traits {
   }
 
   // Mutate energyStrategy with 5% probability
-  if (rng() < 0.05) {
+  if (rng() < strategyMutationRate) {
     const strategies: EnergyStrategy[] = [
       'herbivore',
       'carnivore',
@@ -104,8 +109,13 @@ export function mutateTraits(traits: Traits, rng: RngFn): Traits {
  * @param rng - deterministic RNG function
  * @returns new offspring creature
  */
-export function reproduceCreature(parent: Creature, rng: RngFn): Creature {
-  const mutatedTraits = mutateTraits(parent.traits, rng);
+export function reproduceCreature(
+  parent: Creature,
+  rng: RngFn,
+  mutationDrift: number = MUTATION_DRIFT,
+  strategyMutationRate: number = DEFAULT_MUTATION_RATE
+): Creature {
+  const mutatedTraits = mutateTraits(parent.traits, rng, mutationDrift, strategyMutationRate);
 
   // Branch lineage when energyStrategy changes or any numeric trait drifts >15% from parent
   const energyStrategyChanged = mutatedTraits.energyStrategy !== parent.traits.energyStrategy;
