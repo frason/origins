@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { classifyBiome, generateTerrain, World } from '../simulation/world';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
+import { getProducerArchetype } from '../simulation/producerTypes';
 
 describe('deterministic terrain', () => {
   it('generates identical terrain from the same seed', () => {
@@ -38,6 +39,16 @@ describe('deterministic terrain', () => {
     expect(classifyBiome(0.5, 0.8, 0.7)).toBe('wetland');
     expect(classifyBiome(0.5, 0.6, 0.7)).toBe('forest');
     expect(classifyBiome(0.5, 0.4, 0.7)).toBe('grassland');
+  });
+
+  it('assigns a fitting producer archetype to every biome', () => {
+    expect(getProducerArchetype('ocean')).toBe('photic-algae');
+    expect(getProducerArchetype('desert')).toBe('xerophyte-mat');
+    expect(getProducerArchetype('grassland')).toBe('ground-cover');
+    expect(getProducerArchetype('forest')).toBe('canopy-colony');
+    expect(getProducerArchetype('wetland')).toBe('marsh-biofilm');
+    expect(getProducerArchetype('tundra')).toBe('frost-lichen');
+    expect(getProducerArchetype('mountain')).toBe('lithotroph');
   });
 
   it('preserves terrain through world serialization', () => {

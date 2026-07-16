@@ -145,6 +145,12 @@ export default function TileInfoPanel() {
           <span>{cell.producerBiomass.toFixed(2)}</span>
         </div>
         <div style={rowStyle}>
+          <span style={labelStyle}>Producer Type</span>
+          <span style={{ textTransform: 'capitalize' }}>
+            {cell.producerArchetype.replace(/-/g, ' ')}
+          </span>
+        </div>
+        <div style={rowStyle}>
           <span style={labelStyle}>Toxicity</span>
           <span>{cell.toxicity.toFixed(2)}</span>
         </div>

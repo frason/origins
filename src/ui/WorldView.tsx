@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useStore } from '../state/store';
 import type { Biome } from '../simulation/world';
+import type { ProducerArchetype } from '../simulation/producerTypes';
 
 /**
  * Rendering constants for the canvas grid
@@ -19,6 +20,16 @@ const BIOME_COLORS: Record<Biome, [number, number, number]> = {
   wetland: [54, 104, 91],
   tundra: [139, 153, 151],
   mountain: [105, 101, 96],
+};
+
+const PRODUCER_COLORS: Record<ProducerArchetype, [number, number, number]> = {
+  'photic-algae': [43, 205, 175],
+  'xerophyte-mat': [178, 185, 72],
+  'ground-cover': [65, 205, 82],
+  'canopy-colony': [20, 145, 55],
+  'marsh-biofilm': [69, 190, 126],
+  'frost-lichen': [155, 205, 182],
+  lithotroph: [196, 126, 70],
 };
 
 /**
@@ -89,14 +100,33 @@ function getColorFromSpeciesId(speciesId: string): [number, number, number] {
  */
 function extractGrid(
   worldState: any
-): Array<Array<{ energy: number; producerBiomass: number; biome: Biome }>> | null {
+): Array<
+  Array<{
+    energy: number;
+    producerBiomass: number;
+    biome: Biome;
+    producerArchetype: ProducerArchetype;
+  }>
+> | null {
   if (!worldState) return null;
 
   // Handle serialized World format (cells as 1D array)
   if (worldState.cells && Array.isArray(worldState.cells) && worldState.width && worldState.height) {
-    const grid: Array<Array<{ energy: number; producerBiomass: number; biome: Biome }>> = [];
+    const grid: Array<
+      Array<{
+        energy: number;
+        producerBiomass: number;
+        biome: Biome;
+        producerArchetype: ProducerArchetype;
+      }>
+    > = [];
     for (let y = 0; y < worldState.height; y++) {
-      const row: Array<{ energy: number; producerBiomass: number; biome: Biome }> = [];
+      const row: Array<{
+        energy: number;
+        producerBiomass: number;
+        biome: Biome;
+        producerArchetype: ProducerArchetype;
+      }> = [];
       for (let x = 0; x < worldState.width; x++) {
         const index = y * worldState.width + x;
         const cell = worldState.cells[index];
@@ -104,6 +134,7 @@ function extractGrid(
           energy: cell?.energy ?? 0,
           producerBiomass: cell?.producerBiomass ?? 0,
           biome: cell?.biome ?? 'grassland',
+          producerArchetype: cell?.producerArchetype ?? 'ground-cover',
         });
       }
       grid.push(row);
@@ -118,6 +149,7 @@ function extractGrid(
         energy: cell?.energy ?? 0,
         producerBiomass: cell?.producerBiomass ?? 0,
         biome: cell?.biome ?? 'grassland',
+        producerArchetype: cell?.producerArchetype ?? 'ground-cover',
       }))
     );
   }
@@ -274,8 +306,8 @@ const WorldView: React.FC = () => {
             const biomassRatio = Math.min(1, cell.producerBiomass / MAX_BIOMASS);
             const opacity = biomassRatio;
 
-            // Semi-transparent green overlay
-            ctx.fillStyle = `rgba(0, 200, 0, ${opacity})`;
+            const [producerR, producerG, producerB] = PRODUCER_COLORS[cell.producerArchetype];
+            ctx.fillStyle = `rgba(${producerR}, ${producerG}, ${producerB}, ${opacity})`;
             ctx.fillRect(pixelX, pixelY, cellSize, cellSize);
           }
         }

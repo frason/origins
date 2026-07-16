@@ -1,5 +1,7 @@
 import { WORLD_WIDTH, WORLD_HEIGHT } from '../utils/constants';
 import type { SimulationConstants } from '../utils/constants';
+import { getProducerArchetype } from './producerTypes';
+import type { ProducerArchetype } from './producerTypes';
 
 export type Biome =
   | 'ocean'
@@ -15,6 +17,7 @@ export interface TerrainCell {
   moisture: number;
   temperature: number;
   biome: Biome;
+  producerArchetype: ProducerArchetype;
 }
 
 function clamp01(value: number): number {
@@ -81,11 +84,13 @@ export function generateTerrain(width: number, height: number, seed: number): Te
       const temperature = clamp01(
         equatorWarmth * 0.72 + layeredNoise(seed + 8191, x, y) * 0.28 - elevation * 0.22
       );
+      const biome = classifyBiome(elevation, moisture, temperature);
       row.push({
         elevation,
         moisture,
         temperature,
-        biome: classifyBiome(elevation, moisture, temperature),
+        biome,
+        producerArchetype: getProducerArchetype(biome),
       });
     }
     terrain.push(row);
@@ -155,6 +160,7 @@ export interface Cell {
   moisture: number;
   temperature: number;
   biome: Biome;
+  producerArchetype: ProducerArchetype;
 }
 
 /**
@@ -322,6 +328,7 @@ export class World {
         moisture: 0.5,
         temperature: 0.5,
         biome: 'grassland',
+        producerArchetype: 'ground-cover',
         ...cells[i],
       };
     }

@@ -1,5 +1,6 @@
 import { World } from './world';
 import type { Biome } from './world';
+
 import { PRODUCER_GROWTH_RATE } from '../utils/constants';
 
 /**

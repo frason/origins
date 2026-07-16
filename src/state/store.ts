@@ -16,6 +16,7 @@ import { create } from 'zustand';
 import { SimulationConstants, SIMULATION_CONSTANTS } from '../utils/constants';
 import type { Traits } from '../utils/traits';
 import type { Biome } from '../simulation/world';
+import type { ProducerArchetype } from '../simulation/producerTypes';
 
 // Cell interface for world state
 export interface CellSnapshot {
@@ -27,6 +28,7 @@ export interface CellSnapshot {
   moisture: number;
   temperature: number;
   biome: Biome;
+  producerArchetype: ProducerArchetype;
 }
 
 // Creature interface for world state
