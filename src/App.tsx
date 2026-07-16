@@ -9,6 +9,7 @@ import { Creature } from './simulation/creature';
 import { createEngine, tickEngine, EngineState } from './simulation/engine';
 import { DEFAULT_TRAITS, Traits } from './utils/traits';
 import { SimulationConstants } from './utils/constants';
+import { getBiomeProductivity } from './simulation/producer';
 
 const WORLD_SEED = 12345;
 
@@ -80,7 +81,9 @@ function buildEngine(constants: SimulationConstants): EngineState {
   for (let y = 0; y < engine.world.height; y++) {
     for (let x = 0; x < engine.world.width; x++) {
       const cell = engine.world.getCell(x, y);
-      engine.world.setCell(x, y, { producerBiomass: cell.energy * 2 });
+      engine.world.setCell(x, y, {
+        producerBiomass: cell.energy * 2 * getBiomeProductivity(cell.biome),
+      });
     }
   }
   return engine;

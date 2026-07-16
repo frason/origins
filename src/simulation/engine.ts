@@ -173,7 +173,7 @@ export function tickEngine(
   const rng = createRng(state.seed ^ state.tick);
 
   // Step 2: Producer Growth
-  growProducers(newWorld, 'solar', constants.producerGrowthRate);
+  growProducers(newWorld, 'solar', constants.producerGrowthRate, true);
 
   // Step 3 & 4: Creature Decisions and Movement
   const decisions = new Map<string, DecisionType>();

@@ -4,6 +4,8 @@ import {
   EnergyType,
   ENERGY_TYPE_MULTIPLIERS,
   MAX_PRODUCER_BIOMASS,
+  BIOME_PRODUCTIVITY,
+  getBiomeProductivity,
 } from '../simulation/producer';
 import { PRODUCER_GROWTH_RATE } from '../utils/constants';
 
@@ -34,6 +36,39 @@ describe('Producer Growth Logic', () => {
   });
 
   describe('growProducers function', () => {
+    describe('Biome productivity', () => {
+      it('defines positive productivity for every biome', () => {
+        for (const productivity of Object.values(BIOME_PRODUCTIVITY)) {
+          expect(productivity).toBeGreaterThan(0);
+        }
+      });
+
+      it('makes lush biomes more productive than harsh biomes', () => {
+        expect(getBiomeProductivity('forest')).toBeGreaterThan(
+          getBiomeProductivity('desert')
+        );
+        expect(getBiomeProductivity('wetland')).toBeGreaterThan(
+          getBiomeProductivity('tundra')
+        );
+        expect(getBiomeProductivity('grassland')).toBeGreaterThan(
+          getBiomeProductivity('mountain')
+        );
+      });
+
+      it('applies biome productivity when enabled', () => {
+        const forest = new World(1, 1);
+        const desert = new World(1, 1);
+        forest.setCell(0, 0, { energy: 10, biome: 'forest' });
+        desert.setCell(0, 0, { energy: 10, biome: 'desert' });
+
+        growProducers(forest, 'solar', PRODUCER_GROWTH_RATE, true);
+        growProducers(desert, 'solar', PRODUCER_GROWTH_RATE, true);
+
+        expect(forest.getCell(0, 0).producerBiomass).toBeCloseTo(1.2, 5);
+        expect(desert.getCell(0, 0).producerBiomass).toBeCloseTo(0.2, 5);
+      });
+    });
+
     describe('Basic growth calculation', () => {
       it('should increase producerBiomass based on energy and energy type', () => {
         const world = new World(10, 10);

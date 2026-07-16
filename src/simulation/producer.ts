@@ -1,4 +1,5 @@
 import { World } from './world';
+import type { Biome } from './world';
 import { PRODUCER_GROWTH_RATE } from '../utils/constants';
 
 /**
@@ -25,6 +26,21 @@ export const ENERGY_TYPE_MULTIPLIERS: Record<EnergyType, number> = {
   radioactive: 0.3,
 };
 
+/** Relative producer productivity for each landscape niche. */
+export const BIOME_PRODUCTIVITY: Record<Biome, number> = {
+  ocean: 0.65,
+  desert: 0.2,
+  grassland: 1,
+  forest: 1.2,
+  wetland: 1.15,
+  tundra: 0.35,
+  mountain: 0.15,
+};
+
+export function getBiomeProductivity(biome: Biome): number {
+  return BIOME_PRODUCTIVITY[biome];
+}
+
 /**
  * Maximum biomass cap per cell.
  * Prevents unbounded producer accumulation and creates carrying capacity.
@@ -46,7 +62,8 @@ export const MAX_PRODUCER_BIOMASS = 100;
 export function growProducers(
   world: World,
   energyType: EnergyType,
-  growthRate: number = PRODUCER_GROWTH_RATE
+  growthRate: number = PRODUCER_GROWTH_RATE,
+  useBiomeProductivity: boolean = false
 ): void {
   const multiplier = ENERGY_TYPE_MULTIPLIERS[energyType];
 
@@ -55,7 +72,8 @@ export function growProducers(
       const cell = world.getCell(x, y);
 
       // Calculate growth amount: rate × energy × multiplier
-      const growth = growthRate * cell.energy * multiplier;
+      const biomeMultiplier = useBiomeProductivity ? getBiomeProductivity(cell.biome) : 1;
+      const growth = growthRate * cell.energy * multiplier * biomeMultiplier;
 
       // Update biomass and cap at maximum
       const newBiomass = Math.min(cell.producerBiomass + growth, MAX_PRODUCER_BIOMASS);
