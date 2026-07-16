@@ -1,5 +1,6 @@
 import { World } from './world';
 import type { Biome } from './world';
+import { getProducerArchetype, getProducerTraits } from './producerTypes';
 
 import { PRODUCER_GROWTH_RATE } from '../utils/constants';
 
@@ -39,7 +40,7 @@ export const BIOME_PRODUCTIVITY: Record<Biome, number> = {
 };
 
 export function getBiomeProductivity(biome: Biome): number {
-  return BIOME_PRODUCTIVITY[biome];
+  return getProducerTraits(getProducerArchetype(biome)).growthMultiplier;
 }
 
 /**
@@ -77,7 +78,10 @@ export function growProducers(
       const growth = growthRate * cell.energy * multiplier * biomeMultiplier;
 
       // Update biomass and cap at maximum
-      const newBiomass = Math.min(cell.producerBiomass + growth, MAX_PRODUCER_BIOMASS);
+      const carryingCapacity = useBiomeProductivity
+        ? getProducerTraits(cell.producerArchetype).carryingCapacity
+        : MAX_PRODUCER_BIOMASS;
+      const newBiomass = Math.min(cell.producerBiomass + growth, carryingCapacity);
 
       world.setCell(x, y, { producerBiomass: newBiomass });
     }

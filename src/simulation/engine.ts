@@ -202,7 +202,8 @@ export function tickEngine(
           newWorld,
           creature.x,
           creature.y,
-          constants.feedingEfficiency
+          constants.feedingEfficiency,
+          true
         );
       }
 

@@ -9,6 +9,7 @@ import {
   SimEvent,
 } from '../simulation/engine';
 import { DEFAULT_TRAITS } from '../utils/traits';
+import { getProducerTraits } from '../simulation/producerTypes';
 
 describe('Simulation Engine', () => {
   beforeEach(() => {
@@ -153,11 +154,9 @@ describe('Simulation Engine', () => {
 
       const newEngine = tickEngine(engine);
 
-      // Check that herbivore gained energy from feeding
-      // feedOnProducer transfers biomass * FEEDING_EFFICIENCY (0.8)
-      // So 20 * 0.8 = 16 energy gained
-      // But there's also metabolism cost
-      const expectedEnergyGain = 20 * 0.8; // FEEDING_EFFICIENCY
+      const producerTraits = getProducerTraits(cell.producerArchetype);
+      const consumedBiomass = 20 * (1 - producerTraits.defense);
+      const expectedEnergyGain = consumedBiomass * 0.8 * producerTraits.energyDensity;
       const metabolicCost =
         2 * // BASE_METABOLISM
         1 * // size
@@ -165,6 +164,10 @@ describe('Simulation Engine', () => {
       const expectedEnergy = 50 + expectedEnergyGain - metabolicCost;
 
       expect(newEngine.creatures[0].energy).toBeCloseTo(expectedEnergy, 0);
+      expect(newEngine.world.getCell(50, 50).producerBiomass).toBeCloseTo(
+        20 - consumedBiomass,
+        5
+      );
     });
 
     it('should remove dead creatures after full decomposition', () => {

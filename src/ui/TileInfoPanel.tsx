@@ -5,6 +5,7 @@
 
 import React, { CSSProperties } from 'react';
 import { useStore } from '../state/store';
+import { getProducerTraits } from '../simulation/producerTypes';
 
 const panelStyle: CSSProperties = {
   position: 'fixed',
@@ -89,6 +90,7 @@ export default function TileInfoPanel() {
   // Extract cell data
   const cellIndex = selectedTile.y * worldState.width + selectedTile.x;
   const cell = worldState.cells[cellIndex];
+  const producerTraits = getProducerTraits(cell.producerArchetype);
 
   // Extract creatures on this tile
   const tilesCreatures = worldState.creatures.filter(
@@ -148,6 +150,18 @@ export default function TileInfoPanel() {
           <span style={labelStyle}>Producer Type</span>
           <span style={{ textTransform: 'capitalize' }}>
             {cell.producerArchetype.replace(/-/g, ' ')}
+          </span>
+        </div>
+        <div style={rowStyle}>
+          <span style={labelStyle}>Growth / Capacity</span>
+          <span>
+            {producerTraits.growthMultiplier.toFixed(2)}× / {producerTraits.carryingCapacity}
+          </span>
+        </div>
+        <div style={rowStyle}>
+          <span style={labelStyle}>Defense / Energy Density</span>
+          <span>
+            {Math.round(producerTraits.defense * 100)}% / {producerTraits.energyDensity.toFixed(2)}×
           </span>
         </div>
         <div style={rowStyle}>

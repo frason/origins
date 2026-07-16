@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { Creature } from '../simulation/creature';
 import { createEngine, tickEngine } from '../simulation/engine';
 import { DEFAULT_TRAITS } from '../utils/traits';
+import { getProducerTraits } from '../simulation/producerTypes';
 
 function creature(strategy: 'herbivore' | 'carnivore', energy = 100): Creature {
   return new Creature({
@@ -37,6 +38,9 @@ describe('God Mode runtime constants', () => {
 
   it('applies producer growth and feeding efficiency overrides', () => {
     const engine = createEngine(2, [creature('herbivore')]);
+    const producerTraits = getProducerTraits(
+      engine.world.getCell(50, 50).producerArchetype
+    );
     engine.world.setCell(50, 50, { producerBiomass: 20 });
 
     const next = tickEngine(engine, {
@@ -47,8 +51,12 @@ describe('God Mode runtime constants', () => {
       reproductionEnergyThreshold: 1000,
     });
 
-    expect(next.creatures[0].energy).toBe(105);
-    expect(next.world.getCell(50, 50).producerBiomass).toBe(0);
+    const consumed = 20 * (1 - producerTraits.defense);
+    expect(next.creatures[0].energy).toBeCloseTo(
+      100 + consumed * 0.25 * producerTraits.energyDensity,
+      5
+    );
+    expect(next.world.getCell(50, 50).producerBiomass).toBeCloseTo(20 - consumed, 5);
   });
 
   it('applies reproduction threshold and cost overrides', () => {

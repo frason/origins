@@ -6,6 +6,7 @@ import {
   REPRODUCTION_ENERGY_THRESHOLD,
   REPRODUCTION_ENERGY_COST,
 } from '../utils/constants';
+import { getProducerTraits } from './producerTypes';
 
 /**
  * Apply metabolism cost to a creature.
@@ -49,7 +50,8 @@ export function feedOnProducer(
   world: World,
   x: number,
   y: number,
-  feedingEfficiency: number = FEEDING_EFFICIENCY
+  feedingEfficiency: number = FEEDING_EFFICIENCY,
+  useArchetypeTraits: boolean = false
 ): number {
   // Determine how much biomass is available
   const availableBiomass = cell.producerBiomass;
@@ -58,17 +60,20 @@ export function feedOnProducer(
     return 0;
   }
 
-  // Creature consumes all available biomass
-  const biomassConsumed = availableBiomass;
+  const traits = getProducerTraits(cell.producerArchetype);
+  const biomassConsumed = useArchetypeTraits
+    ? availableBiomass * (1 - traits.defense)
+    : availableBiomass;
 
   // Calculate energy gained with feeding efficiency
-  const energyGained = biomassConsumed * feedingEfficiency;
+  const energyDensity = useArchetypeTraits ? traits.energyDensity : 1;
+  const energyGained = biomassConsumed * feedingEfficiency * energyDensity;
 
   // Transfer energy to creature
   creature.energy += energyGained;
 
   // Remove biomass from cell
-  world.setCell(x, y, { producerBiomass: 0 });
+  world.setCell(x, y, { producerBiomass: availableBiomass - biomassConsumed });
 
   return energyGained;
 }
