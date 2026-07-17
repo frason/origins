@@ -1,4 +1,5 @@
-PASS — Completed functional God Mode verification and closed the remaining live-solar gap for #44.
-All sliders now affect the next simulation tick; solar changes preserve recycled cell energy.
-Added a focused regression test for changing solar settings during a running world.
-Verification: 291/291 tests pass and the production build succeeds.
+PASS — Added a deterministic four-species God Mode sustainability matrix for #62.
+The evaluator measures founding-species survival, total ecosystem lifespan, final diversity, and population.
+The best bounded preset kept all four species for 239 ticks versus 59 with current defaults.
+It retained three species through the full 300-tick horizon; current defaults reached total extinction at tick 117.
+Verification: 292/292 tests pass and the production build succeeds.
