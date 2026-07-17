@@ -9,6 +9,7 @@ import {
 } from '../utils/constants';
 import { growProducers } from './producer';
 import { reproduceCreature } from './species';
+import { lineageDisplayName } from './speciesNames';
 import {
   decideTick,
   applyMovement,
@@ -318,7 +319,10 @@ export function tickEngine(
           tick: state.tick,
           creatureId: child.id,
           speciesId: child.speciesId,
-          detail: `lineage branch: ${creature.lineageId} → ${child.lineageId}`,
+          detail: `${lineageDisplayName(
+            creature.speciesId,
+            creature.lineageId
+          )} → ${lineageDisplayName(child.speciesId, child.lineageId)}`,
         });
       }
     }

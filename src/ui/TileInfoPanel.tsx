@@ -6,6 +6,7 @@
 import React, { CSSProperties } from 'react';
 import { useStore } from '../state/store';
 import { getProducerTraits } from '../simulation/producerTypes';
+import { lineageDisplayName } from '../simulation/speciesNames';
 
 const panelStyle: CSSProperties = {
   position: 'fixed',
@@ -179,7 +180,8 @@ export default function TileInfoPanel() {
           {tilesCreatures.map((creature) => (
             <div key={creature.id} style={creatureRowStyle}>
               <div>
-                <strong>{creature.speciesId}</strong> (ID: {creature.id})
+                <strong>{lineageDisplayName(creature.speciesId, creature.lineageId)}</strong>{' '}
+                <span style={{ color: '#777' }}>({creature.speciesId} · {creature.id})</span>
               </div>
               <div style={{ color: '#aaa', marginTop: '0.2rem' }}>
                 Energy: {creature.energy.toFixed(2)} | Age: {creature.age}
@@ -201,7 +203,10 @@ export default function TileInfoPanel() {
           <div style={sectionTitleStyle}>Corpses ({tileCorpses.length})</div>
           {tileCorpses.map((corpse) => (
             <div key={corpse.id} style={{ ...creatureRowStyle, borderLeft: '3px solid #8b6f55' }}>
-              <div><strong>{corpse.speciesId}</strong> (ID: {corpse.id})</div>
+              <div>
+                <strong>{lineageDisplayName(corpse.speciesId, corpse.lineageId)}</strong>{' '}
+                <span style={{ color: '#777' }}>({corpse.speciesId} · {corpse.id})</span>
+              </div>
               <div style={{ color: '#aaa', marginTop: '0.2rem' }}>
                 Decay remaining: {corpse.corpseDecayTicks} ticks
               </div>

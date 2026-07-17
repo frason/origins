@@ -3,6 +3,7 @@
 import { CSSProperties } from 'react';
 import { useStore } from '../state/store';
 import { shortLineageId, summarizeSpecies } from './speciesModel';
+import { lineageDisplayName, speciesDisplayName } from '../simulation/speciesNames';
 
 const panelStyle: CSSProperties = {
   backgroundColor: '#222',
@@ -41,12 +42,12 @@ export default function SpeciesPanel() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
               <span style={{ color: strategyColors[item.strategy] ?? '#bbb', fontWeight: 600 }}>
-                {item.speciesId}
+                {speciesDisplayName(item.speciesId)}
               </span>
               <span>{item.population}</span>
             </div>
             <div style={{ color: '#888', fontSize: '0.72rem', margin: '0.15rem 0 0.35rem' }}>
-              {item.strategy} · {item.lineages.length}{' '}
+              {item.strategy} · {item.speciesId} · {item.lineages.length}{' '}
               {item.lineages.length === 1 ? 'lineage' : 'lineages'}
             </div>
             {item.lineages.slice(0, 4).map((lineage) => (
@@ -63,7 +64,8 @@ export default function SpeciesPanel() {
                 }}
               >
                 <span>
-                  ↳ {shortLineageId(lineage.lineageId)} · size{' '}
+                  ↳ {lineageDisplayName(item.speciesId, lineage.lineageId)} ·{' '}
+                  <span title={lineage.lineageId}>{shortLineageId(lineage.lineageId)}</span> · size{' '}
                   {lineage.representativeTraits.size.toFixed(2)} · speed{' '}
                   {lineage.representativeTraits.speed.toFixed(2)}
                 </span>

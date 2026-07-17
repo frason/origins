@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import { useStore } from '../state/store';
 import { buildSessionSummary, hasLivingCreatures } from './sessionSummary';
+import { speciesDisplayName } from '../simulation/speciesNames';
 
 const overlayStyle: CSSProperties = {
   position: 'fixed',
@@ -26,7 +27,9 @@ const cardStyle: CSSProperties = {
 };
 
 function eventText(event: ReturnType<typeof buildSessionSummary>['finalEvents'][number]) {
-  const subject = event.speciesId ?? event.creatureId ?? 'ecosystem';
+  const subject = event.speciesId
+    ? speciesDisplayName(event.speciesId)
+    : event.creatureId ?? 'ecosystem';
   if (event.type === 'birth') return `${subject} was born`;
   if (event.type === 'death') return `${subject} died`;
   if (event.type === 'mutation') return event.detail ?? `${subject} formed a new lineage`;
