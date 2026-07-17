@@ -2,6 +2,11 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useStore } from '../state/store';
 import type { Biome } from '../simulation/world';
 import type { ProducerArchetype } from '../simulation/producerTypes';
+import {
+  calculateGridLayout,
+  GridLayout,
+  viewportPointToTile,
+} from './worldViewport';
 
 /**
  * Rendering constants for the canvas grid
@@ -189,7 +194,9 @@ function extractCreatures(worldState: any): Array<{
 const WorldView: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { worldState, tick, setSelectedTile } = useStore();
-  const [cellSize, setCellSize] = useState(4);
+  const [layout, setLayout] = useState<GridLayout>(() =>
+    calculateGridLayout(400, 400, GRID_WIDTH, GRID_HEIGHT)
+  );
 
   /**
    * Handle canvas resize and update cell size
@@ -200,20 +207,19 @@ const WorldView: React.FC = () => {
       if (!canvas || !canvas.parentElement) return;
 
       const rect = canvas.parentElement.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = rect.height;
-
-      // Calculate cell size based on canvas width
-      const calculatedCellSize = Math.floor(canvas.width / GRID_WIDTH);
-      setCellSize(Math.max(1, calculatedCellSize));
+      const width = Math.max(1, Math.floor(rect.width));
+      const height = Math.max(1, Math.floor(rect.height));
+      canvas.width = width;
+      canvas.height = height;
+      setLayout(calculateGridLayout(width, height, GRID_WIDTH, GRID_HEIGHT));
     };
 
     // Initial size
     handleResize();
 
-    // Resize listener
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const observer = new ResizeObserver(handleResize);
+    if (canvasRef.current?.parentElement) observer.observe(canvasRef.current.parentElement);
+    return () => observer.disconnect();
   }, []);
 
   /**
@@ -228,19 +234,13 @@ const WorldView: React.FC = () => {
       const pixelX = event.clientX - rect.left;
       const pixelY = event.clientY - rect.top;
 
-      // Convert pixel coordinates to grid coordinates
-      const gridX = Math.floor(pixelX / cellSize);
-      const gridY = Math.floor(pixelY / cellSize);
-
-      // Clamp to grid bounds
-      if (gridX >= 0 && gridX < GRID_WIDTH && gridY >= 0 && gridY < GRID_HEIGHT) {
-        setSelectedTile({ x: gridX, y: gridY });
-      }
+      const tile = viewportPointToTile(pixelX, pixelY, layout, GRID_WIDTH, GRID_HEIGHT);
+      if (tile) setSelectedTile(tile);
     };
 
     canvas.addEventListener('click', handleCanvasClick);
     return () => canvas.removeEventListener('click', handleCanvasClick);
-  }, [cellSize, setSelectedTile]);
+  }, [layout, setSelectedTile]);
 
   /**
    * Main render loop using requestAnimationFrame
@@ -288,8 +288,8 @@ const WorldView: React.FC = () => {
       for (let y = 0; y < grid.length; y++) {
         for (let x = 0; x < grid[y].length; x++) {
           const cell = grid[y][x];
-          const pixelX = x * cellSize;
-          const pixelY = y * cellSize;
+          const pixelX = layout.offsetX + x * layout.cellSize;
+          const pixelY = layout.offsetY + y * layout.cellSize;
 
           // Tint the deterministic biome palette by local energy.
           const energyRatio = Math.min(1, cell.energy / MAX_CELL_ENERGY);
@@ -299,7 +299,7 @@ const WorldView: React.FC = () => {
             255,
             Math.round(baseG * brightness)
           )}, ${Math.min(255, Math.round(baseB * brightness))})`;
-          ctx.fillRect(pixelX, pixelY, cellSize, cellSize);
+          ctx.fillRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
 
           // Apply green overlay for producer biomass
           if (cell.producerBiomass > 0) {
@@ -308,7 +308,7 @@ const WorldView: React.FC = () => {
 
             const [producerR, producerG, producerB] = PRODUCER_COLORS[cell.producerArchetype];
             ctx.fillStyle = `rgba(${producerR}, ${producerG}, ${producerB}, ${opacity})`;
-            ctx.fillRect(pixelX, pixelY, cellSize, cellSize);
+            ctx.fillRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
           }
         }
       }
@@ -323,11 +323,11 @@ const WorldView: React.FC = () => {
         const [r, g, b] = getColorFromSpeciesId(creature.speciesId);
         ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
 
-        const pixelX = creature.x * cellSize + cellSize / 2;
-        const pixelY = creature.y * cellSize + cellSize / 2;
+        const pixelX = layout.offsetX + creature.x * layout.cellSize + layout.cellSize / 2;
+        const pixelY = layout.offsetY + creature.y * layout.cellSize + layout.cellSize / 2;
 
         ctx.beginPath();
-        ctx.arc(pixelX, pixelY, CREATURE_RADIUS, 0, 2 * Math.PI);
+        ctx.arc(pixelX, pixelY, Math.max(CREATURE_RADIUS, layout.cellSize * 0.25), 0, 2 * Math.PI);
         ctx.fill();
       }
 
@@ -342,7 +342,7 @@ const WorldView: React.FC = () => {
         cancelAnimationFrame(animationId);
       }
     };
-  }, [worldState, cellSize, tick]);
+  }, [worldState, layout, tick]);
 
   return (
     <div
