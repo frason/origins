@@ -1,6 +1,7 @@
-import { createEcosystemHistorySample, type EcosystemHistorySample } from '../simulation/ecosystemHistory';
+import type { EcosystemHistorySample } from '../simulation/ecosystemHistory';
 import { speciesDisplayName } from '../simulation/speciesNames';
 import type { WorldSnapshot } from '../state/store';
+import { getLiveEventTotals } from './liveEventMetrics';
 
 export interface EvolutionTimelinePoint extends EcosystemHistorySample {
   speciesCount: number;
@@ -34,6 +35,32 @@ function dominantSpecies(sample: EcosystemHistorySample): string | null {
   return dominant;
 }
 
+function currentSample(
+  history: EcosystemHistorySample[] | undefined,
+  world: WorldSnapshot,
+  tick: number
+): EcosystemHistorySample {
+  const species = new Map<string, number>();
+  const lineages = new Set<string>();
+  let population = 0;
+  for (const creature of world.creatures) {
+    if (creature.lifecycleState !== 'alive') continue;
+    population++;
+    species.set(creature.speciesId, (species.get(creature.speciesId) ?? 0) + 1);
+    lineages.add(`${creature.speciesId}:${creature.lineageId}`);
+  }
+  const totals = getLiveEventTotals(history, world.events);
+  return {
+    tick,
+    population,
+    speciesPopulations: [...species.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([speciesId, count]) => ({ speciesId, population: count })),
+    lineageCount: lineages.size,
+    ...totals,
+  };
+}
+
 /** Merge bounded engine history with the current unsampled tick and create chart coordinates. */
 export function buildEvolutionTimeline(
   history: EcosystemHistorySample[] | undefined,
@@ -43,7 +70,7 @@ export function buildEvolutionTimeline(
   if (!world) return null;
   const samples = new Map<number, EcosystemHistorySample>();
   for (const sample of history ?? []) samples.set(sample.tick, sample);
-  samples.set(tick, createEcosystemHistorySample(tick, world.creatures, world.events));
+  samples.set(tick, currentSample(history, world, tick));
   const ordered = [...samples.values()].sort((a, b) => a.tick - b.tick);
   const lastTick = Math.max(1, ordered[ordered.length - 1]?.tick ?? 1);
   const peakPopulation = Math.max(0, ...ordered.map((sample) => sample.population));

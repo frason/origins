@@ -30,9 +30,13 @@ export function getEcosystemPressures(
 ): EcosystemPressure[] {
   if (!world) return [];
   const living = world.creatures.filter((creature) => creature.lifecycleState === 'alive');
-  const recentDeaths = world.events.filter(
-    (event) => event.type === 'death' && event.tick >= Math.max(0, tick - 25)
-  );
+  const recentDeaths = [] as WorldSnapshot['events'];
+  const recentStart = Math.max(0, tick - 25);
+  for (let index = world.events.length - 1; index >= 0; index--) {
+    const event = world.events[index];
+    if (event.tick < recentStart) break;
+    if (event.type === 'death') recentDeaths.push(event);
+  }
   const candidates: EcosystemPressure[] = [];
 
   if (living.length === 0) {

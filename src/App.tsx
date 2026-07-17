@@ -5,7 +5,7 @@ import SpeciesPanel from './ui/SpeciesPanel';
 import StatsPanel from './ui/StatsPanel';
 import TileInfoPanel from './ui/TileInfoPanel';
 import ExtinctionSummary from './ui/ExtinctionSummary';
-import { useStore, WorldSnapshot, CreatureSnapshot } from './state/store';
+import { useStore } from './state/store';
 import { introduceSpecies, tickEngine, EngineState } from './simulation/engine';
 import type { EnergyStrategy } from './utils/traits';
 import { buildDemoEngine } from './simulation/demoWorld';
@@ -19,42 +19,8 @@ import {
   type RecipeReplaySession,
 } from './simulation/recipeReplay';
 import type { WorldRecipe } from './ui/worldRecipe';
-
-function snapshotOf(engine: EngineState): WorldSnapshot {
-  const worldJSON = engine.world.toJSON() as {
-    width: number;
-    height: number;
-    cells: WorldSnapshot['cells'];
-  };
-  return {
-    width: worldJSON.width,
-    height: worldJSON.height,
-    cells: worldJSON.cells,
-    creatures: engine.creatures.map(
-      (c): CreatureSnapshot => ({
-        id: c.id,
-        speciesId: c.speciesId,
-        lineageId: c.lineageId,
-        parentId: c.parentId,
-        traits: { ...c.traits },
-        x: c.x,
-        y: c.y,
-        energy: c.energy,
-        age: c.age,
-        lifecycleState: c.lifecycleState,
-        corpseDecayTicks: c.corpseDecayTicks,
-      })
-    ),
-    events: engine.events.map((event) => ({ ...event })),
-    seed: engine.seed,
-    tick: engine.tick,
-    constants: { ...engine.constants },
-    history: engine.history.map((sample) => ({
-      ...sample,
-      speciesPopulations: sample.speciesPopulations.map((species) => ({ ...species })),
-    })),
-  };
-}
+import { snapshotEngine } from './state/snapshot';
+import { getUiFrameInterval } from './ui/framePacing';
 
 export default function App() {
   const engineRef = useRef<EngineState | null>(null);
@@ -68,7 +34,7 @@ export default function App() {
 
   const publish = useCallback((engine: EngineState) => {
     const store = useStore.getState();
-    store.setWorldState(snapshotOf(engine));
+    store.setWorldState(snapshotEngine(engine));
     store.setTick(engine.tick);
     if (engine.tick > 0 && !engine.creatures.some((creature) => creature.lifecycleState === 'alive')) {
       store.setRunning(false);
@@ -198,7 +164,7 @@ export default function App() {
         if (!useStore.getState().isRunning) break;
       }
       if (ticked && engineRef.current) publish(engineRef.current);
-    }, Math.max(30, tickMs));
+    }, getUiFrameInterval(speed));
     return () => clearInterval(interval);
   }, [isRunning, speed, publish]);
 

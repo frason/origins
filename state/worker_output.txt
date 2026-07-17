@@ -1,3 +1,2 @@
-PASS — Added structured death causes and evidence-based pressure explanations for #80.
-The engine attributes mortality; the UI shows bounded likely contributors without claiming certainty.
-All 360 tests pass and the production build succeeds.
+PASS — Kept long-session UI updates responsive for #81 by capping visual publication at 10 fps, reusing immutable history arrays, and bounding recent event scans without slowing simulation ticks.
+All 369 tests pass, including snapshot isolation, cumulative history, frame pacing, and large-history behavior; the production build succeeds.

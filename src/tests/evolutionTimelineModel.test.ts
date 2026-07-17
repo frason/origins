@@ -58,4 +58,18 @@ describe('evolution timeline presentation model', () => {
     expect(model.description).toContain('No living species currently leads');
     expect(buildEvolutionTimeline([], null, 0)).toBeNull();
   });
+
+  it('uses cumulative history plus recent events for the current point', () => {
+    const current = world([creature('a1', 'alpha', 'root')]);
+    current.events = [
+      { type: 'birth', tick: 9 },
+      { type: 'birth', tick: 10 },
+      { type: 'death', tick: 11 },
+      { type: 'mutation', tick: 12 },
+    ];
+    const model = buildEvolutionTimeline(history, current, 15)!;
+    expect(model.points[model.points.length - 1]).toMatchObject({
+      births: 3, deaths: 2, mutations: 2,
+    });
+  });
 });

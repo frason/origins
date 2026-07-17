@@ -11,6 +11,7 @@ import {
   type HealthTone,
 } from './ecosystemHealth';
 import EcosystemPressurePanel from './EcosystemPressurePanel';
+import { getLiveEventTotals } from './liveEventMetrics';
 
 const panelStyle: CSSProperties = {
   backgroundColor: '#222',
@@ -102,8 +103,9 @@ export default function StatsPanel() {
     for (const cell of worldState.cells) {
       totalBiomass += cell.producerBiomass;
     }
-    births = worldState.events.filter((event) => event.type === 'birth').length;
-    mutations = worldState.events.filter((event) => event.type === 'mutation').length;
+    const totals = getLiveEventTotals(worldState.history, worldState.events);
+    births = totals.births;
+    mutations = totals.mutations;
   }
 
   const biodiversity = getBiodiversityState(species.size);

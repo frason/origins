@@ -41,9 +41,14 @@ export function buildEventStories(
   events: EventSnapshot[],
   limit: number = 8
 ): EventStory[] {
+  const boundedLimit = Math.max(0, limit);
+  if (boundedLimit === 0) return [];
   const grouped = new Map<string, GroupedEvent>();
+  let cutoffTick: number | null = null;
 
-  events.forEach((event, sequence) => {
+  for (let sequence = events.length - 1; sequence >= 0; sequence--) {
+    const event = events[sequence];
+    if (cutoffTick !== null && event.tick < cutoffTick) break;
     const unique =
       event.type === 'mutation' ||
       event.type === 'extinction' ||
@@ -52,13 +57,19 @@ export function buildEventStories(
       ? `${event.tick}|${event.type}|${event.speciesId ?? ''}|${event.creatureId ?? sequence}`
       : `${event.tick}|${event.type}|${event.speciesId ?? ''}|${event.type === 'death' ? event.deathCause ?? '' : ''}`;
     const existing = grouped.get(key);
-    if (existing) existing.count++;
+    if (existing) {
+      existing.count++;
+      // Preserve the representative selected by the original forward scan.
+      existing.event = event;
+      existing.sequence = sequence;
+    }
     else grouped.set(key, { event, count: 1, sequence });
-  });
+    if (grouped.size >= boundedLimit && cutoffTick === null) cutoffTick = event.tick;
+  }
 
   return [...grouped.values()]
     .sort((a, b) => b.event.tick - a.event.tick || b.sequence - a.sequence)
-    .slice(0, Math.max(0, limit))
+    .slice(0, boundedLimit)
     .map(({ event, count, sequence }) => {
       const species = displaySpecies(event.speciesId);
       if (event.type === 'birth') {
@@ -137,14 +148,6 @@ export function buildEventStories(
     });
 }
 
-function netPopulation(events: EventSnapshot[]): number {
-  return events.reduce((net, event) => {
-    if (event.type === 'birth') return net + 1;
-    if (event.type === 'death') return net - 1;
-    return net;
-  }, 0);
-}
-
 /** Compare the latest 25 ticks with the preceding 25 to reveal recovery, not just totals. */
 export function getPopulationTrend(
   events: EventSnapshot[],
@@ -152,14 +155,22 @@ export function getPopulationTrend(
 ): PopulationTrend {
   const currentStart = Math.max(0, tick - 25);
   const priorStart = Math.max(0, tick - 50);
-  const current = events.filter((event) => event.tick >= currentStart);
-  const prior = events.filter(
-    (event) => event.tick >= priorStart && event.tick < currentStart
-  );
-  const births = current.filter((event) => event.type === 'birth').length;
-  const deaths = current.filter((event) => event.type === 'death').length;
-  const currentNet = netPopulation(current);
-  const priorNet = netPopulation(prior);
+  let births = 0;
+  let deaths = 0;
+  let priorBirths = 0;
+  let priorDeaths = 0;
+  for (let index = events.length - 1; index >= 0; index--) {
+    const event = events[index];
+    if (event.tick < priorStart) break;
+    if (event.type !== 'birth' && event.type !== 'death') continue;
+    if (event.tick >= currentStart) {
+      if (event.type === 'birth') births++;
+      else deaths++;
+    } else if (event.type === 'birth') priorBirths++;
+    else priorDeaths++;
+  }
+  const currentNet = births - deaths;
+  const priorNet = priorBirths - priorDeaths;
 
   let label: PopulationTrend['label'];
   if (births === 0 && deaths === 0) label = 'Quiet';

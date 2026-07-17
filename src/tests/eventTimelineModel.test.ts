@@ -89,6 +89,34 @@ describe('ecosystem event storytelling', () => {
     expect(buildEventStories(events, 4)).toEqual(first);
   });
 
+  it('preserves newest same-tick grouping after a large old history', () => {
+    const oldEvents: EventSnapshot[] = Array.from({ length: 10_000 }, (_, tick) => ({
+      type: 'birth', tick, speciesId: `old-${tick}`,
+    }));
+    const newest: EventSnapshot[] = Array.from({ length: 200 }, (_, index) => ({
+      type: 'death', tick: 10_001, speciesId: 'grazer', creatureId: `recent-${index}`,
+      deathCause: index < 125 ? 'starvation' : 'predation',
+    }));
+    const stories = buildEventStories([...oldEvents, ...newest], 2);
+
+    expect(stories).toHaveLength(2);
+    expect(stories.map((story) => story.detail)).toEqual(expect.arrayContaining([
+      '125 deaths recorded · starvation',
+      '75 deaths recorded · predation',
+    ]));
+  });
+
+  it('ignores old history when calculating the current population trend', () => {
+    const events: EventSnapshot[] = [
+      ...Array.from({ length: 10_000 }, (_, tick) => ({ type: 'death' as const, tick })),
+      { type: 'birth', tick: 10_080 },
+      { type: 'birth', tick: 10_081 },
+    ];
+    expect(getPopulationTrend(events, 10_100)).toMatchObject({
+      label: 'Growing', births: 2, deaths: 0,
+    });
+  });
+
   it('explains grouped God Mode changes in plain language', () => {
     const [story] = buildEventStories([{
       type: 'intervention',
