@@ -1,4 +1,4 @@
-PASS — Replaced fixed starter rings with seeded habitat-aware placement on unique land tiles.
-Herbivores are distributed across the world while omnivores, carnivores, and scavengers remain within four tiles of a prey anchor for a playable opening.
-Tests prove same-seed replay, different-seed variation, valid terrain, unique tiles, and broad spatial spread.
-Verification: 280/280 tests pass and the production build succeeds.
+PASS — Replaced the fixed 300px control column with an animated right-side overlay drawer.
+The world retains the full centered viewport; the drawer is narrow-screen safe and closes by button, backdrop, or Escape.
+Closed presentation is tested to remain off-screen, hidden, and non-interactive; existing viewport tests cover wide and constrained layouts.
+Verification: 282/282 tests pass and the production build succeeds.

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import WorldView from './ui/WorldView';
 import ControlPanel from './ui/ControlPanel';
 import SpeciesPanel from './ui/SpeciesPanel';
@@ -11,6 +11,7 @@ import { createEngine, tickEngine, EngineState } from './simulation/engine';
 import { SimulationConstants } from './utils/constants';
 import { getBiomeProductivity } from './simulation/producer';
 import { buildStarterCreatures } from './simulation/starterWorld';
+import SettingsDrawer from './ui/SettingsDrawer';
 
 const WORLD_SEED = 12345;
 
@@ -68,6 +69,7 @@ export default function App() {
   const engineRef = useRef<EngineState | null>(null);
   const isRunning = useStore((s) => s.isRunning);
   const speed = useStore((s) => s.speed);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const publish = useCallback((engine: EngineState) => {
     const store = useStore.getState();
@@ -125,31 +127,31 @@ export default function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#111' }}>
-      <div style={{ padding: '1rem', backgroundColor: '#1a1a1a', color: '#fff', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-        <h1 style={{ margin: '0 0 0.5rem 0' }}>Project Origins</h1>
-        <p style={{ color: '#666', fontSize: '0.9rem', margin: 0 }}>
-          A persistent ecosystem simulation — 100×100 world grid
-        </p>
-      </div>
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        <div style={{ flex: 1, overflow: 'hidden' }}>
-          <WorldView />
+      <div style={{ padding: '1rem', backgroundColor: '#1a1a1a', color: '#fff', fontFamily: 'system-ui, -apple-system, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+        <div>
+          <h1 style={{ margin: '0 0 0.5rem 0' }}>Project Origins</h1>
+          <p style={{ color: '#666', fontSize: '0.9rem', margin: 0 }}>
+            A persistent ecosystem simulation — 100×100 world grid
+          </p>
         </div>
-        <div
-          style={{
-            width: 300,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.75rem',
-            padding: '0.75rem',
-            overflowY: 'auto',
-          }}
+        <button
+          type="button"
+          aria-controls="settings-drawer"
+          aria-expanded={settingsOpen}
+          onClick={() => setSettingsOpen((open) => !open)}
+          style={{ border: '1px solid #555', borderRadius: 7, padding: '0.55rem 0.8rem', background: settingsOpen ? '#4a3a2a' : '#292c30', color: '#eee', cursor: 'pointer', whiteSpace: 'nowrap' }}
         >
+          ⚙ Settings
+        </button>
+      </div>
+      <div style={{ flex: 1, overflow: 'hidden' }}>
+        <WorldView />
+      </div>
+      <SettingsDrawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}>
           <ControlPanel onReset={reset} />
           <StatsPanel />
           <SpeciesPanel />
-        </div>
-      </div>
+      </SettingsDrawer>
       <TileInfoPanel />
       <ExtinctionSummary onRestart={reset} />
     </div>
