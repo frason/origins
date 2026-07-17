@@ -17,6 +17,7 @@ import { SimulationConstants, SIMULATION_CONSTANTS } from '../utils/constants';
 import type { Traits } from '../utils/traits';
 import type { Biome } from '../simulation/world';
 import type { ProducerArchetype } from '../simulation/producerTypes';
+import type { SimEvent } from '../simulation/events';
 
 // Cell interface for world state
 export interface CellSnapshot {
@@ -46,13 +47,7 @@ export interface CreatureSnapshot {
   corpseDecayTicks: number;
 }
 
-export interface EventSnapshot {
-  type: 'birth' | 'death' | 'mutation' | 'extinction';
-  tick: number;
-  creatureId?: string;
-  speciesId?: string;
-  detail?: string;
-}
+export type EventSnapshot = SimEvent;
 
 // TODO: Import these from engine when types are finalized (issues #5–#13)
 /**

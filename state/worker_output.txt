@@ -1,3 +1,3 @@
-PASS — Added a grouped live ecosystem story timeline for #65.
-It highlights named mutations/extinctions and detects quiet, growth, decline, recovery, and turnover.
-Verification: 303/303 tests pass and the production build succeeds.
+PASS — Added structured mutation ancestry and an interactive lineage history for #67.
+The panel shows parentage, branch age, living/extinct status, and exact trait changes.
+Verification: 307/307 tests pass and the production build succeeds.

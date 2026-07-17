@@ -10,6 +10,7 @@ import {
 import { growProducers } from './producer';
 import { reproduceCreature } from './species';
 import { lineageDisplayName } from './speciesNames';
+import { compareTraits, type SimEvent } from './events';
 import {
   decideTick,
   applyMovement,
@@ -31,22 +32,7 @@ import {
   dissipateToxicity,
 } from './decomposition';
 
-/**
- * Event type for significant events during simulation
- */
-export type SimEventType = 'birth' | 'death' | 'mutation' | 'extinction';
-
-/**
- * Event object logged during simulation
- * Tracks births, deaths, mutations, and extinctions with metadata
- */
-export interface SimEvent {
-  type: SimEventType;
-  tick: number;
-  creatureId?: string;
-  speciesId?: string;
-  detail?: string;
-}
+export type { SimEvent, SimEventType, TraitChange } from './events';
 
 /**
  * Complete engine state snapshot
@@ -319,6 +305,9 @@ export function tickEngine(
           tick: state.tick,
           creatureId: child.id,
           speciesId: child.speciesId,
+          parentLineageId: creature.lineageId,
+          lineageId: child.lineageId,
+          traitChanges: compareTraits(creature.traits, child.traits),
           detail: `${lineageDisplayName(
             creature.speciesId,
             creature.lineageId

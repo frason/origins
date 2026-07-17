@@ -13,6 +13,7 @@ import { getBiomeProductivity } from './simulation/producer';
 import { buildStarterCreatures } from './simulation/starterWorld';
 import SettingsDrawer from './ui/SettingsDrawer';
 import EventTimeline from './ui/EventTimeline';
+import LineageHistory from './ui/LineageHistory';
 
 const WORLD_SEED = 12345;
 
@@ -153,6 +154,7 @@ export default function App() {
           <StatsPanel />
           <EventTimeline />
           <SpeciesPanel />
+          <LineageHistory />
       </SettingsDrawer>
       <TileInfoPanel />
       <ExtinctionSummary onRestart={reset} />

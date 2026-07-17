@@ -322,6 +322,30 @@ describe('Simulation Engine', () => {
       expect(birthEvents[0].speciesId).toBe('species_1');
     });
 
+    it('records reproducible ancestry and trait changes for mutations', () => {
+      const creature = new Creature({
+        speciesId: 'species_1',
+        lineageId: 'lineage_root',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS },
+        x: 50,
+        y: 50,
+        energy: 300,
+      });
+      const engine = createEngine(12345, [creature], 100, 100, {
+        defaultMutationRate: 1,
+        monocultureMortalityPenalty: 0,
+      });
+      const next = tickEngine(engine);
+      const mutation = next.events.find((event) => event.type === 'mutation');
+
+      expect(mutation?.parentLineageId).toBe('lineage_root');
+      expect(mutation?.lineageId).toBeTruthy();
+      expect(mutation?.lineageId).not.toBe(mutation?.parentLineageId);
+      expect(mutation?.traitChanges).toHaveLength(1);
+      expect(mutation?.traitChanges?.[0].before).not.toBe(mutation?.traitChanges?.[0].after);
+    });
+
     it('should age creatures each tick', () => {
       const creature = new Creature({
         speciesId: 'species_1',
