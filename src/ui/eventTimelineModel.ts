@@ -80,6 +80,18 @@ export function buildEventStories(
         };
       }
       if (event.type === 'mutation') {
+        const strategyShift = event.traitChanges?.find(
+          (change) => change.trait === 'energyStrategy'
+        );
+        if (strategyShift) {
+          return {
+            id: `${event.tick}-mutation-${event.creatureId ?? sequence}`,
+            tick: event.tick,
+            tone: 'evolution',
+            title: `${species} discovered a new niche`,
+            detail: `${strategyShift.before} → ${strategyShift.after}${event.detail ? ` · ${event.detail}` : ''}`,
+          };
+        }
         return {
           id: `${event.tick}-mutation-${event.creatureId ?? sequence}`,
           tick: event.tick,

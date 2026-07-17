@@ -33,6 +33,26 @@ describe('ecosystem event storytelling', () => {
     expect(stories.filter((story) => story.tone === 'evolution')).toHaveLength(2);
   });
 
+  it('distinguishes ecological strategy shifts from numeric trait drift', () => {
+    const stories = buildEventStories([
+      {
+        type: 'mutation', tick: 30, speciesId: 'grazer', creatureId: 'niche',
+        detail: 'Aurelia agilis → Aurelia vorax',
+        traitChanges: [{ trait: 'energyStrategy', before: 'herbivore', after: 'omnivore' }],
+      },
+      {
+        type: 'mutation', tick: 29, speciesId: 'grazer', creatureId: 'speed',
+        traitChanges: [{ trait: 'speed', before: 1, after: 1.1 }],
+      },
+    ]);
+
+    expect(stories[0]).toMatchObject({
+      title: `${speciesDisplayName('grazer')} discovered a new niche`,
+      detail: expect.stringContaining('herbivore → omnivore'),
+    });
+    expect(stories[1].title).toBe('A new lineage emerged');
+  });
+
   it('detects recovery when growth follows a declining period', () => {
     const events: EventSnapshot[] = [
       ...Array.from({ length: 5 }, (_, index) => ({ type: 'death' as const, tick: 55 + index })),

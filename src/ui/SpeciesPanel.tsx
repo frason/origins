@@ -68,6 +68,9 @@ export default function SpeciesPanel() {
                   <span title={lineage.lineageId}>{shortLineageId(lineage.lineageId)}</span> · size{' '}
                   {lineage.representativeTraits.size.toFixed(2)} · speed{' '}
                   {lineage.representativeTraits.speed.toFixed(2)}
+                  {' '}· <span style={{ color: strategyColors[lineage.representativeTraits.energyStrategy] ?? '#aaa' }}>
+                    {lineage.representativeTraits.energyStrategy}
+                  </span>
                 </span>
                 <span>{lineage.population}</span>
               </div>

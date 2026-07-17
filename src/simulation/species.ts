@@ -70,6 +70,10 @@ export function mutateTraits(
 
   const mutationTargets: Array<(typeof numericTraits)[number] | 'energyStrategy'> = [
     ...numericTraits,
+    // Ecological strategy exploration was too rare across otherwise healthy fixed-seed runs.
+    // Three slots keep numeric drift dominant while making niche shifts reliably observable.
+    'energyStrategy',
+    'energyStrategy',
     'energyStrategy',
   ];
   const target = randChoice(rng, mutationTargets);

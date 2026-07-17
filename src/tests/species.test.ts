@@ -116,7 +116,7 @@ describe('Species - Mutations and Lineage Tracking', () => {
       expect(traits1).not.toEqual(traits2);
     });
 
-    it('should include energy strategy among possible mutation targets', () => {
+    it('weights ecological strategy exploration while keeping numeric drift dominant', () => {
       // Track how many times the strategy changes across mutations
       const rng = createRng(42);
       let current = { ...DEFAULT_TRAITS };
@@ -131,8 +131,8 @@ describe('Species - Mutations and Lineage Tracking', () => {
         }
       }
 
-      expect(strategyChanges).toBeGreaterThanOrEqual(40);
-      expect(strategyChanges).toBeLessThanOrEqual(110);
+      expect(strategyChanges).toBeGreaterThanOrEqual(150);
+      expect(strategyChanges).toBeLessThanOrEqual(250);
     });
 
     it('should not modify the original traits object', () => {

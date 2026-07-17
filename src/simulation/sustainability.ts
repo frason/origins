@@ -18,7 +18,9 @@ export interface SustainabilityResult {
   finalSpeciesCount: number;
   finalPopulation: number;
   mutationCount: number;
+  strategyShiftCount: number;
   activeLineageCount: number;
+  activeNicheCount: number;
   maximumDominantShare: number;
   longestMonocultureTicks: number;
 }
@@ -111,6 +113,12 @@ export function evaluateSustainability(
       .filter((creature) => creature.lifecycleState === 'alive')
       .map((creature) => creature.lineageId)
   );
+  const activeNiches = new Set(
+    state.creatures
+      .filter((creature) => creature.lifecycleState === 'alive')
+      .map((creature) => `${creature.speciesId}:${creature.traits.energyStrategy}`)
+  );
+  const mutationEvents = state.events.filter((event) => event.type === 'mutation');
   return {
     preset: preset.name,
     seed,
@@ -121,8 +129,12 @@ export function evaluateSustainability(
     finalPopulation: state.creatures.filter(
       (creature) => creature.lifecycleState === 'alive'
     ).length,
-    mutationCount: state.events.filter((event) => event.type === 'mutation').length,
+    mutationCount: mutationEvents.length,
+    strategyShiftCount: mutationEvents.filter((event) =>
+      event.traitChanges?.some((change) => change.trait === 'energyStrategy')
+    ).length,
     activeLineageCount: activeLineages.size,
+    activeNicheCount: activeNiches.size,
     maximumDominantShare,
     longestMonocultureTicks,
   };

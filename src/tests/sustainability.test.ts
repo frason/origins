@@ -67,6 +67,7 @@ describe('God Mode sustainability matrix', () => {
       expect(longevity[index].allSpeciesSurvivalTicks).toBe(200);
       expect(longevity[index].ecosystemSurvivalTicks).toBe(200);
       expect(longevity[index].mutationCount).toBeGreaterThanOrEqual(10);
+      expect(longevity[index].strategyShiftCount).toBeGreaterThanOrEqual(1);
       expect(longevity[index].activeLineageCount).toBeGreaterThanOrEqual(5);
       expect(longevity[index].longestMonocultureTicks).toBe(0);
       expect(longevity[index].maximumDominantShare).toBeLessThan(0.9);
@@ -76,5 +77,6 @@ describe('God Mode sustainability matrix', () => {
     }
     expect(new Set(longevity.map((result) => result.finalPopulation)).size)
       .toBeGreaterThan(1);
+    expect(longevity.every((result) => result.activeNicheCount >= 4)).toBe(true);
   }, 60_000);
 });
