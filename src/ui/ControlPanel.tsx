@@ -11,6 +11,12 @@ import {
 } from '../utils/constants';
 import type { EnergyStrategy } from '../utils/traits';
 import { parseWorldSeed } from './worldSeed';
+import { getEcosystemPressures } from './ecosystemPressures';
+import { getEcosystemTrajectories } from './ecosystemTrajectory';
+import {
+  getGodModeRecommendations,
+  recommendationPatch,
+} from './godModeRecommendations';
 
 interface ControlPanelProps {
   onReset?: () => void;
@@ -229,6 +235,7 @@ export default function ControlPanel({
   replayActive = false,
 }: ControlPanelProps) {
   const tick = useStore((s) => s.tick);
+  const world = useStore((s) => s.worldState);
   const isRunning = useStore((s) => s.isRunning);
   const speed = useStore((s) => s.speed);
   const constants = useStore((s) => s.constants);
@@ -241,6 +248,15 @@ export default function ControlPanel({
   const [introductionMessage, setIntroductionMessage] = useState<string | null>(null);
   const [seedDraft, setSeedDraft] = useState(String(worldSeed));
   const [seedMessage, setSeedMessage] = useState<string | null>(null);
+  const [recommendationMessage, setRecommendationMessage] = useState<string | null>(null);
+
+  const recommendations = showGodMode
+    ? getGodModeRecommendations(
+        getEcosystemPressures(world, tick, constants),
+        getEcosystemTrajectories(world, tick),
+        constants
+      )
+    : [];
 
   useEffect(() => setSeedDraft(String(worldSeed)), [worldSeed]);
 
@@ -354,6 +370,66 @@ export default function ControlPanel({
               Reset Defaults
             </button>
           </div>
+          {recommendations.length > 0 && (
+            <section
+              aria-labelledby="stewardship-title"
+              style={{ borderTop: '1px solid #45413b', paddingTop: '0.75rem', marginBottom: '0.85rem' }}
+            >
+              <div id="stewardship-title" style={{ fontWeight: 600, marginBottom: '0.25rem' }}>
+                Stewardship suggestions
+              </div>
+              <div style={{ color: '#888', fontSize: '0.68rem', marginBottom: '0.45rem' }}>
+                Optional responses to measured conditions—not automatic fixes.
+              </div>
+              {recommendations.map((recommendation) => (
+                <article
+                  key={recommendation.id}
+                  style={{ border: '1px solid #3e4548', borderRadius: 6, padding: '0.55rem', marginTop: '0.45rem' }}
+                >
+                  <div style={{ color: '#b9d3dc', fontWeight: 700, fontSize: '0.75rem' }}>
+                    {recommendation.title}
+                  </div>
+                  <div style={{ color: '#8e989c', fontSize: '0.67rem', lineHeight: 1.35, marginTop: '0.2rem' }}>
+                    {recommendation.reason}
+                  </div>
+                  {recommendation.guidance && (
+                    <div style={{ color: '#d0b887', fontSize: '0.67rem', lineHeight: 1.35, marginTop: '0.3rem' }}>
+                      {recommendation.guidance}
+                    </div>
+                  )}
+                  {recommendation.changes.length > 0 && (
+                    <>
+                      <div style={{ marginTop: '0.35rem' }}>
+                        {recommendation.changes.map((item) => (
+                          <div
+                            key={item.constant}
+                            style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', color: '#aaa', fontSize: '0.65rem' }}
+                          >
+                            <span>{item.label}</span>
+                            <span>{item.before} → {item.after}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={replayActive}
+                        style={{ ...buttonStyle, width: '100%', padding: '0.3rem 0.5rem', marginTop: '0.4rem' }}
+                        onClick={() => {
+                          updateConstants(recommendationPatch(recommendation));
+                          setRecommendationMessage(`${recommendation.title} queued for the next tick`);
+                        }}
+                      >
+                        Apply these changes
+                      </button>
+                    </>
+                  )}
+                </article>
+              ))}
+              <div role="status" style={{ minHeight: recommendationMessage ? '1rem' : 0, color: '#79dc89', fontSize: '0.67rem', marginTop: '0.35rem' }}>
+                {recommendationMessage}
+              </div>
+            </section>
+          )}
           {onIntroduceSpecies && (
             <div style={{ borderTop: '1px solid #45413b', paddingTop: '0.75rem', marginBottom: '0.85rem' }}>
               <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Introduce species</div>

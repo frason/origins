@@ -1,2 +1,2 @@
-PASS — Added a prioritized, accessible world turning-point notice for #84 so significant Order, Chaos, and Exploration changes are visible outside Settings without repeating every frame.
-All 383 tests pass, including priority, quiet-state, determinism, repeat suppression, and re-arming behavior; the production build succeeds.
+PASS — Added optional, pressure-aware God Mode stewardship suggestions for #85 with exact previews, bounded values, explicit application, and ordinary intervention recording.
+All 390 tests pass, including prioritization, clamping, determinism, no-op omission, and recorded-intervention integration; the production build succeeds.
