@@ -75,7 +75,8 @@ export function growProducers(
 
       // Calculate growth amount: rate × energy × multiplier
       const biomeMultiplier = useBiomeProductivity ? getBiomeProductivity(cell.biome) : 1;
-      const growth = growthRate * cell.energy * multiplier * biomeMultiplier;
+      const toxicityMultiplier = 1 / (1 + Math.max(0, cell.toxicity));
+      const growth = growthRate * cell.energy * multiplier * biomeMultiplier * toxicityMultiplier;
 
       // Update biomass and cap at maximum
       const carryingCapacity = useBiomeProductivity

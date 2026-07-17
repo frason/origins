@@ -55,6 +55,18 @@ export const CORPSE_DECAY_RATE = 0.1;
 /** Number of ticks a newly dead creature remains in the world */
 export const CORPSE_DECAY_DURATION_TICKS = 30;
 
+/** Toxicity deposited at a corpse's tile per decay tick */
+export const CORPSE_TOXICITY_PER_TICK = 1;
+
+/** Radius, in cells, affected by a decaying corpse */
+export const CORPSE_TOXICITY_RADIUS = 3;
+
+/** Fraction of existing cell toxicity retained each tick */
+export const TOXICITY_RETENTION = 0.9;
+
+/** Fraction of corpse energy consumed in one scavenging action */
+export const SCAVENGING_RATE = 0.25;
+
 // ============================================================================
 // Creature Energy Constants
 // ============================================================================
@@ -109,6 +121,10 @@ export interface SimulationConstants {
   maxCreatureAgeTicks: number;
   corpseDecayRate: number;
   corpseDecayDurationTicks: number;
+  corpseToxicityPerTick: number;
+  corpseToxicityRadius: number;
+  toxicityRetention: number;
+  scavengingRate: number;
   defaultMutationRate: number;
   mutationDrift: number;
   monocultureDominanceThreshold: number;
@@ -134,6 +150,10 @@ export const SIMULATION_CONSTANTS: SimulationConstants = {
   maxCreatureAgeTicks: MAX_CREATURE_AGE_TICKS,
   corpseDecayRate: CORPSE_DECAY_RATE,
   corpseDecayDurationTicks: CORPSE_DECAY_DURATION_TICKS,
+  corpseToxicityPerTick: CORPSE_TOXICITY_PER_TICK,
+  corpseToxicityRadius: CORPSE_TOXICITY_RADIUS,
+  toxicityRetention: TOXICITY_RETENTION,
+  scavengingRate: SCAVENGING_RATE,
   defaultMutationRate: DEFAULT_MUTATION_RATE,
   mutationDrift: MUTATION_DRIFT,
   monocultureDominanceThreshold: MONOCULTURE_DOMINANCE_THRESHOLD,

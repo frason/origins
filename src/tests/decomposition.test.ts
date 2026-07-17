@@ -5,6 +5,7 @@ import {
   checkAgeAndStarvation,
   decayCorpse,
   recycleNutrients,
+  dissipateToxicity,
 } from '../simulation/decomposition';
 import {
   MAX_CREATURE_AGE_TICKS,
@@ -292,6 +293,37 @@ describe('Decomposition Functions', () => {
 
       const cell = world.getCell(50, 50);
       expect(cell.nutrients).toBeCloseTo(20 + expectedNutrients, 5);
+    });
+
+    it('should apply toxicity that diminishes radially', () => {
+      const world = new World(11, 11);
+      const creature = new Creature({
+        speciesId: 'species_1',
+        lineageId: 'lineage_1',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS },
+        x: 5,
+        y: 5,
+        energy: 100,
+        lifecycleState: 'dead',
+        corpseDecayTicks: 10,
+      });
+
+      decayCorpse(creature, world, CORPSE_DECAY_RATE, 4, 3);
+
+      expect(world.getCell(5, 5).toxicity).toBe(4);
+      expect(world.getCell(6, 5).toxicity).toBeGreaterThan(world.getCell(7, 5).toxicity);
+      expect(world.getCell(7, 5).toxicity).toBeGreaterThan(world.getCell(8, 5).toxicity);
+      expect(world.getCell(9, 5).toxicity).toBe(0);
+    });
+
+    it('should dissipate existing toxicity deterministically', () => {
+      const world = new World(3, 3);
+      world.setCell(1, 1, { toxicity: 10 });
+
+      dissipateToxicity(world, 0.8);
+
+      expect(world.getCell(1, 1).toxicity).toBe(8);
     });
   });
 

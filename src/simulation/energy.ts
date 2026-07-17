@@ -5,6 +5,7 @@ import {
   FEEDING_EFFICIENCY,
   REPRODUCTION_ENERGY_THRESHOLD,
   REPRODUCTION_ENERGY_COST,
+  SCAVENGING_RATE,
 } from '../utils/constants';
 import { getProducerTraits } from './producerTypes';
 
@@ -101,6 +102,23 @@ export function feedOnCreature(
   // Transfer energy to predator
   predator.energy += energyTransferred;
 
+  return energyTransferred;
+}
+
+/** Consume part of a corpse, reducing its toxic lifetime and transferring energy. */
+export function feedOnCorpse(
+  scavenger: Creature,
+  corpse: Creature,
+  feedingEfficiency: number = FEEDING_EFFICIENCY,
+  scavengingRate: number = SCAVENGING_RATE
+): number {
+  if (corpse.lifecycleState === 'alive' || corpse.energy <= 0) return 0;
+
+  const consumedEnergy = corpse.energy * Math.max(0, Math.min(1, scavengingRate));
+  corpse.energy -= consumedEnergy;
+  corpse.corpseDecayTicks = Math.max(0, corpse.corpseDecayTicks - 3);
+  const energyTransferred = consumedEnergy * feedingEfficiency;
+  scavenger.energy += energyTransferred;
   return energyTransferred;
 }
 

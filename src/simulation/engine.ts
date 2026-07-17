@@ -17,6 +17,7 @@ import {
 import {
   feedOnProducer,
   feedOnCreature,
+  feedOnCorpse,
   applyMetabolism,
   canReproduce,
   payReproductionCost,
@@ -25,6 +26,7 @@ import {
   checkAgeAndStarvation,
   decayCorpse,
   recycleNutrients,
+  dissipateToxicity,
 } from './decomposition';
 
 /**
@@ -230,6 +232,28 @@ export function tickEngine(
           }
         }
       }
+
+      // Omnivores and dedicated scavengers consume corpses on their tile.
+      if (
+        creature.traits.energyStrategy === 'omnivore' ||
+        creature.traits.energyStrategy === 'scavenger'
+      ) {
+        const corpse = creatures.find(
+          (candidate) =>
+            candidate.lifecycleState !== 'alive' &&
+            candidate.corpseDecayTicks > 0 &&
+            candidate.x === creature.x &&
+            candidate.y === creature.y
+        );
+        if (corpse) {
+          feedOnCorpse(
+            creature,
+            corpse,
+            constants.feedingEfficiency,
+            constants.scavengingRate
+          );
+        }
+      }
     }
   }
 
@@ -308,9 +332,16 @@ export function tickEngine(
   }
 
   // Step 9: Decomposition
+  dissipateToxicity(newWorld, constants.toxicityRetention);
   for (const creature of creatures) {
     if (creature.lifecycleState === 'dead' && creature.corpseDecayTicks > 0) {
-      decayCorpse(creature, newWorld, constants.corpseDecayRate);
+      decayCorpse(
+        creature,
+        newWorld,
+        constants.corpseDecayRate,
+        constants.corpseToxicityPerTick,
+        constants.corpseToxicityRadius
+      );
     }
   }
 

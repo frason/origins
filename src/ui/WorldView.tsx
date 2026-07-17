@@ -109,6 +109,7 @@ function extractGrid(
   Array<{
     energy: number;
     producerBiomass: number;
+    toxicity: number;
     biome: Biome;
     producerArchetype: ProducerArchetype;
   }>
@@ -121,6 +122,7 @@ function extractGrid(
       Array<{
         energy: number;
         producerBiomass: number;
+        toxicity: number;
         biome: Biome;
         producerArchetype: ProducerArchetype;
       }>
@@ -129,6 +131,7 @@ function extractGrid(
       const row: Array<{
         energy: number;
         producerBiomass: number;
+        toxicity: number;
         biome: Biome;
         producerArchetype: ProducerArchetype;
       }> = [];
@@ -138,6 +141,7 @@ function extractGrid(
         row.push({
           energy: cell?.energy ?? 0,
           producerBiomass: cell?.producerBiomass ?? 0,
+          toxicity: cell?.toxicity ?? 0,
           biome: cell?.biome ?? 'grassland',
           producerArchetype: cell?.producerArchetype ?? 'ground-cover',
         });
@@ -153,6 +157,7 @@ function extractGrid(
       row.map((cell: any) => ({
         energy: cell?.energy ?? 0,
         producerBiomass: cell?.producerBiomass ?? 0,
+        toxicity: cell?.toxicity ?? 0,
         biome: cell?.biome ?? 'grassland',
         producerArchetype: cell?.producerArchetype ?? 'ground-cover',
       }))
@@ -310,6 +315,13 @@ const WorldView: React.FC = () => {
 
             const [producerR, producerG, producerB] = PRODUCER_COLORS[cell.producerArchetype];
             ctx.fillStyle = `rgba(${producerR}, ${producerG}, ${producerB}, ${opacity})`;
+            ctx.fillRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
+          }
+
+          // Decaying corpses leave a visible, fading violet ecological scar.
+          if (cell.toxicity > 0) {
+            const toxicityOpacity = Math.min(0.72, cell.toxicity / 8);
+            ctx.fillStyle = `rgba(105, 45, 120, ${toxicityOpacity})`;
             ctx.fillRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
           }
         }

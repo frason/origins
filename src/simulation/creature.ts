@@ -219,7 +219,7 @@ export function scanEnvironment(
 
   // Scan for other creatures within vision range
   for (const other of allCreatures) {
-    if (other.id === creature.id || other.lifecycleState !== 'alive') {
+    if (other.id === creature.id) {
       continue;
     }
 
@@ -227,6 +227,16 @@ export function scanEnvironment(
 
     // Check if within vision range
     if (distance > creature.traits.visionRange) {
+      continue;
+    }
+
+    if (other.lifecycleState !== 'alive') {
+      if (
+        creature.traits.energyStrategy === 'omnivore' ||
+        creature.traits.energyStrategy === 'scavenger'
+      ) {
+        foodCreatures.push(other);
+      }
       continue;
     }
 

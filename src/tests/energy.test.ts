@@ -5,6 +5,7 @@ import {
   applyMetabolism,
   feedOnProducer,
   feedOnCreature,
+  feedOnCorpse,
   canReproduce,
   payReproductionCost,
 } from '../simulation/energy';
@@ -511,6 +512,38 @@ describe('Energy Functions', () => {
       feedOnCreature(predator, prey);
 
       expect(prey.energy).toBe(75);
+    });
+  });
+
+  describe('feedOnCorpse', () => {
+    it('should transfer energy and shorten the corpse lifetime', () => {
+      const scavenger = new Creature({
+        speciesId: 'scavenger',
+        lineageId: 'scavenger_root',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'scavenger' },
+        x: 10,
+        y: 10,
+        energy: 20,
+      });
+      const corpse = new Creature({
+        speciesId: 'prey',
+        lineageId: 'prey_root',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS },
+        x: 10,
+        y: 10,
+        energy: 100,
+        lifecycleState: 'dead',
+        corpseDecayTicks: 20,
+      });
+
+      const gained = feedOnCorpse(scavenger, corpse, 0.8, 0.25);
+
+      expect(gained).toBe(20);
+      expect(scavenger.energy).toBe(40);
+      expect(corpse.energy).toBe(75);
+      expect(corpse.corpseDecayTicks).toBe(17);
     });
   });
 

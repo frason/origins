@@ -4,6 +4,9 @@ import {
   MAX_CREATURE_AGE_TICKS,
   CORPSE_DECAY_RATE,
   CORPSE_DECAY_DURATION_TICKS,
+  CORPSE_TOXICITY_PER_TICK,
+  CORPSE_TOXICITY_RADIUS,
+  TOXICITY_RETENTION,
 } from '../utils/constants';
 
 /**
@@ -40,7 +43,9 @@ export function checkAgeAndStarvation(
 export function decayCorpse(
   creature: Creature,
   world: World,
-  decayRate: number = CORPSE_DECAY_RATE
+  decayRate: number = CORPSE_DECAY_RATE,
+  toxicityPerTick: number = CORPSE_TOXICITY_PER_TICK,
+  toxicityRadius: number = CORPSE_TOXICITY_RADIUS
 ): void {
   // Decrement decay ticks
   creature.corpseDecayTicks--;
@@ -51,6 +56,33 @@ export function decayCorpse(
   world.setCell(creature.x, creature.y, {
     nutrients: cell.nutrients + nutrientsToAdd,
   });
+
+  const radius = Math.max(0, Math.floor(toxicityRadius));
+  for (let y = Math.max(0, creature.y - radius); y <= Math.min(world.height - 1, creature.y + radius); y++) {
+    for (let x = Math.max(0, creature.x - radius); x <= Math.min(world.width - 1, creature.x + radius); x++) {
+      const distance = Math.hypot(x - creature.x, y - creature.y);
+      if (distance > radius) continue;
+      const falloff = radius === 0 ? 1 : 1 - distance / (radius + 1);
+      const affectedCell = world.getCell(x, y);
+      world.setCell(x, y, { toxicity: affectedCell.toxicity + toxicityPerTick * falloff });
+    }
+  }
+}
+
+/** Let old toxicity fade so die-offs leave a temporary ecological scar. */
+export function dissipateToxicity(
+  world: World,
+  retention: number = TOXICITY_RETENTION
+): void {
+  const clampedRetention = Math.max(0, Math.min(1, retention));
+  for (let y = 0; y < world.height; y++) {
+    for (let x = 0; x < world.width; x++) {
+      const cell = world.getCell(x, y);
+      if (cell.toxicity !== 0) {
+        world.setCell(x, y, { toxicity: cell.toxicity * clampedRetention });
+      }
+    }
+  }
 }
 
 /**

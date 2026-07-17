@@ -273,8 +273,23 @@ describe('Producer Growth Logic', () => {
         const cell = world.getCell(5, 5);
         expect(cell.energy).toBe(10); // Energy unchanged
         expect(cell.nutrients).toBe(25.5); // Nutrients unchanged
-        expect(cell.producerBiomass).toBeCloseTo(6.0, 5); // Updated
+        expect(cell.producerBiomass).toBeCloseTo(5 + 1 / 1.1, 5); // Toxicity suppresses growth
         expect(cell.toxicity).toBe(0.1); // Toxicity unchanged
+      });
+
+      it('should suppress producer growth in toxic cells', () => {
+        const cleanWorld = new World();
+        const toxicWorld = new World();
+        cleanWorld.setCell(50, 50, { energy: 10, producerBiomass: 0, toxicity: 0 });
+        toxicWorld.setCell(50, 50, { energy: 10, producerBiomass: 0, toxicity: 3 });
+
+        growProducers(cleanWorld, 'solar');
+        growProducers(toxicWorld, 'solar');
+
+        expect(toxicWorld.getCell(50, 50).producerBiomass).toBeCloseTo(
+          cleanWorld.getCell(50, 50).producerBiomass / 4,
+          5
+        );
       });
 
       it('should handle very small growth values', () => {
