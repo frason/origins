@@ -1,4 +1,4 @@
-PASS — Replaced the fixed 300px control column with an animated right-side overlay drawer.
-The world retains the full centered viewport; the drawer is narrow-screen safe and closes by button, backdrop, or Escape.
-Closed presentation is tested to remain off-screen, hidden, and non-interactive; existing viewport tests cover wide and constrained layouts.
-Verification: 282/282 tests pass and the production build succeeds.
+PASS — Added visible ecosystem-health and biodiversity badges to the current StatsPanel.
+Biodiversity is red for 0-1 species, yellow for 2-4, and green for 5+; health reports Collapsing, At Risk, Stable, or Thriving.
+Rapid population decline correctly forces At Risk even when species diversity would otherwise appear healthy.
+Verification: 286/286 tests pass and the production build succeeds.
