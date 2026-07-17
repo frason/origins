@@ -1,5 +1,4 @@
-PASS — Fixed the average-energy spike by restoring conservation across predation, corpse decay, scavenging, and reproduction.
-Consumed prey/corpse energy is now removed, nutrient release spends corpse energy, and offspring receive exactly the energy paid by their parent.
-The engine also bounds invalid/extreme creature energy before it reaches rendering or reproduction.
-Regression coverage runs 500 high-food ticks and verifies finite bounded energy plus exact reproduction conservation.
-Verification: 272/272 tests pass and the production build succeeds.
+PASS — The simulation now pauses automatically when the final living creature dies.
+A restartable end-of-life overlay summarizes ticks survived, species observed, births, deaths, mutations, extinctions, remaining biomass, and the final event timeline.
+The summary model is deterministic and tested for aggregation, chronology, species recovery, and extinction detection.
+Verification: 274/274 tests pass and the production build succeeds.

@@ -4,6 +4,7 @@ import ControlPanel from './ui/ControlPanel';
 import SpeciesPanel from './ui/SpeciesPanel';
 import StatsPanel from './ui/StatsPanel';
 import TileInfoPanel from './ui/TileInfoPanel';
+import ExtinctionSummary from './ui/ExtinctionSummary';
 import { useStore, WorldSnapshot, CreatureSnapshot } from './state/store';
 import { Creature } from './simulation/creature';
 import { createEngine, tickEngine, EngineState } from './simulation/engine';
@@ -127,6 +128,9 @@ export default function App() {
     const store = useStore.getState();
     store.setWorldState(snapshotOf(engine));
     store.setTick(engine.tick);
+    if (engine.tick > 0 && !engine.creatures.some((creature) => creature.lifecycleState === 'alive')) {
+      store.setRunning(false);
+    }
   }, []);
 
   const reset = useCallback(() => {
@@ -202,6 +206,7 @@ export default function App() {
         </div>
       </div>
       <TileInfoPanel />
+      <ExtinctionSummary onRestart={reset} />
     </div>
   );
 }
