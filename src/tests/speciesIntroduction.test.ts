@@ -66,6 +66,8 @@ describe('God Mode species introduction', () => {
       founderCount: 3,
       ecosystemBefore: { population: 1, speciesCount: 1, lineageCount: 1 },
     });
+    expect(result.state.history).toHaveLength(1);
+    expect(result.state.history[0]).toMatchObject({ tick: 0, population: 4 });
   });
 
   it('uses a unique stable identity for each introduction', () => {

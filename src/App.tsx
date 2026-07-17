@@ -49,6 +49,10 @@ function snapshotOf(engine: EngineState): WorldSnapshot {
     seed: engine.seed,
     tick: engine.tick,
     constants: { ...engine.constants },
+    history: engine.history.map((sample) => ({
+      ...sample,
+      speciesPopulations: sample.speciesPopulations.map((species) => ({ ...species })),
+    })),
   };
 }
 

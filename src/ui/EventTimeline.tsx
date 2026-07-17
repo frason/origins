@@ -5,6 +5,7 @@ import InterventionImpact from './InterventionImpact';
 import ReplayRecipe from './ReplayRecipe';
 import type { WorldRecipe } from './worldRecipe';
 import FollowedLineageNotices from './FollowedLineageNotices';
+import EvolutionTimeline from './EvolutionTimeline';
 
 const panelStyle: CSSProperties = {
   backgroundColor: '#222',
@@ -47,6 +48,7 @@ export default function EventTimeline({
       </div>
       <InterventionImpact />
       <FollowedLineageNotices />
+      <EvolutionTimeline />
       <ReplayRecipe onReplay={onReplayRecipe} replayStatus={replayStatus} />
 
       {stories.length === 0 ? (

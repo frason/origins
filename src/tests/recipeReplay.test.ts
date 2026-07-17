@@ -65,6 +65,8 @@ function serialized(state: EngineState) {
     world: state.world.toJSON(),
     creatures: state.creatures.map((creature) => creature.toJSON()),
     events: state.events,
+    history: state.history,
+    historyInterval: state.historyInterval,
   };
 }
 

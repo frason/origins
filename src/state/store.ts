@@ -18,6 +18,7 @@ import type { Traits } from '../utils/traits';
 import type { Biome } from '../simulation/world';
 import type { ProducerArchetype } from '../simulation/producerTypes';
 import type { SimEvent } from '../simulation/events';
+import type { EcosystemHistorySample } from '../simulation/ecosystemHistory';
 
 // Cell interface for world state
 export interface CellSnapshot {
@@ -72,6 +73,7 @@ export interface WorldSnapshot {
   seed?: number;
   tick?: number;
   constants?: SimulationConstants;
+  history?: EcosystemHistorySample[];
 
   // Allow additional fields for forward compatibility
   [key: string]: unknown;

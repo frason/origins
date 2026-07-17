@@ -11,6 +11,12 @@ import { growProducers } from './producer';
 import { reproduceCreature } from './species';
 import { lineageDisplayName, speciesDisplayName } from './speciesNames';
 import { DEFAULT_TRAITS, type EnergyStrategy } from '../utils/traits';
+import {
+  appendEcosystemHistory,
+  BASE_HISTORY_INTERVAL,
+  createEcosystemHistorySample,
+  type EcosystemHistorySample,
+} from './ecosystemHistory';
 import { compareConstants, compareTraits, type SimEvent } from './events';
 import {
   decideTick,
@@ -69,6 +75,8 @@ export interface EngineState {
   seed: number;
   events: SimEvent[];
   constants: SimulationConstants;
+  history: EcosystemHistorySample[];
+  historyInterval: number;
 }
 
 export interface SpeciesIntroduction {
@@ -157,6 +165,17 @@ export function introduceSpecies(
     ...state,
     creatures: [...state.creatures, ...founders],
     events: [...state.events, event],
+    history:
+      state.history[state.history.length - 1]?.tick === state.tick
+        ? [
+            ...state.history.slice(0, -1),
+            createEcosystemHistorySample(
+              state.tick,
+              [...state.creatures, ...founders],
+              [...state.events, event]
+            ),
+          ]
+        : state.history,
   };
   return {
     state: nextState,
@@ -216,6 +235,8 @@ export function createEngine(
     seed,
     events: [],
     constants,
+    history: [createEcosystemHistorySample(0, creatures, [])],
+    historyInterval: BASE_HISTORY_INTERVAL,
   };
 }
 
@@ -535,13 +556,25 @@ export function tickEngine(
     });
   }
 
+  const completeEvents = state.events.concat(newEvents);
+  const nextTick = state.tick + 1;
+  const historyResult = nextTick % state.historyInterval === 0
+    ? appendEcosystemHistory(
+        state.history,
+        state.historyInterval,
+        createEcosystemHistorySample(nextTick, creaturesAfterDecomposition, completeEvents)
+      )
+    : { history: state.history, interval: state.historyInterval };
+
   return {
     world: newWorld,
     creatures: creaturesAfterDecomposition,
-    tick: state.tick + 1,
+    tick: nextTick,
     seed: state.seed,
-    events: state.events.concat(newEvents),
+    events: completeEvents,
     constants,
+    history: historyResult.history,
+    historyInterval: historyResult.interval,
   };
 }
 

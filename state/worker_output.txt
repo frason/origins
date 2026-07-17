@@ -1,3 +1,3 @@
-PASS — Added structured followed-lineage milestone notices for #77.
-Birth/death events identify lineages; notices cover branching, rebound, dominance, and extinction.
-All 343 tests pass and the production build succeeds.
+PASS — Added bounded deterministic ecosystem history and a live timeline for #78.
+The timeline tracks population, species, lineages, and dominance across the full session span.
+All 349 tests pass and the production build succeeds.
