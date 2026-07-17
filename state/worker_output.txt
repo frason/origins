@@ -1,3 +1,3 @@
-PASS — Added structured, reproducible God Mode intervention history for #69.
-Changed settings now appear in the live World Story and final session summary.
-Verification: 311/311 tests pass and the production build succeeds.
+PASS — Added deterministic “Since intervention” consequence summaries for #70.
+The view compares pre-change checkpoints with current ecology without claiming guaranteed causation.
+All 315 tests pass and the production build succeeds.

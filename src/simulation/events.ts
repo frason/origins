@@ -15,6 +15,14 @@ export interface ConstantChange {
   after: number;
 }
 
+export interface EcosystemCheckpoint {
+  population: number;
+  speciesCount: number;
+  lineageCount: number;
+  livingEnergy: number;
+  producerBiomass: number;
+}
+
 export interface SimEvent {
   type: SimEventType;
   tick: number;
@@ -25,6 +33,7 @@ export interface SimEvent {
   lineageId?: string;
   traitChanges?: TraitChange[];
   constantChanges?: ConstantChange[];
+  ecosystemBefore?: EcosystemCheckpoint;
 }
 
 /** Capture live setting changes in stable constant-key order. */

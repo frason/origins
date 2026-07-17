@@ -32,7 +32,30 @@ import {
   dissipateToxicity,
 } from './decomposition';
 
-export type { ConstantChange, SimEvent, SimEventType, TraitChange } from './events';
+export type {
+  ConstantChange,
+  EcosystemCheckpoint,
+  SimEvent,
+  SimEventType,
+  TraitChange,
+} from './events';
+
+function ecosystemCheckpoint(world: World, creatures: Creature[]) {
+  const living = creatures.filter((creature) => creature.lifecycleState === 'alive');
+  let producerBiomass = 0;
+  for (let y = 0; y < world.height; y++) {
+    for (let x = 0; x < world.width; x++) {
+      producerBiomass += world.getCell(x, y).producerBiomass;
+    }
+  }
+  return {
+    population: living.length,
+    speciesCount: new Set(living.map((creature) => creature.speciesId)).size,
+    lineageCount: new Set(living.map((creature) => creature.lineageId)).size,
+    livingEnergy: living.reduce((total, creature) => total + creature.energy, 0),
+    producerBiomass,
+  };
+}
 
 /**
  * Complete engine state snapshot
@@ -166,6 +189,7 @@ export function tickEngine(
       tick: state.tick,
       detail: `God Mode changed ${constantChanges.length} ${constantChanges.length === 1 ? 'setting' : 'settings'}`,
       constantChanges,
+      ecosystemBefore: ecosystemCheckpoint(state.world, state.creatures),
     });
   }
 

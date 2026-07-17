@@ -40,6 +40,8 @@ describe('God Mode runtime constants', () => {
         { constant: 'baseMetabolism', before: 2, after: 7 },
         { constant: 'reproductionEnergyThreshold', before: 150, after: 1000 },
       ]));
+    expect(next.events.find((event) => event.type === 'intervention')?.ecosystemBefore)
+      .toMatchObject({ population: 1, speciesCount: 1, lineageCount: 1 });
   });
 
   it('groups changes into one intervention and does not repeat unchanged settings', () => {

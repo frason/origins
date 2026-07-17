@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import { useStore } from '../state/store';
 import { buildEventStories, getPopulationTrend, type StoryTone } from './eventTimelineModel';
+import InterventionImpact from './InterventionImpact';
 
 const panelStyle: CSSProperties = {
   backgroundColor: '#222',
@@ -35,6 +36,7 @@ export default function EventTimeline() {
       <div style={{ color: '#777', fontSize: '0.68rem', margin: '0.2rem 0 0.6rem' }}>
         {trend.explanation}
       </div>
+      <InterventionImpact />
 
       {stories.length === 0 ? (
         <div style={{ color: '#777' }}>The world is waiting for its first major event.</div>
