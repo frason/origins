@@ -12,6 +12,7 @@ import { SimulationConstants } from './utils/constants';
 import { getBiomeProductivity } from './simulation/producer';
 import { buildStarterCreatures } from './simulation/starterWorld';
 import SettingsDrawer from './ui/SettingsDrawer';
+import EventTimeline from './ui/EventTimeline';
 
 const WORLD_SEED = 12345;
 
@@ -150,6 +151,7 @@ export default function App() {
       <SettingsDrawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}>
           <ControlPanel onReset={reset} />
           <StatsPanel />
+          <EventTimeline />
           <SpeciesPanel />
       </SettingsDrawer>
       <TileInfoPanel />
