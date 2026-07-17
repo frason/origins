@@ -5,7 +5,10 @@
 
 import { CSSProperties, useState } from 'react';
 import { useStore } from '../state/store';
-import { SimulationConstants } from '../utils/constants';
+import {
+  BALANCED_LONGEVITY_PRESET,
+  SimulationConstants,
+} from '../utils/constants';
 
 interface ControlPanelProps {
   onReset?: () => void;
@@ -220,6 +223,7 @@ export default function ControlPanel({ onReset }: ControlPanelProps) {
   const setRunning = useStore((s) => s.setRunning);
   const setSpeed = useStore((s) => s.setSpeed);
   const updateConstants = useStore((s) => s.updateConstants);
+  const resetConstants = useStore((s) => s.resetConstants);
   const [showGodMode, setShowGodMode] = useState(false);
 
   return (
@@ -269,6 +273,21 @@ export default function ControlPanel({ onReset }: ControlPanelProps) {
         <div style={godModeStyle}>
           <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '0.75rem' }}>
             Changes apply on the next tick.
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.85rem' }}>
+            <button
+              style={{ ...buttonStyle, flex: 1, padding: '0.35rem 0.5rem' }}
+              onClick={() => updateConstants(BALANCED_LONGEVITY_PRESET)}
+              title="Measured to keep all four starter species alive much longer"
+            >
+              Apply Longevity
+            </button>
+            <button
+              style={{ ...buttonStyle, flex: 1, padding: '0.35rem 0.5rem' }}
+              onClick={resetConstants}
+            >
+              Reset Defaults
+            </button>
           </div>
           {GOD_MODE_SLIDERS.map((config) => {
             const value = constants[config.key];

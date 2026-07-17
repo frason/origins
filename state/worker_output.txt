@@ -1,5 +1,3 @@
-PASS — Added a deterministic four-species God Mode sustainability matrix for #62.
-The evaluator measures founding-species survival, total ecosystem lifespan, final diversity, and population.
-The best bounded preset kept all four species for 239 ticks versus 59 with current defaults.
-It retained three species through the full 300-tick horizon; current defaults reached total extinction at tick 117.
-Verification: 292/292 tests pass and the production build succeeds.
+PASS — Added explicit Balanced Longevity and Reset Defaults actions to God Mode for #61.
+The longevity values come directly from #62; shipped defaults remain unchanged.
+Verification: 294/294 tests pass and the production build succeeds.

@@ -171,3 +171,14 @@ export const SIMULATION_CONSTANTS: SimulationConstants = {
   maxGlobalPopulation: MAX_GLOBAL_POPULATION,
   overcrowdingMortalityRate: OVERCROWDING_MORTALITY_RATE,
 };
+
+/** Best bounded preset from the deterministic sustainability matrix in issue #62. */
+export const BALANCED_LONGEVITY_PRESET: Readonly<Partial<SimulationConstants>> = {
+  baseSolarEnergy: 20,
+  producerGrowthRate: 0.2,
+  baseMetabolism: 0.5,
+  feedingEfficiency: 0.9,
+  reproductionEnergyThreshold: 120,
+  reproductionEnergyCost: 60,
+  maxCreatureAgeTicks: 2000,
+};

@@ -4,7 +4,10 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useStore } from '../state/store';
-import { SIMULATION_CONSTANTS } from '../utils/constants';
+import {
+  BALANCED_LONGEVITY_PRESET,
+  SIMULATION_CONSTANTS,
+} from '../utils/constants';
 
 describe('Store (Zustand)', () => {
   beforeEach(() => {
@@ -77,6 +80,26 @@ describe('Store (Zustand)', () => {
 
       // First override should still be active
       expect(useStore.getState().constants.baseSolarEnergy).toBe(20);
+    });
+
+    it('applies the measured longevity preset as a partial override', () => {
+      useStore.getState().updateConstants(BALANCED_LONGEVITY_PRESET);
+
+      expect(useStore.getState().constants).toMatchObject(BALANCED_LONGEVITY_PRESET);
+      expect(useStore.getState().constants.worldWidth).toBe(
+        SIMULATION_CONSTANTS.worldWidth
+      );
+    });
+
+    it('restores every shipped default after God Mode changes', () => {
+      const store = useStore.getState();
+      store.updateConstants(BALANCED_LONGEVITY_PRESET);
+      store.updateConstants({ corpseDecayRate: 0.42 });
+
+      useStore.getState().resetConstants();
+
+      expect(useStore.getState().constants).toEqual(SIMULATION_CONSTANTS);
+      expect(useStore.getState().constants).not.toBe(SIMULATION_CONSTANTS);
     });
   });
 

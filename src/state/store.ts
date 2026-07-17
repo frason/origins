@@ -113,6 +113,7 @@ export interface StoreState {
   setRunning: (running: boolean) => void;
   setSpeed: (speed: number) => void;
   updateConstants: (partial: Partial<SimulationConstants>) => void;
+  resetConstants: () => void;
   setSelectedTile: (tile: SelectedTile | null) => void;
 }
 
@@ -151,6 +152,10 @@ export const useStore = create<StoreState>((set) => ({
         ...partial,
       },
     }));
+  },
+
+  resetConstants: () => {
+    set({ constants: { ...SIMULATION_CONSTANTS } });
   },
 
   setSelectedTile: (tile: SelectedTile | null) => {

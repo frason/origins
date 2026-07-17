@@ -4,6 +4,7 @@ import {
   rankSustainability,
   type SustainabilityPreset,
 } from '../simulation/sustainability';
+import { BALANCED_LONGEVITY_PRESET } from '../utils/constants';
 
 const SEED = 12345;
 const TICK_HORIZON = 300;
@@ -24,15 +25,7 @@ const PRESETS: SustainabilityPreset[] = [
   },
   {
     name: 'balanced-longevity',
-    constants: {
-      baseSolarEnergy: 20,
-      producerGrowthRate: 0.2,
-      baseMetabolism: 0.5,
-      feedingEfficiency: 0.9,
-      reproductionEnergyThreshold: 120,
-      reproductionEnergyCost: 60,
-      maxCreatureAgeTicks: 2000,
-    },
+    constants: BALANCED_LONGEVITY_PRESET,
   },
 ];
 
