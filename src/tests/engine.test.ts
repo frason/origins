@@ -220,7 +220,11 @@ describe('Simulation Engine', () => {
       expect(next.creatures[0].lifecycleState).toBe('dead');
       expect(next.creatures[0].corpseDecayTicks).toBe(39);
       expect(next.events).toContainEqual(
-        expect.objectContaining({ type: 'death', creatureId: next.creatures[0].id })
+        expect.objectContaining({
+          type: 'death',
+          creatureId: next.creatures[0].id,
+          deathCause: 'starvation',
+        })
       );
     });
 
@@ -259,6 +263,7 @@ describe('Simulation Engine', () => {
           creatureId: corpse?.id,
           speciesId: 'prey',
           lineageId: 'prey_root',
+          deathCause: 'predation',
         })
       );
     });

@@ -21,6 +21,19 @@ describe('ecosystem event storytelling', () => {
     });
   });
 
+  it('separates mixed death causes instead of implying one cause for all deaths', () => {
+    const stories = buildEventStories([
+      { type: 'death', tick: 10, speciesId: 'grazer', deathCause: 'predation' },
+      { type: 'death', tick: 10, speciesId: 'grazer', deathCause: 'starvation' },
+      { type: 'death', tick: 10, speciesId: 'grazer', deathCause: 'starvation' },
+    ]);
+    expect(stories).toHaveLength(2);
+    expect(stories.map((story) => story.detail)).toEqual(expect.arrayContaining([
+      '1 death recorded · predation',
+      '2 deaths recorded · starvation',
+    ]));
+  });
+
   it('keeps individual mutation and extinction stories prominent', () => {
     const stories = buildEventStories([
       { type: 'mutation', tick: 20, speciesId: 'grazer', creatureId: 'm1', detail: 'Aurelia agilis → Aurelia fortis' },

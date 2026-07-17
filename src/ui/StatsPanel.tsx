@@ -10,6 +10,7 @@ import {
   type DynamicsMetric,
   type HealthTone,
 } from './ecosystemHealth';
+import EcosystemPressurePanel from './EcosystemPressurePanel';
 
 const panelStyle: CSSProperties = {
   backgroundColor: '#222',
@@ -136,6 +137,7 @@ export default function StatsPanel() {
       <Row label="Corpses" value={corpses} />
       <Row label="Avg energy" value={alive > 0 ? (totalEnergy / alive).toFixed(1) : '—'} />
       <Row label="Producer biomass" value={Math.round(totalBiomass).toLocaleString()} />
+      <EcosystemPressurePanel />
     </div>
   );
 }

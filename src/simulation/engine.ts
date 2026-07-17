@@ -17,7 +17,7 @@ import {
   createEcosystemHistorySample,
   type EcosystemHistorySample,
 } from './ecosystemHistory';
-import { compareConstants, compareTraits, type SimEvent } from './events';
+import { compareConstants, compareTraits, type DeathCause, type SimEvent } from './events';
 import {
   decideTick,
   applyMovement,
@@ -315,6 +315,7 @@ export function tickEngine(
   const aliveBeforeDeath = new Set<string>(
     creatures.filter((c) => c.lifecycleState === 'alive').map((c) => c.id)
   );
+  const deathCauses = new Map<string, DeathCause>();
 
   // Create deterministic RNG from seed and tick
   const rng = createRng(state.seed ^ state.tick);
@@ -367,6 +368,7 @@ export function tickEngine(
             prey.y === creature.y
           ) {
             feedOnCreature(creature, prey, constants.feedingEfficiency);
+            deathCauses.set(prey.id, 'predation');
             break; // Only eat one prey per tick
           }
         }
@@ -410,6 +412,9 @@ export function tickEngine(
   for (const creature of creatures) {
     if (creature.lifecycleState === 'alive') {
       applyMetabolism(creature, constants.baseMetabolism);
+      if (creature.energy <= 0) {
+        deathCauses.set(creature.id, 'starvation');
+      }
     }
   }
 
@@ -480,10 +485,15 @@ export function tickEngine(
       constants.maxCreatureAgeTicks,
       constants.corpseDecayDurationTicks
     );
+    if (creature.energy <= 0 || creature.age >= constants.maxCreatureAgeTicks) {
+      deathCauses.set(creature.id, creature.energy <= 0 ? 'starvation' : 'age');
+    }
   }
 
   // Step 8.5: Biodiversity Pressure (density-dependent mortality and monoculture penalties)
-  applyBiodiversityPressure(creatures, rng, constants);
+  for (const [creatureId, cause] of applyBiodiversityPressure(creatures, rng, constants)) {
+    deathCauses.set(creatureId, cause);
+  }
 
   // Log death events for creatures that just died
   for (const creature of creatures) {
@@ -500,6 +510,7 @@ export function tickEngine(
         creatureId: creature.id,
         speciesId: creature.speciesId,
         lineageId: creature.lineageId,
+        deathCause: deathCauses.get(creature.id) ?? 'unknown',
       });
     }
   }
@@ -659,11 +670,12 @@ function applyBiodiversityPressure(
   creatures: Creature[],
   rng: RngFn,
   constants: SimulationConstants
-): void {
+): Map<string, DeathCause> {
+  const causes = new Map<string, DeathCause>();
   // Count creatures per species (alive only)
   const aliveCreatures = creatures.filter((c) => c.lifecycleState === 'alive');
   if (aliveCreatures.length === 0) {
-    return;
+    return causes;
   }
 
   const pressure = getPopulationPressure(aliveCreatures, constants);
@@ -690,6 +702,10 @@ function applyBiodiversityPressure(
     // Apply stochastic mortality if any penalty was incurred
     if (mortalityBonus > 0 && rng() < mortalityBonus) {
       creature.lifecycleState = 'dead';
+      causes.set(
+        creature.id,
+        isOvercrowded ? 'overcrowding' : 'monoculture-pressure'
+      );
     }
   }
 
@@ -701,7 +717,9 @@ function applyBiodiversityPressure(
     const selected = index + Math.floor(rng() * (survivors.length - index));
     [survivors[index], survivors[selected]] = [survivors[selected], survivors[index]];
     survivors[index].lifecycleState = 'dead';
+    causes.set(survivors[index].id, 'overcrowding');
   }
+  return causes;
 }
 
 /**

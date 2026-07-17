@@ -1,3 +1,3 @@
-PASS — Made ecological strategy shifts visible and measurable for #79.
-Niche-changing mutations get distinct stories; lineage rows and long-run metrics expose strategy.
-All fixed longevity seeds shift strategy; all 350 tests and the production build pass.
+PASS — Added structured death causes and evidence-based pressure explanations for #80.
+The engine attributes mortality; the UI shows bounded likely contributors without claiming certainty.
+All 360 tests pass and the production build succeeds.

@@ -50,7 +50,7 @@ export function buildEventStories(
       event.type === 'intervention';
     const key = unique
       ? `${event.tick}|${event.type}|${event.speciesId ?? ''}|${event.creatureId ?? sequence}`
-      : `${event.tick}|${event.type}|${event.speciesId ?? ''}`;
+      : `${event.tick}|${event.type}|${event.speciesId ?? ''}|${event.type === 'death' ? event.deathCause ?? '' : ''}`;
     const existing = grouped.get(key);
     if (existing) existing.count++;
     else grouped.set(key, { event, count: 1, sequence });
@@ -71,12 +71,15 @@ export function buildEventStories(
         };
       }
       if (event.type === 'death') {
+        const cause = event.deathCause && event.deathCause !== 'unknown'
+          ? ` · ${event.deathCause.replace(/-/g, ' ')}`
+          : '';
         return {
-          id: `${event.tick}-death-${event.speciesId ?? sequence}`,
+          id: `${event.tick}-death-${event.speciesId ?? sequence}-${event.deathCause ?? 'unspecified'}`,
           tick: event.tick,
           tone: 'loss',
           title: `${species} declined`,
-          detail: `${count} ${count === 1 ? 'death' : 'deaths'} recorded`,
+          detail: `${count} ${count === 1 ? 'death' : 'deaths'} recorded${cause}`,
         };
       }
       if (event.type === 'mutation') {

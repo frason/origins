@@ -2,6 +2,13 @@ import type { Traits } from '../utils/traits';
 import type { SimulationConstants } from '../utils/constants';
 
 export type SimEventType = 'birth' | 'death' | 'mutation' | 'extinction' | 'intervention';
+export type DeathCause =
+  | 'predation'
+  | 'starvation'
+  | 'age'
+  | 'monoculture-pressure'
+  | 'overcrowding'
+  | 'unknown';
 
 export interface TraitChange {
   trait: keyof Traits;
@@ -38,6 +45,7 @@ export interface SimEvent {
   interventionOrigin?: { x: number; y: number };
   introducedStrategy?: Traits['energyStrategy'];
   founderCount?: number;
+  deathCause?: DeathCause;
 }
 
 /** Capture live setting changes in stable constant-key order. */
