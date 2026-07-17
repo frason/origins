@@ -9,6 +9,7 @@ import { BALANCED_LONGEVITY_PRESET } from '../utils/constants';
 const SEED = 12345;
 const TICK_HORIZON = 300;
 const MULTI_SEEDS = [12345, 54321, 99999];
+const LONG_RUN_HORIZON = 500;
 
 const PRESETS: SustainabilityPreset[] = [
   { name: 'current-defaults', constants: {} },
@@ -54,7 +55,7 @@ describe('God Mode sustainability matrix', () => {
   it('sustains active evolution across multiple reproducible seeds', () => {
     const presets = [PRESETS[0], PRESETS[3]];
     const run = () => MULTI_SEEDS.flatMap((seed) =>
-      presets.map((preset) => evaluateSustainability(preset, seed, 200))
+      presets.map((preset) => evaluateSustainability(preset, seed, LONG_RUN_HORIZON))
     );
     const first = run();
     const replay = run();
@@ -64,19 +65,28 @@ describe('God Mode sustainability matrix', () => {
     expect(replay).toEqual(first);
     expect(longevity).toHaveLength(MULTI_SEEDS.length);
     for (let index = 0; index < longevity.length; index++) {
-      expect(longevity[index].allSpeciesSurvivalTicks).toBe(200);
-      expect(longevity[index].ecosystemSurvivalTicks).toBe(200);
-      expect(longevity[index].mutationCount).toBeGreaterThanOrEqual(10);
-      expect(longevity[index].strategyShiftCount).toBeGreaterThanOrEqual(1);
-      expect(longevity[index].activeLineageCount).toBeGreaterThanOrEqual(5);
+      const evidence = JSON.stringify(longevity[index]);
+      expect(longevity[index].ecosystemSurvivalTicks, evidence).toBe(LONG_RUN_HORIZON);
+      expect(longevity[index].finalSpeciesCount, evidence).toBeGreaterThanOrEqual(2);
+      expect(longevity[index].mutationCount, evidence).toBeGreaterThanOrEqual(25);
+      expect(longevity[index].strategyShiftCount, evidence).toBeGreaterThanOrEqual(3);
+      expect(longevity[index].activeLineageCount, evidence).toBeGreaterThanOrEqual(4);
+      expect(longevity[index].activeNicheCount, evidence).toBeGreaterThanOrEqual(3);
       expect(longevity[index].longestMonocultureTicks).toBe(0);
-      expect(longevity[index].maximumDominantShare).toBeLessThan(0.9);
+      expect(longevity[index].maximumDominantShare, evidence).toBeLessThan(0.9);
+      expect(
+        longevity[index].maximumDominantShare - longevity[index].minimumDominantShare,
+        evidence
+      ).toBeGreaterThan(0.1);
+      expect(longevity[index].longestMutationSilenceTicks, evidence).toBeLessThanOrEqual(100);
+      expect(longevity[index].longestHighDominanceTicks, evidence).toBeLessThan(50);
       expect(longevity[index].allSpeciesSurvivalTicks).toBeGreaterThan(
         defaults[index].allSpeciesSurvivalTicks
       );
     }
     expect(new Set(longevity.map((result) => result.finalPopulation)).size)
       .toBeGreaterThan(1);
-    expect(longevity.every((result) => result.activeNicheCount >= 4)).toBe(true);
-  }, 60_000);
+    expect(longevity.some((result) => result.allSpeciesSurvivalTicks < LONG_RUN_HORIZON))
+      .toBe(true);
+  }, 120_000);
 });

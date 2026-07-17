@@ -10,7 +10,7 @@ This audit treats current source, tests, builds, and rendered interaction eviden
 | --- | --- | --- |
 | Surprising but reproducible evolution | Seeded RNG and deterministic engine snapshots at ticks 10, 100, and 500; recipe replay; multi-seed sustainability tests | Proven for covered seeds, settings, horizons, and intervention schedules |
 | Order, Chaos, and Exploration | `ecosystemHealth`, trajectories, pressure explanations, turning-point notices, and model tests | Proven at model/build level |
-| Ongoing change without immediate collapse or monoculture | Multi-seed sustainability matrix checks four-species survival, mutations, niche shifts, active lineages, dominance, and monoculture through 200 ticks | Proven through the tested 200-tick horizon; longer evolutionary health remains unproven |
+| Ongoing change without immediate collapse or monoculture | Three fixed seeds replay identically through 500 ticks while checking ecosystem survival, remaining species, mutations, strategy shifts, active lineages/niches, dominance range, mutation silence, and monoculture | Proven through tick 500 for the balanced-longevity preset; two runs include founding-species extinction without ecosystem collapse |
 | Readable living world | Seeded terrain/biomes, producer archetypes, creature/corpse rendering, full-grid viewport, selection outline | Proven by source/model tests; visual quality remains unverified in a live browser |
 | Tile and organism inspection | Pointer mapping, keyboard tile navigation, Tile Info details, shared selected-tile store action | Proven by model/build and rendered-markup tests; end-to-end interaction remains unverified |
 | Species identity and lineage history | Human-readable deterministic names, mutation trait changes, lineage tree, followed-lineage milestones | Proven by model tests |
@@ -23,7 +23,7 @@ This audit treats current source, tests, builds, and rendered interaction eviden
 ## Completion blockers
 
 1. A live browser walkthrough is still missing. The configured browser runtime fails during initialization (`Cannot redefine property: process`), so visual layout, focus movement, pointer interaction, modal behavior, and real-time responsiveness have not been observed end to end.
-2. Multi-seed evolutionary health is asserted through 200 ticks. The goal’s “long-run” behavior beyond that horizon is not yet strongly proven.
+2. The tick-500 runs show measurable changes in dominant population share, but the identity of the most populous species never changes. Stronger evidence or simulation tuning is still needed for the goal’s changing-species-dominance requirement.
 3. GitHub issue #66 remains in client triage, so its requested end-of-world species histogram is intentionally unscheduled pending answers.
 
 The active goal must remain open until these gaps are resolved or explicitly removed from scope by the client.

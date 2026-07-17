@@ -1,2 +1,2 @@
-PASS — Completed a goal-evidence audit and fixed keyboard world access for #89 with semantic landmarks, focusable canvas instructions, arrow/Home/End/Escape navigation, live selection status, and a visible tile outline.
-All 408 tests pass, including app-level rendered accessibility markup and boundary navigation; the production build succeeds. Live browser UX and evolutionary health beyond 200 ticks remain unproven.
+PASS — Added reproducible tick-500 evolutionary-health evidence for #90 across three fixed seeds, including survival, diversity, mutation cadence, niche shifts, dominance pressure, and founder turnover without monoculture.
+All 408 tests pass and the production build succeeds. Species-leader turnover remains an explicit goal gap because the leading species did not change in these runs.

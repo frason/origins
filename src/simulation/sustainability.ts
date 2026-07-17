@@ -21,8 +21,12 @@ export interface SustainabilityResult {
   strategyShiftCount: number;
   activeLineageCount: number;
   activeNicheCount: number;
+  minimumDominantShare: number;
   maximumDominantShare: number;
   longestMonocultureTicks: number;
+  longestMutationSilenceTicks: number;
+  longestHighDominanceTicks: number;
+  dominanceChangeCount: number;
 }
 
 /** Build the same seeded, biomass-supported ecosystem used by the playable app. */
@@ -75,9 +79,17 @@ export function evaluateSustainability(
   let ecosystemSurvivalTicks = 0;
   let currentMonocultureTicks = 0;
   let longestMonocultureTicks = 0;
+  let minimumDominantShare = 1;
   let maximumDominantShare = 0;
+  let currentMutationSilenceTicks = 0;
+  let longestMutationSilenceTicks = 0;
+  let currentHighDominanceTicks = 0;
+  let longestHighDominanceTicks = 0;
+  let previousDominantSpecies: string | null = null;
+  let dominanceChangeCount = 0;
 
   for (let tick = 1; tick <= tickHorizon; tick++) {
+    const previousEventCount = state.events.length;
     state = tickEngine(state);
     const species = livingSpecies(state);
     const population = state.creatures.filter(
@@ -90,12 +102,31 @@ export function evaluateSustainability(
       speciesCounts.set(creature.speciesId, (speciesCounts.get(creature.speciesId) ?? 0) + 1);
     }
     const dominantCount = Math.max(0, ...speciesCounts.values());
+    const dominantSpecies = [...speciesCounts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? null;
+    if (
+      dominantSpecies && previousDominantSpecies &&
+      dominantSpecies !== previousDominantSpecies
+    ) dominanceChangeCount++;
+    if (dominantSpecies) previousDominantSpecies = dominantSpecies;
+    const dominantShare = population > 0 ? dominantCount / population : 0;
+    if (population > 0) minimumDominantShare = Math.min(minimumDominantShare, dominantShare);
     maximumDominantShare = Math.max(
       maximumDominantShare,
-      population > 0 ? dominantCount / population : 0
+      dominantShare
     );
     currentMonocultureTicks = speciesCounts.size === 1 ? currentMonocultureTicks + 1 : 0;
     longestMonocultureTicks = Math.max(longestMonocultureTicks, currentMonocultureTicks);
+    currentHighDominanceTicks = dominantShare >= 0.8 ? currentHighDominanceTicks + 1 : 0;
+    longestHighDominanceTicks = Math.max(longestHighDominanceTicks, currentHighDominanceTicks);
+    const mutatedThisTick = state.events
+      .slice(previousEventCount)
+      .some((event) => event.type === 'mutation');
+    currentMutationSilenceTicks = mutatedThisTick ? 0 : currentMutationSilenceTicks + 1;
+    longestMutationSilenceTicks = Math.max(
+      longestMutationSilenceTicks,
+      currentMutationSilenceTicks
+    );
 
     if (population === 0) break;
     ecosystemSurvivalTicks = tick;
@@ -135,8 +166,12 @@ export function evaluateSustainability(
     ).length,
     activeLineageCount: activeLineages.size,
     activeNicheCount: activeNiches.size,
+    minimumDominantShare: ecosystemSurvivalTicks > 0 ? minimumDominantShare : 0,
     maximumDominantShare,
     longestMonocultureTicks,
+    longestMutationSilenceTicks,
+    longestHighDominanceTicks,
+    dominanceChangeCount,
   };
 }
 
@@ -149,6 +184,7 @@ export function rankSustainability(
       b.allSpeciesSurvivalTicks - a.allSpeciesSurvivalTicks ||
       b.ecosystemSurvivalTicks - a.ecosystemSurvivalTicks ||
       b.mutationCount - a.mutationCount ||
+      a.longestMutationSilenceTicks - b.longestMutationSilenceTicks ||
       a.longestMonocultureTicks - b.longestMonocultureTicks ||
       b.finalSpeciesCount - a.finalSpeciesCount ||
       b.finalPopulation - a.finalPopulation ||
