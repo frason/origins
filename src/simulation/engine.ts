@@ -21,6 +21,7 @@ import {
   applyMetabolism,
   canReproduce,
   payReproductionCost,
+  getEnergyCapacity,
 } from './energy';
 import {
   checkAgeAndStarvation,
@@ -257,6 +258,16 @@ export function tickEngine(
     }
   }
 
+  // Keep malformed inputs or extreme God Mode settings from propagating
+  // unbounded/invalid values into rendering and reproduction.
+  for (const creature of creatures) {
+    if (creature.lifecycleState !== 'alive') continue;
+    const capacity = getEnergyCapacity(creature);
+    creature.energy = Number.isFinite(creature.energy)
+      ? Math.max(0, Math.min(capacity, creature.energy))
+      : 0;
+  }
+
   // Step 6: Energy Updates (Metabolism)
   for (const creature of creatures) {
     if (creature.lifecycleState === 'alive') {
@@ -268,13 +279,17 @@ export function tickEngine(
   const offspring: Creature[] = [];
   for (const creature of creatures) {
     if (canReproduce(creature, constants.reproductionEnergyThreshold)) {
-      payReproductionCost(creature, constants.reproductionEnergyCost);
+      const offspringEnergy = payReproductionCost(
+        creature,
+        constants.reproductionEnergyCost
+      );
 
       const child = reproduceCreature(
         creature,
         rng,
         constants.mutationDrift,
-        constants.defaultMutationRate
+        constants.defaultMutationRate,
+        offspringEnergy
       );
 
       offspring.push(child);

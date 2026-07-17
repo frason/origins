@@ -486,7 +486,7 @@ describe('Energy Functions', () => {
       expect(prey.lifecycleState).toBe('dead');
     });
 
-    it('should not modify prey energy', () => {
+    it('should remove consumed energy from prey', () => {
       const predator = new Creature({
         speciesId: 'predator_species',
         lineageId: 'predator_lineage',
@@ -511,7 +511,7 @@ describe('Energy Functions', () => {
 
       feedOnCreature(predator, prey);
 
-      expect(prey.energy).toBe(75);
+      expect(prey.energy).toBe(0);
     });
   });
 
@@ -691,7 +691,7 @@ describe('Energy Functions', () => {
       expect(creature.lifecycleState).toBe('alive');
     });
 
-    it('should allow energy to go negative (caller should check first)', () => {
+    it('should never make energy negative when the requested cost is too high', () => {
       const creature = new Creature({
         speciesId: 'species_1',
         lineageId: 'lineage_1',
@@ -703,9 +703,10 @@ describe('Energy Functions', () => {
         lifecycleState: 'alive',
       });
 
-      payReproductionCost(creature);
+      const paid = payReproductionCost(creature);
 
-      expect(creature.energy).toBeLessThan(0);
+      expect(paid).toBe(REPRODUCTION_ENERGY_COST / 2);
+      expect(creature.energy).toBe(0);
     });
 
     it('should allow multiple reproduction cost deductions', () => {

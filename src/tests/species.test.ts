@@ -8,6 +8,7 @@ import {
 import { Creature } from '../simulation/creature';
 import { DEFAULT_TRAITS, TRAIT_MIN, TRAIT_MAX, Traits } from '../utils/traits';
 import { createRng } from '../simulation/rng';
+import { REPRODUCTION_ENERGY_COST } from '../utils/constants';
 
 describe('Species - Mutations and Lineage Tracking', () => {
   beforeEach(() => {
@@ -184,7 +185,7 @@ describe('Species - Mutations and Lineage Tracking', () => {
       expect(child.lineageId).not.toBe(parent.lineageId);
     });
 
-    it('should set child energy to half of parent energy (minimum 50)', () => {
+    it('should set child energy from the energy invested in reproduction', () => {
       const parent1 = new Creature({
         speciesId: 'species_1',
         lineageId: 'lineage_1',
@@ -196,8 +197,8 @@ describe('Species - Mutations and Lineage Tracking', () => {
       });
 
       const rng1 = createRng(111);
-      const child1 = reproduceCreature(parent1, rng1);
-      expect(child1.energy).toBe(100);
+      const child1 = reproduceCreature(parent1, rng1, 0.1, 0, 60);
+      expect(child1.energy).toBe(60);
 
       const parent2 = new Creature({
         speciesId: 'species_1',
@@ -211,7 +212,7 @@ describe('Species - Mutations and Lineage Tracking', () => {
 
       const rng2 = createRng(222);
       const child2 = reproduceCreature(parent2, rng2);
-      expect(child2.energy).toBe(Math.max(50, 80 * 0.5));
+      expect(child2.energy).toBe(REPRODUCTION_ENERGY_COST);
     });
 
     it('should set child age to 0', () => {

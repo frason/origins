@@ -201,12 +201,12 @@ describe('Decomposition Functions', () => {
       // Second decay tick
       decayCorpse(creature, world);
       cell = world.getCell(50, 50);
-      expect(cell.nutrients).toBeCloseTo(expectedPerTick * 2, 5);
+      expect(cell.nutrients).toBeCloseTo(19, 5);
 
       // Third decay tick
       decayCorpse(creature, world);
       cell = world.getCell(50, 50);
-      expect(cell.nutrients).toBeCloseTo(expectedPerTick * 3, 5);
+      expect(cell.nutrients).toBeCloseTo(27.1, 5);
     });
 
     it('should reach zero corpseDecayTicks after 10 ticks', () => {
@@ -418,16 +418,17 @@ describe('Decomposition Functions', () => {
         decayCorpse(creature, world);
       }
 
-      // Total nutrients should be 10 × 10 = 100
+      // Each tick converts 10% of the remaining corpse energy.
       let cell = world.getCell(50, 50);
-      expect(cell.nutrients).toBeCloseTo(100, 5);
+      const convertedEnergy = 100 * (1 - Math.pow(0.9, 10));
+      expect(cell.nutrients).toBeCloseTo(convertedEnergy, 5);
 
       // Recycle nutrients (100 nutrients × 0.5 = 50 energy)
       recycleNutrients(world);
 
       cell = world.getCell(50, 50);
-      expect(cell.energy).toBeCloseTo(50, 5);
-      expect(cell.nutrients).toBeCloseTo(50, 5);
+      expect(cell.energy).toBeCloseTo(convertedEnergy * 0.5, 5);
+      expect(cell.nutrients).toBeCloseTo(convertedEnergy * 0.5, 5);
     });
   });
 });

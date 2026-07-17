@@ -6,8 +6,14 @@ import {
   REPRODUCTION_ENERGY_THRESHOLD,
   REPRODUCTION_ENERGY_COST,
   SCAVENGING_RATE,
+  MAX_ENERGY_MULTIPLIER,
 } from '../utils/constants';
 import { getProducerTraits } from './producerTypes';
+
+/** Size-based energy storage limit used by decisions and all feeding paths. */
+export function getEnergyCapacity(creature: Creature): number {
+  return Math.max(200, creature.traits.size * MAX_ENERGY_MULTIPLIER);
+}
 
 /**
  * Apply metabolism cost to a creature.
@@ -62,13 +68,15 @@ export function feedOnProducer(
   }
 
   const traits = getProducerTraits(cell.producerArchetype);
-  const biomassConsumed = useArchetypeTraits
+  const edibleBiomass = useArchetypeTraits
     ? availableBiomass * (1 - traits.defense)
     : availableBiomass;
 
   // Calculate energy gained with feeding efficiency
   const energyDensity = useArchetypeTraits ? traits.energyDensity : 1;
-  const energyGained = biomassConsumed * feedingEfficiency * energyDensity;
+  const transferRate = feedingEfficiency * energyDensity;
+  const biomassConsumed = transferRate > 0 ? edibleBiomass : 0;
+  const energyGained = biomassConsumed * transferRate;
 
   // Transfer energy to creature
   creature.energy += energyGained;
@@ -93,11 +101,12 @@ export function feedOnCreature(
   prey: Creature,
   feedingEfficiency: number = FEEDING_EFFICIENCY
 ): number {
-  // Mark prey as dead
+  // Mark prey as dead, then transfer only energy the predator can store.
   prey.lifecycleState = 'dead';
-
-  // Calculate energy transfer with feeding efficiency
-  const energyTransferred = prey.energy * feedingEfficiency;
+  const efficiency = Math.max(0, Math.min(1, feedingEfficiency));
+  const energyTransferred = prey.energy * efficiency;
+  const preyEnergyConsumed = efficiency > 0 ? energyTransferred / efficiency : 0;
+  prey.energy = Math.max(0, prey.energy - preyEnergyConsumed);
 
   // Transfer energy to predator
   predator.energy += energyTransferred;
@@ -114,10 +123,15 @@ export function feedOnCorpse(
 ): number {
   if (corpse.lifecycleState === 'alive' || corpse.energy <= 0) return 0;
 
-  const consumedEnergy = corpse.energy * Math.max(0, Math.min(1, scavengingRate));
+  const efficiency = Math.max(0, Math.min(1, feedingEfficiency));
+  const energyHeadroom = Math.max(0, getEnergyCapacity(scavenger) - scavenger.energy);
+  const availableEnergy = corpse.energy * Math.max(0, Math.min(1, scavengingRate));
+  const consumedEnergy = efficiency > 0
+    ? Math.min(availableEnergy, energyHeadroom / efficiency)
+    : 0;
   corpse.energy -= consumedEnergy;
   corpse.corpseDecayTicks = Math.max(0, corpse.corpseDecayTicks - 3);
-  const energyTransferred = consumedEnergy * feedingEfficiency;
+  const energyTransferred = consumedEnergy * efficiency;
   scavenger.energy += energyTransferred;
   return energyTransferred;
 }
@@ -145,6 +159,8 @@ export function canReproduce(
 export function payReproductionCost(
   creature: Creature,
   cost: number = REPRODUCTION_ENERGY_COST
-): void {
-  creature.energy -= cost;
+): number {
+  const energyPaid = Math.min(creature.energy, Math.max(0, cost));
+  creature.energy -= energyPaid;
+  return energyPaid;
 }

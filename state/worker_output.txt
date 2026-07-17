@@ -1,4 +1,5 @@
-PASS — Lowered breeding threshold/cost to 150/75 so starter creatures can reproduce before depleting their energy.
-Reworked mutation into a configured 12% per-birth chance of one meaningful trait change; each real mutation now creates an observable lineage event.
-A deterministic 100-founder test produces 100 births and a healthy 5–25 mutation events with identical replay counts.
-Verification: 270/270 tests pass and the production build succeeds.
+PASS — Fixed the average-energy spike by restoring conservation across predation, corpse decay, scavenging, and reproduction.
+Consumed prey/corpse energy is now removed, nutrient release spends corpse energy, and offspring receive exactly the energy paid by their parent.
+The engine also bounds invalid/extreme creature energy before it reaches rendering or reproduction.
+Regression coverage runs 500 high-food ticks and verifies finite bounded energy plus exact reproduction conservation.
+Verification: 272/272 tests pass and the production build succeeds.

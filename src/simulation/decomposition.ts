@@ -32,7 +32,7 @@ export function checkAgeAndStarvation(
  * Decay a dead creature's corpse over multiple ticks.
  * Each tick:
  * - Decrement corpseDecayTicks
- * - Add creature.energy × CORPSE_DECAY_RATE nutrients to the cell
+ * - Convert CORPSE_DECAY_RATE of remaining corpse energy into nutrients
  *
  * When corpseDecayTicks reaches 0 or below, the corpse has fully decomposed
  * and the creature can be removed from the simulation.
@@ -51,7 +51,8 @@ export function decayCorpse(
   creature.corpseDecayTicks--;
 
   // Add nutrients to the cell based on remaining energy
-  const nutrientsToAdd = creature.energy * decayRate;
+  const nutrientsToAdd = Math.min(creature.energy, creature.energy * Math.max(0, decayRate));
+  creature.energy -= nutrientsToAdd;
   const cell = world.getCell(creature.x, creature.y);
   world.setCell(creature.x, creature.y, {
     nutrients: cell.nutrients + nutrientsToAdd,

@@ -11,7 +11,11 @@ import {
   TRAIT_MIN,
   TRAIT_MAX,
 } from '../utils/traits';
-import { DEFAULT_MUTATION_RATE, MUTATION_DRIFT } from '../utils/constants';
+import {
+  DEFAULT_MUTATION_RATE,
+  MUTATION_DRIFT,
+  REPRODUCTION_ENERGY_COST,
+} from '../utils/constants';
 
 /**
  * Species represents a distinct genetic lineage with tracking info
@@ -98,19 +102,21 @@ export function mutateTraits(
  * - lineageId: parent's lineageId (maintains lineage)
  * - speciesId: parent's speciesId
  * - Mutated traits from mutateTraits()
- * - Initial energy: a fraction of parent's energy (half of parent's current energy, minimum 50)
+ * - Initial energy: exactly the energy invested by the parent
  * - Position: same as parent (offspring starts at parent location)
  * - Age: 0
  *
  * @param parent - the parent creature
  * @param rng - deterministic RNG function
+ * @param offspringEnergy - energy already paid by the parent for this child
  * @returns new offspring creature
  */
 export function reproduceCreature(
   parent: Creature,
   rng: RngFn,
   mutationDrift: number = MUTATION_DRIFT,
-  mutationRate: number = DEFAULT_MUTATION_RATE
+  mutationRate: number = DEFAULT_MUTATION_RATE,
+  offspringEnergy: number = REPRODUCTION_ENERGY_COST
 ): Creature {
   const mutatedTraits = mutateTraits(parent.traits, rng, mutationDrift, mutationRate);
 
@@ -139,7 +145,7 @@ export function reproduceCreature(
     traits: mutatedTraits,
     x: parent.x,
     y: parent.y,
-    energy: Math.max(50, parent.energy * 0.5),
+    energy: Math.max(0, offspringEnergy),
     age: 0,
     lifecycleState: 'alive',
     corpseDecayTicks: 0,
