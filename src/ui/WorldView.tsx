@@ -7,6 +7,7 @@ import {
   GridLayout,
   viewportPointToTile,
 } from './worldViewport';
+import TurningPointNotice from './TurningPointNotice';
 
 /**
  * Rendering constants for the canvas grid
@@ -371,6 +372,7 @@ const WorldView: React.FC = () => {
         height: '100%',
         overflow: 'hidden',
         backgroundColor: '#000000',
+        position: 'relative',
       }}
     >
       <canvas
@@ -381,6 +383,7 @@ const WorldView: React.FC = () => {
           height: '100%',
         }}
       />
+      <TurningPointNotice />
     </div>
   );
 };

@@ -1,2 +1,2 @@
-PASS — Added deterministic Order, Chaos, and Exploration trajectories for #83, with bounded comparisons and non-prescriptive plain-language explanations in the Stats panel.
-All 377 tests pass, including young-history, balancing/concentration, turnover, lineage, and large-history cases; the production build succeeds.
+PASS — Added a prioritized, accessible world turning-point notice for #84 so significant Order, Chaos, and Exploration changes are visible outside Settings without repeating every frame.
+All 383 tests pass, including priority, quiet-state, determinism, repeat suppression, and re-arming behavior; the production build succeeds.
