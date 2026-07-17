@@ -89,6 +89,15 @@ export function buildEventStories(
         };
       }
       if (event.type === 'intervention') {
+        if (event.interventionKind === 'species-introduction') {
+          return {
+            id: `${event.tick}-introduction-${event.speciesId ?? sequence}`,
+            tick: event.tick,
+            tone: 'intervention',
+            title: `${species} entered the ecosystem`,
+            detail: event.detail ?? 'God Mode introduced a new founder group',
+          };
+        }
         const changes = event.constantChanges ?? [];
         const visible = changes.slice(0, 3).map(
           (change) =>

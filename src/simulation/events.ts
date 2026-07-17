@@ -34,6 +34,7 @@ export interface SimEvent {
   traitChanges?: TraitChange[];
   constantChanges?: ConstantChange[];
   ecosystemBefore?: EcosystemCheckpoint;
+  interventionKind?: 'settings-change' | 'species-introduction';
 }
 
 /** Capture live setting changes in stable constant-key order. */

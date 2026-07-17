@@ -1,3 +1,3 @@
-PASS — Added deterministic “Since intervention” consequence summaries for #70.
-The view compares pre-change checkpoints with current ecology without claiming guaranteed causation.
-All 315 tests pass and the production build succeeds.
+PASS — Added deterministic God Mode species introduction for #71.
+Players can seed a founder group near a selected habitable tile and follow it in World Story.
+All 320 tests pass and the production build succeeds.

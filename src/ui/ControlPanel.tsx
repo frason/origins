@@ -9,9 +9,11 @@ import {
   BALANCED_LONGEVITY_PRESET,
   SimulationConstants,
 } from '../utils/constants';
+import type { EnergyStrategy } from '../utils/traits';
 
 interface ControlPanelProps {
   onReset?: () => void;
+  onIntroduceSpecies?: (strategy: EnergyStrategy) => string | null;
 }
 
 const panelStyle: CSSProperties = {
@@ -215,7 +217,7 @@ const GOD_MODE_SLIDERS: SliderConfig[] = [
   },
 ];
 
-export default function ControlPanel({ onReset }: ControlPanelProps) {
+export default function ControlPanel({ onReset, onIntroduceSpecies }: ControlPanelProps) {
   const tick = useStore((s) => s.tick);
   const isRunning = useStore((s) => s.isRunning);
   const speed = useStore((s) => s.speed);
@@ -225,6 +227,8 @@ export default function ControlPanel({ onReset }: ControlPanelProps) {
   const updateConstants = useStore((s) => s.updateConstants);
   const resetConstants = useStore((s) => s.resetConstants);
   const [showGodMode, setShowGodMode] = useState(false);
+  const [introductionStrategy, setIntroductionStrategy] = useState<EnergyStrategy>('herbivore');
+  const [introductionMessage, setIntroductionMessage] = useState<string | null>(null);
 
   return (
     <div style={panelStyle}>
@@ -289,6 +293,52 @@ export default function ControlPanel({ onReset }: ControlPanelProps) {
               Reset Defaults
             </button>
           </div>
+          {onIntroduceSpecies && (
+            <div style={{ borderTop: '1px solid #45413b', paddingTop: '0.75rem', marginBottom: '0.85rem' }}>
+              <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Introduce species</div>
+              <div style={{ color: '#888', fontSize: '0.7rem', marginBottom: '0.5rem' }}>
+                Select a habitable tile, then seed three founders nearby.
+              </div>
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <select
+                  aria-label="Founder ecological strategy"
+                  value={introductionStrategy}
+                  onChange={(event) => {
+                    setIntroductionStrategy(event.target.value as EnergyStrategy);
+                    setIntroductionMessage(null);
+                  }}
+                  style={{ ...buttonStyle, flex: 1, padding: '0.35rem 0.4rem' }}
+                >
+                  <option value="herbivore">Herbivore</option>
+                  <option value="carnivore">Carnivore</option>
+                  <option value="omnivore">Omnivore</option>
+                  <option value="scavenger">Scavenger</option>
+                </select>
+                <button
+                  type="button"
+                  style={{ ...buttonStyle, padding: '0.35rem 0.55rem' }}
+                  onClick={() => {
+                    const error = onIntroduceSpecies(introductionStrategy);
+                    setIntroductionMessage(error ?? 'Founder group introduced');
+                  }}
+                >
+                  Introduce
+                </button>
+              </div>
+              {introductionMessage && (
+                <div
+                  role="status"
+                  style={{
+                    color: introductionMessage.includes('introduced') ? '#79dc89' : '#e7a16f',
+                    fontSize: '0.7rem',
+                    marginTop: '0.4rem',
+                  }}
+                >
+                  {introductionMessage}
+                </div>
+              )}
+            </div>
+          )}
           {GOD_MODE_SLIDERS.map((config) => {
             const value = constants[config.key];
             const displayValue = config.formatter

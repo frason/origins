@@ -7,8 +7,9 @@ import TileInfoPanel from './ui/TileInfoPanel';
 import ExtinctionSummary from './ui/ExtinctionSummary';
 import { useStore, WorldSnapshot, CreatureSnapshot } from './state/store';
 import { Creature } from './simulation/creature';
-import { createEngine, tickEngine, EngineState } from './simulation/engine';
+import { createEngine, introduceSpecies, tickEngine, EngineState } from './simulation/engine';
 import { SimulationConstants } from './utils/constants';
+import type { EnergyStrategy } from './utils/traits';
 import { getBiomeProductivity } from './simulation/producer';
 import { buildStarterCreatures } from './simulation/starterWorld';
 import SettingsDrawer from './ui/SettingsDrawer';
@@ -90,6 +91,20 @@ export default function App() {
     publish(engine);
   }, [publish]);
 
+  const addSpecies = useCallback((strategy: EnergyStrategy): string | null => {
+    const engine = engineRef.current;
+    const tile = useStore.getState().selectedTile;
+    if (!engine || !tile) return 'Select a tile in the world first';
+    try {
+      const introduction = introduceSpecies(engine, strategy, tile);
+      engineRef.current = introduction.state;
+      publish(introduction.state);
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : 'Could not introduce this species';
+    }
+  }, [publish]);
+
   // Initialize world once
   useEffect(() => {
     if (!engineRef.current) {
@@ -150,7 +165,7 @@ export default function App() {
         <WorldView />
       </div>
       <SettingsDrawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}>
-          <ControlPanel onReset={reset} />
+          <ControlPanel onReset={reset} onIntroduceSpecies={addSpecies} />
           <StatsPanel />
           <EventTimeline />
           <SpeciesPanel />

@@ -9,7 +9,8 @@ import {
 } from '../utils/constants';
 import { growProducers } from './producer';
 import { reproduceCreature } from './species';
-import { lineageDisplayName } from './speciesNames';
+import { lineageDisplayName, speciesDisplayName } from './speciesNames';
+import { DEFAULT_TRAITS, type EnergyStrategy } from '../utils/traits';
 import { compareConstants, compareTraits, type SimEvent } from './events';
 import {
   decideTick,
@@ -68,6 +69,97 @@ export interface EngineState {
   seed: number;
   events: SimEvent[];
   constants: SimulationConstants;
+}
+
+export interface SpeciesIntroduction {
+  state: EngineState;
+  speciesId: string;
+  creatureIds: string[];
+}
+
+const INTRODUCTION_ENERGY: Record<EnergyStrategy, number> = {
+  herbivore: 140,
+  carnivore: 180,
+  omnivore: 160,
+  scavenger: 120,
+};
+
+/** Add a founder group without consuming RNG, keeping intervention replay exact. */
+export function introduceSpecies(
+  state: EngineState,
+  strategy: EnergyStrategy,
+  origin: { x: number; y: number }
+): SpeciesIntroduction {
+  if (
+    !Number.isInteger(origin.x) || !Number.isInteger(origin.y) ||
+    origin.x < 0 || origin.x >= state.world.width ||
+    origin.y < 0 || origin.y >= state.world.height
+  ) {
+    throw new RangeError('Choose a tile inside the world');
+  }
+  const originCell = state.world.getCell(origin.x, origin.y);
+  if (originCell.biome === 'ocean' || originCell.biome === 'mountain') {
+    throw new Error('Choose a habitable land tile');
+  }
+
+  const occupied = new Set(
+    state.creatures
+      .filter((creature) => creature.lifecycleState === 'alive')
+      .map((creature) => `${creature.x},${creature.y}`)
+  );
+  const candidates: { x: number; y: number }[] = [];
+  for (let y = 0; y < state.world.height; y++) {
+    for (let x = 0; x < state.world.width; x++) {
+      const cell = state.world.getCell(x, y);
+      if (
+        cell.biome !== 'ocean' && cell.biome !== 'mountain' &&
+        !occupied.has(`${x},${y}`)
+      ) {
+        candidates.push({ x, y });
+      }
+    }
+  }
+  candidates.sort((a, b) => {
+    const aDistance = (a.x - origin.x) ** 2 + (a.y - origin.y) ** 2;
+    const bDistance = (b.x - origin.x) ** 2 + (b.y - origin.y) ** 2;
+    return aDistance - bDistance || a.y - b.y || a.x - b.x;
+  });
+  if (candidates.length < 3) throw new Error('Not enough open habitat for a founder group');
+
+  const introductionNumber = state.events.filter(
+    (event) => event.interventionKind === 'species-introduction'
+  ).length + 1;
+  const speciesId = `introduced_${strategy}_${introductionNumber}`;
+  const founders = candidates.slice(0, 3).map((position, index) => {
+    const creature = new Creature({
+      speciesId,
+      lineageId: speciesId,
+      parentId: null,
+      traits: { ...DEFAULT_TRAITS, energyStrategy: strategy },
+      ...position,
+      energy: INTRODUCTION_ENERGY[strategy],
+    });
+    creature.id = `${speciesId}_founder_${index + 1}`;
+    return creature;
+  });
+  const event: SimEvent = {
+    type: 'intervention',
+    tick: state.tick,
+    speciesId,
+    interventionKind: 'species-introduction',
+    ecosystemBefore: ecosystemCheckpoint(state.world, state.creatures),
+    detail: `Introduced ${speciesDisplayName(speciesId)} (${strategy}) with 3 founders`,
+  };
+  const nextState = {
+    ...state,
+    creatures: [...state.creatures, ...founders],
+    events: [...state.events, event],
+  };
+  return {
+    state: nextState,
+    speciesId,
+    creatureIds: founders.map((creature) => creature.id),
+  };
 }
 
 /**
@@ -187,6 +279,7 @@ export function tickEngine(
     newEvents.push({
       type: 'intervention',
       tick: state.tick,
+      interventionKind: 'settings-change',
       detail: `God Mode changed ${constantChanges.length} ${constantChanges.length === 1 ? 'setting' : 'settings'}`,
       constantChanges,
       ecosystemBefore: ecosystemCheckpoint(state.world, state.creatures),

@@ -73,4 +73,20 @@ describe('ecosystem event storytelling', () => {
     expect(story.detail).toContain('base metabolism 2 → 0.5');
     expect(story.detail).toContain('producer growth rate 0.1 → 0.2');
   });
+
+  it('announces a God Mode species introduction by its readable identity', () => {
+    const [story] = buildEventStories([{
+      type: 'intervention',
+      tick: 42,
+      speciesId: 'introduced_herbivore_1',
+      interventionKind: 'species-introduction',
+      detail: 'Introduced a founder group',
+    }]);
+
+    expect(story).toMatchObject({
+      tone: 'intervention',
+      title: `${speciesDisplayName('introduced_herbivore_1')} entered the ecosystem`,
+      detail: 'Introduced a founder group',
+    });
+  });
 });
