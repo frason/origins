@@ -2,11 +2,12 @@
  * StatsPanel — headline ecosystem metrics from the current snapshot.
  */
 
-import { CSSProperties, useEffect, useRef } from 'react';
+import { CSSProperties } from 'react';
 import { useStore } from '../state/store';
 import {
   getBiodiversityState,
-  getEcosystemHealth,
+  getEcosystemDynamics,
+  type DynamicsMetric,
   type HealthTone,
 } from './ecosystemHealth';
 
@@ -54,10 +55,30 @@ function Row({ label, value }: { label: string; value: string | number }) {
   );
 }
 
+function DynamicsRow({ label, metric }: { label: string; metric: DynamicsMetric }) {
+  const colors = toneColors[metric.tone];
+  return (
+    <div style={{ margin: '0.55rem 0' }} title={metric.explanation}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
+        <span style={{ color: '#ddd', fontWeight: 600 }}>{label}</span>
+        <span style={{ color: colors.color }}>{metric.label} · {metric.score}</span>
+      </div>
+      <div style={{ height: 5, margin: '0.25rem 0', borderRadius: 99, background: '#3a3a3a' }}>
+        <div
+          style={{ width: `${metric.score}%`, height: '100%', borderRadius: 99, background: colors.color }}
+        />
+      </div>
+      <div style={{ color: '#888', fontSize: '0.68rem', lineHeight: 1.35 }}>
+        {metric.explanation}
+      </div>
+    </div>
+  );
+}
+
 export default function StatsPanel() {
   const worldState = useStore((s) => s.worldState);
   const tick = useStore((s) => s.tick);
-  const previousPopulation = useRef(0);
+  const maxPopulation = useStore((s) => s.constants.maxGlobalPopulation);
 
   let alive = 0;
   let corpses = 0;
@@ -85,17 +106,7 @@ export default function StatsPanel() {
   }
 
   const biodiversity = getBiodiversityState(species.size);
-  const health = getEcosystemHealth({
-    speciesCount: species.size,
-    totalPopulation: alive,
-    totalBiomass,
-    tick,
-    previousPopulation: previousPopulation.current,
-  });
-
-  useEffect(() => {
-    previousPopulation.current = alive;
-  }, [alive]);
+  const dynamics = getEcosystemDynamics(worldState, tick, maxPopulation);
 
   return (
     <div style={panelStyle}>
@@ -109,11 +120,15 @@ export default function StatsPanel() {
         }}
       >
         <div style={{ fontWeight: 600 }}>Ecosystem</div>
-        <Badge {...health} />
+        <Badge {...dynamics.overall} />
       </div>
       <div style={{ marginBottom: '0.45rem' }}>
         <Badge {...biodiversity} />
       </div>
+      <DynamicsRow label="Order" metric={dynamics.order} />
+      <DynamicsRow label="Chaos" metric={dynamics.chaos} />
+      <DynamicsRow label="Exploration" metric={dynamics.exploration} />
+      <div style={{ borderTop: '1px solid #383838', margin: '0.65rem 0 0.45rem' }} />
       <Row label="Population" value={alive} />
       <Row label="Species" value={species.size} />
       <Row label="Births" value={births} />

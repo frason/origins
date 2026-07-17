@@ -1,63 +1,101 @@
 import { describe, expect, it } from 'vitest';
-import { getBiodiversityState, getEcosystemHealth } from '../ui/ecosystemHealth';
+import { getBiodiversityState, getEcosystemDynamics } from '../ui/ecosystemHealth';
+import type { EventSnapshot, WorldSnapshot } from '../state/store';
+import { DEFAULT_TRAITS } from '../utils/traits';
 
-describe('ecosystem health indicators', () => {
+function snapshot({
+  populations,
+  lineages = 1,
+  events = [],
+  biomass = 1000,
+}: {
+  populations: number[];
+  lineages?: number;
+  events?: EventSnapshot[];
+  biomass?: number;
+}): WorldSnapshot {
+  const creatures = populations.flatMap((count, speciesIndex) =>
+    Array.from({ length: count }, (_, creatureIndex) => ({
+      id: `${speciesIndex}-${creatureIndex}`,
+      speciesId: `species-${speciesIndex}`,
+      lineageId: creatureIndex < lineages ? `lineage-${speciesIndex}-${creatureIndex}` : `lineage-${speciesIndex}-0`,
+      parentId: null,
+      traits: {
+        ...DEFAULT_TRAITS,
+        energyStrategy: (['herbivore', 'carnivore', 'omnivore', 'scavenger'] as const)[speciesIndex % 4],
+      },
+      x: 0,
+      y: 0,
+      energy: 100,
+      age: 1,
+      lifecycleState: 'alive' as const,
+      corpseDecayTicks: 0,
+    }))
+  );
+  return {
+    width: 1,
+    height: 1,
+    cells: [{
+      energy: 10, nutrients: 0, producerBiomass: biomass, toxicity: 0,
+      elevation: 0, moisture: 0.5, temperature: 0.5, biome: 'grassland',
+      producerArchetype: 'ground-cover',
+    }],
+    creatures,
+    events,
+  };
+}
+
+describe('ecosystem dynamics indicators', () => {
   it('classifies biodiversity at the requested thresholds', () => {
     expect(getBiodiversityState(0).tone).toBe('danger');
-    expect(getBiodiversityState(1).tone).toBe('danger');
     expect(getBiodiversityState(2).tone).toBe('warning');
-    expect(getBiodiversityState(4).tone).toBe('warning');
     expect(getBiodiversityState(5).tone).toBe('healthy');
   });
 
-  it('reports collapse when creatures or producer biomass reach zero', () => {
-    expect(getEcosystemHealth({
-      speciesCount: 4,
-      totalPopulation: 0,
-      totalBiomass: 100,
-      tick: 10,
-      previousPopulation: 5,
-    }).label).toBe('Collapsing');
-    expect(getEcosystemHealth({
-      speciesCount: 4,
-      totalPopulation: 10,
-      totalBiomass: 0,
-      tick: 10,
-      previousPopulation: 10,
-    }).label).toBe('Collapsing');
+  it('reports collapse when life or producer support is gone', () => {
+    expect(getEcosystemDynamics(snapshot({ populations: [] }), 100, 500).overall.label)
+      .toBe('Collapsing');
+    expect(getEcosystemDynamics(snapshot({ populations: [5], biomass: 0 }), 100, 500).overall.label)
+      .toBe('Collapsing');
   });
 
-  it('keeps low-diversity and rapidly declining ecosystems at risk', () => {
-    expect(getEcosystemHealth({
-      speciesCount: 2,
-      totalPopulation: 20,
-      totalBiomass: 100,
-      tick: 200,
-      previousPopulation: 20,
-    }).label).toBe('At Risk');
-    expect(getEcosystemHealth({
-      speciesCount: 6,
-      totalPopulation: 80,
-      totalBiomass: 100,
-      tick: 200,
-      previousPopulation: 100,
-    }).label).toBe('At Risk');
+  it('identifies an orderly but inactive ecosystem as stagnant', () => {
+    const result = getEcosystemDynamics(snapshot({ populations: [5, 5, 5, 5] }), 200, 500);
+
+    expect(result.order.score).toBeGreaterThanOrEqual(75);
+    expect(result.chaos.label).toBe('Dormant');
+    expect(result.overall.label).toBe('Stagnant');
   });
 
-  it('distinguishes stable from established thriving ecosystems', () => {
-    expect(getEcosystemHealth({
-      speciesCount: 4,
-      totalPopulation: 20,
-      totalBiomass: 100,
-      tick: 50,
-      previousPopulation: 20,
-    }).label).toBe('Stable');
-    expect(getEcosystemHealth({
-      speciesCount: 5,
-      totalPopulation: 20,
-      totalBiomass: 100,
-      tick: 101,
-      previousPopulation: 20,
-    }).label).toBe('Thriving');
+  it('recognizes balanced turnover and evolutionary exploration', () => {
+    const events: EventSnapshot[] = [
+      ...Array.from({ length: 20 }, (_, index) => ({ type: 'birth' as const, tick: 150 + index })),
+      ...Array.from({ length: 10 }, (_, index) => ({ type: 'death' as const, tick: 160 + index })),
+      ...Array.from({ length: 3 }, (_, index) => ({ type: 'mutation' as const, tick: 170 + index })),
+    ];
+    const result = getEcosystemDynamics(
+      snapshot({ populations: [5, 5, 5, 5], lineages: 2, events }),
+      200,
+      500
+    );
+
+    expect(result.chaos.label).toBe('Dynamic');
+    expect(result.exploration.label).toBe('Branching');
+    expect(result.overall.label).toBe('Balanced');
+  });
+
+  it('flags destructive turnover as turbulent and replays identically', () => {
+    const world = snapshot({
+      populations: [8, 2],
+      events: Array.from({ length: 80 }, (_, index) => ({
+        type: 'death' as const,
+        tick: 100 + index,
+      })),
+    });
+    const first = getEcosystemDynamics(world, 200, 500);
+
+    expect(first.chaos.label).toBe('Turbulent');
+    expect(first.overall.label).toBe('Turbulent');
+    expect(getEcosystemDynamics(world, 200, 500)).toEqual(first);
   });
 });

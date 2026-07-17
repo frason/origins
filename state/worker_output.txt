@@ -1,3 +1,3 @@
-PASS — Added reproducible pseudo-Latin species and lineage names for #63.
-Mutated lineages retain their founding genus while receiving a distinct epithet.
-Internal IDs remain unchanged. Verification: 298/298 tests pass and the production build succeeds.
+PASS — Added separate Order, Chaos, and Exploration health metrics for #64.
+The headline now distinguishes stagnation, turbulence, collapse, emergence, and balanced evolution.
+Verification: 299/299 tests pass and the production build succeeds.
