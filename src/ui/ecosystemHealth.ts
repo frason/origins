@@ -81,10 +81,19 @@ export function getEcosystemDynamics(
 
   const windowStart = Math.max(0, tick - WINDOW_TICKS);
   const windowLength = Math.max(1, Math.min(WINDOW_TICKS, tick));
-  const recentEvents = (world?.events ?? []).filter((event) => event.tick >= windowStart);
-  const births = recentEvents.filter((event) => event.type === 'birth').length;
-  const deaths = recentEvents.filter((event) => event.type === 'death').length;
-  const extinctions = recentEvents.filter((event) => event.type === 'extinction').length;
+  let births = 0;
+  let deaths = 0;
+  let extinctions = 0;
+  let mutations = 0;
+  const events = world?.events ?? [];
+  for (let index = events.length - 1; index >= 0; index--) {
+    const event = events[index];
+    if (event.tick < windowStart) break;
+    if (event.type === 'birth') births++;
+    else if (event.type === 'death') deaths++;
+    else if (event.type === 'extinction') extinctions++;
+    else if (event.type === 'mutation') mutations++;
+  }
   const turnoverIntensity =
     (births + deaths + extinctions * 3) / (windowLength * Math.max(10, population));
   const idealTurnover = 0.015;
@@ -105,7 +114,6 @@ export function getEcosystemDynamics(
     explanation: `${births} births, ${deaths} deaths, and ${extinctions} extinctions in the last ${windowLength} ticks.`,
   };
 
-  const mutations = recentEvents.filter((event) => event.type === 'mutation').length;
   const extraLineages = Math.max(0, lineages.size - speciesCount);
   const explorationScore = Math.round(
     45 * clamp(mutations / 3) +

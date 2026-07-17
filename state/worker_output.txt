@@ -1,2 +1,2 @@
-PASS — Kept long-session UI updates responsive for #81 by capping visual publication at 10 fps, reusing immutable history arrays, and bounding recent event scans without slowing simulation ticks.
-All 369 tests pass, including snapshot isolation, cumulative history, frame pacing, and large-history behavior; the production build succeeds.
+PASS — Bounded the remaining live history consumers for #82: health uses its recent window, lineage notices expire after 100 ticks, and intervention impact scans only back to the latest checkpoint.
+All 372 tests pass, including large-history equivalence and recent-milestone behavior; the production build succeeds.

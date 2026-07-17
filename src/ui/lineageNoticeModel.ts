@@ -22,6 +22,8 @@ const priority: Record<FollowedNoticeType, number> = {
   dominance: 1,
 };
 
+const MILESTONE_WINDOW_TICKS = 100;
+
 /** Derive bounded milestones from structured history; no simulation state is changed. */
 export function buildFollowedLineageNotices(
   creatures: CreatureSnapshot[],
@@ -40,18 +42,33 @@ export function buildFollowedLineageNotices(
       (creature) =>
         creature.speciesId === bookmark.speciesId && creature.lineageId === bookmark.lineageId
     ).length;
-    const lineageEvents = events.filter(
-      (event) =>
-        event.speciesId === bookmark.speciesId && event.lineageId === bookmark.lineageId
-    );
-
-    const branch = [...events].reverse().find(
-      (event) =>
-        event.type === 'mutation' &&
+    const eventStart = Math.max(0, tick - MILESTONE_WINDOW_TICKS);
+    let branch: EventSnapshot | undefined;
+    let latestDeath: EventSnapshot | undefined;
+    let latestBirth: EventSnapshot | undefined;
+    let reboundBirths = 0;
+    let reboundDeaths = 0;
+    for (let index = events.length - 1; index >= 0; index--) {
+      const event = events[index];
+      if (event.tick < eventStart) break;
+      if (
+        !branch && event.type === 'mutation' &&
         event.speciesId === bookmark.speciesId &&
-        event.parentLineageId === bookmark.lineageId &&
-        event.lineageId
-    );
+        event.parentLineageId === bookmark.lineageId && event.lineageId
+      ) branch = event;
+      if (event.speciesId !== bookmark.speciesId || event.lineageId !== bookmark.lineageId) {
+        continue;
+      }
+      if (!latestDeath && event.type === 'death') latestDeath = event;
+      if (!latestBirth && event.type === 'birth') {
+        latestBirth = event;
+        continue;
+      }
+      if (latestBirth && event.tick >= latestBirth.tick - 25) {
+        if (event.type === 'birth') reboundBirths++;
+        else if (event.type === 'death') reboundDeaths++;
+      }
+    }
     if (branch?.lineageId) {
       notices.push({
         id: `${bookmark.speciesId}:${bookmark.lineageId}:branch:${branch.tick}:${branch.lineageId}`,
@@ -62,7 +79,6 @@ export function buildFollowedLineageNotices(
       });
     }
 
-    const latestDeath = [...lineageEvents].reverse().find((event) => event.type === 'death');
     if (population === 0 && latestDeath) {
       notices.push({
         id: `${bookmark.speciesId}:${bookmark.lineageId}:extinction:${latestDeath.tick}`,
@@ -73,27 +89,14 @@ export function buildFollowedLineageNotices(
       });
     }
 
-    let latestBirthIndex = -1;
-    for (let index = lineageEvents.length - 1; index >= 0; index--) {
-      if (lineageEvents[index].type === 'birth') {
-        latestBirthIndex = index;
-        break;
-      }
-    }
-    if (population > 0 && latestBirthIndex >= 0) {
-      const latestBirth = lineageEvents[latestBirthIndex];
-      const preceding = lineageEvents.slice(0, latestBirthIndex).filter(
-        (event) => event.tick >= latestBirth.tick - 25
-      );
-      const losses = preceding.filter((event) => event.type === 'death').length;
-      const gains = preceding.filter((event) => event.type === 'birth').length;
-      if (losses >= 2 && losses > gains) {
+    if (population > 0 && latestBirth) {
+      if (reboundDeaths >= 2 && reboundDeaths > reboundBirths) {
         notices.push({
           id: `${bookmark.speciesId}:${bookmark.lineageId}:rebound:${latestBirth.tick}`,
           type: 'rebound',
           tick: latestBirth.tick,
           title: `${name} is rebounding`,
-          detail: `A new birth followed ${losses} recent losses`,
+          detail: `A new birth followed ${reboundDeaths} recent losses`,
         });
       }
     }

@@ -98,4 +98,20 @@ describe('ecosystem dynamics indicators', () => {
     expect(first.overall.label).toBe('Turbulent');
     expect(getEcosystemDynamics(world, 200, 500)).toEqual(first);
   });
+
+  it('ignores a large old history outside the live health window', () => {
+    const recent: EventSnapshot[] = [
+      { type: 'birth', tick: 190 },
+      { type: 'death', tick: 191 },
+      { type: 'mutation', tick: 192 },
+    ];
+    const compact = snapshot({ populations: [5, 5], lineages: 2, events: recent });
+    const old: EventSnapshot[] = Array.from({ length: 10_000 }, (_, index) => ({
+      type: index % 2 ? 'birth' : 'death', tick: Math.floor(index / 100),
+    }));
+    const long = snapshot({ populations: [5, 5], lineages: 2, events: [...old, ...recent] });
+
+    expect(getEcosystemDynamics(long, 200, 500))
+      .toEqual(getEcosystemDynamics(compact, 200, 500));
+  });
 });

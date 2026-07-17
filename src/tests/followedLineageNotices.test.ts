@@ -86,4 +86,24 @@ describe('followed lineage milestone notices', () => {
     expect(first[0]).toMatchObject({ type: 'extinction', tick: 20 });
     expect(buildFollowedLineageNotices([], events, followed, 25, 1)).toEqual(first);
   });
+
+  it('keeps notices bounded to recent milestones in a large history', () => {
+    const oldEvents: EventSnapshot[] = Array.from({ length: 10_000 }, (_, tick) => ({
+      type: 'birth', tick, speciesId: 'other', lineageId: 'other-root',
+    }));
+    oldEvents.push({
+      type: 'mutation', tick: 10_000, speciesId: 'grazer',
+      parentLineageId: 'root', lineageId: 'old-branch',
+    });
+    const recent: EventSnapshot[] = [{
+      type: 'mutation', tick: 10_150, speciesId: 'grazer',
+      parentLineageId: 'root', lineageId: 'recent-branch',
+    }];
+    const notices = buildFollowedLineageNotices(
+      [creature('a', 'grazer', 'root')], [...oldEvents, ...recent], followed, 10_200
+    );
+
+    expect(notices.filter((notice) => notice.type === 'branch')).toHaveLength(1);
+    expect(notices[0].id).toContain('recent-branch');
+  });
 });

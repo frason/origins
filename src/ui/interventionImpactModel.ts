@@ -36,24 +36,31 @@ export function buildInterventionImpact(
 ): InterventionImpact | null {
   if (!world) return null;
   let interventionIndex = -1;
+  let births = 0;
+  let deaths = 0;
+  let mutations = 0;
+  let extinctions = 0;
   for (let index = world.events.length - 1; index >= 0; index--) {
-    if (world.events[index].type === 'intervention' && world.events[index].ecosystemBefore) {
+    const event = world.events[index];
+    if (event.type === 'intervention' && event.ecosystemBefore) {
       interventionIndex = index;
       break;
     }
+    if (event.type === 'birth') births++;
+    else if (event.type === 'death') deaths++;
+    else if (event.type === 'mutation') mutations++;
+    else if (event.type === 'extinction') extinctions++;
   }
   if (interventionIndex < 0) return null;
 
   const intervention = world.events[interventionIndex] as SimEvent;
   const before = intervention.ecosystemBefore!;
   const current = checkpoint(world);
-  const following = world.events.slice(interventionIndex + 1);
   const ticksSince = Math.max(0, tick - intervention.tick);
   const populationDelta = current.population - before.population;
   const speciesDelta = current.speciesCount - before.speciesCount;
   const lineageDelta = current.lineageCount - before.lineageCount;
   const threshold = Math.max(3, Math.ceil(before.population * 0.2));
-  const mutations = following.filter((event) => event.type === 'mutation').length;
 
   let summary: string;
   let tone: InterventionImpact['tone'];
@@ -87,10 +94,10 @@ export function buildInterventionImpact(
     lineageDelta,
     livingEnergyDelta: current.livingEnergy - before.livingEnergy,
     producerBiomassDelta: current.producerBiomass - before.producerBiomass,
-    births: following.filter((event) => event.type === 'birth').length,
-    deaths: following.filter((event) => event.type === 'death').length,
+    births,
+    deaths,
     mutations,
-    extinctions: following.filter((event) => event.type === 'extinction').length,
+    extinctions,
     settingsChanged: intervention.constantChanges?.length ?? 0,
   };
 }

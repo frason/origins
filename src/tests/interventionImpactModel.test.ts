@@ -93,4 +93,23 @@ describe('intervention impact model', () => {
     expect(first?.summary).toBe('Effects are still emerging');
     expect(buildInterventionImpact(state, 12)).toEqual(first);
   });
+
+  it('counts only the tail after the latest checkpoint in a large history', () => {
+    const oldEvents: WorldSnapshot['events'] = Array.from(
+      { length: 10_000 },
+      (_, tick) => ({ type: tick % 2 ? 'birth' : 'death', tick })
+    );
+    const latest = { ...intervention, tick: 10_000 };
+    const state = world({ events: [
+      ...oldEvents,
+      latest,
+      { type: 'birth', tick: 10_001 },
+      { type: 'mutation', tick: 10_002 },
+      { type: 'extinction', tick: 10_003 },
+    ] });
+
+    expect(buildInterventionImpact(state, 10_010)).toMatchObject({
+      tick: 10_000, births: 1, deaths: 0, mutations: 1, extinctions: 1,
+    });
+  });
 });
