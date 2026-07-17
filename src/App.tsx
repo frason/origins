@@ -8,73 +8,18 @@ import ExtinctionSummary from './ui/ExtinctionSummary';
 import { useStore, WorldSnapshot, CreatureSnapshot } from './state/store';
 import { Creature } from './simulation/creature';
 import { createEngine, tickEngine, EngineState } from './simulation/engine';
-import { DEFAULT_TRAITS, Traits } from './utils/traits';
 import { SimulationConstants } from './utils/constants';
 import { getBiomeProductivity } from './simulation/producer';
+import { buildStarterCreatures } from './simulation/starterWorld';
 
 const WORLD_SEED = 12345;
-
-/**
- * Deterministic starter population clustered around the high-energy center.
- * Herbivore-heavy so the food web has a base; a few predators and scavengers on top.
- */
-function buildStarterCreatures(): Creature[] {
-  const specs: Array<{
-    speciesId: string;
-    strategy: Traits['energyStrategy'];
-    x: number;
-    y: number;
-    energy: number;
-  }> = [];
-
-  // 14 herbivores in a ring around center
-  for (let i = 0; i < 14; i++) {
-    const angle = (i / 14) * Math.PI * 2;
-    specs.push({
-      speciesId: 'herbivore_001',
-      strategy: 'herbivore',
-      x: Math.round(50 + Math.cos(angle) * 12),
-      y: Math.round(50 + Math.sin(angle) * 12),
-      energy: 140,
-    });
-  }
-  // 3 omnivores mid-ring
-  for (let i = 0; i < 3; i++) {
-    const angle = (i / 3) * Math.PI * 2 + 0.5;
-    specs.push({
-      speciesId: 'omnivore_001',
-      strategy: 'omnivore',
-      x: Math.round(50 + Math.cos(angle) * 20),
-      y: Math.round(50 + Math.sin(angle) * 20),
-      energy: 160,
-    });
-  }
-  // 2 carnivores on the outskirts
-  specs.push({ speciesId: 'carnivore_001', strategy: 'carnivore', x: 30, y: 70, energy: 180 });
-  specs.push({ speciesId: 'carnivore_001', strategy: 'carnivore', x: 70, y: 30, energy: 180 });
-  // 1 scavenger
-  specs.push({ speciesId: 'scavenger_001', strategy: 'scavenger', x: 50, y: 65, energy: 120 });
-
-  return specs.map(
-    (s) =>
-      new Creature({
-        speciesId: s.speciesId,
-        lineageId: s.speciesId,
-        parentId: null,
-        traits: { ...DEFAULT_TRAITS, energyStrategy: s.strategy },
-        x: s.x,
-        y: s.y,
-        energy: s.energy,
-      })
-  );
-}
 
 /** Build a fresh engine with seeded initial producer biomass (proportional to solar energy). */
 function buildEngine(constants: SimulationConstants): EngineState {
   Creature.resetIdCounter();
   const engine = createEngine(
     WORLD_SEED,
-    buildStarterCreatures(),
+    buildStarterCreatures(WORLD_SEED, constants.worldWidth, constants.worldHeight),
     constants.worldWidth,
     constants.worldHeight,
     constants

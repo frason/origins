@@ -1,4 +1,4 @@
-PASS — Strengthened default solar edge falloff from 0.70 to 0.85 and added a tunable 1.5 radial curve exponent.
-The default world now has a broad bright core, a steep outer rim, and more than 6× center-to-corner energy contrast.
-World rendering now normalizes brightness against configured peak solar energy, making the mechanical difference clearly visible.
-Verification: 276/276 tests pass and the production build succeeds.
+PASS — Replaced fixed starter rings with seeded habitat-aware placement on unique land tiles.
+Herbivores are distributed across the world while omnivores, carnivores, and scavengers remain within four tiles of a prey anchor for a playable opening.
+Tests prove same-seed replay, different-seed variation, valid terrain, unique tiles, and broad spatial spread.
+Verification: 280/280 tests pass and the production build succeeds.
