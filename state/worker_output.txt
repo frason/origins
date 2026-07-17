@@ -1,4 +1,4 @@
-PASS — Added the design proposal at docs/design-dynamic-world.md (139 lines; no simulation implementation).
-It specifies cell schema, data-driven substrate/energy affinities, deterministic static hydrology, water movement/hydration behavior, migration phases, and performance constraints.
-Six unresolved product choices are listed explicitly for client direction.
+PASS — Designed deterministic organism size classes and per-tile occupancy for issue #42.
+The proposal covers microbial cohorts, decomposer roles, spatial indexing, migration, and scale tests.
+No simulation behavior was changed; eight client decisions are recorded before implementation.
 Verification: 290/290 tests pass and the production build succeeds.
