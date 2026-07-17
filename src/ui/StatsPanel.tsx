@@ -12,6 +12,10 @@ import {
 } from './ecosystemHealth';
 import EcosystemPressurePanel from './EcosystemPressurePanel';
 import { getLiveEventTotals } from './liveEventMetrics';
+import {
+  getEcosystemTrajectories,
+  type DynamicsTrajectory,
+} from './ecosystemTrajectory';
 
 const panelStyle: CSSProperties = {
   backgroundColor: '#222',
@@ -57,7 +61,19 @@ function Row({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function DynamicsRow({ label, metric }: { label: string; metric: DynamicsMetric }) {
+const trajectorySymbols: Record<DynamicsTrajectory['direction'], string> = {
+  rising: '↑', falling: '↓', steady: '→', emerging: '·',
+};
+
+function DynamicsRow({
+  label,
+  metric,
+  trajectory,
+}: {
+  label: string;
+  metric: DynamicsMetric;
+  trajectory: DynamicsTrajectory;
+}) {
   const colors = toneColors[metric.tone];
   return (
     <div style={{ margin: '0.55rem 0' }} title={metric.explanation}>
@@ -72,6 +88,12 @@ function DynamicsRow({ label, metric }: { label: string; metric: DynamicsMetric 
       </div>
       <div style={{ color: '#888', fontSize: '0.68rem', lineHeight: 1.35 }}>
         {metric.explanation}
+      </div>
+      <div
+        title={trajectory.explanation}
+        style={{ color: '#aaa', fontSize: '0.68rem', lineHeight: 1.35, marginTop: '0.15rem' }}
+      >
+        {trajectorySymbols[trajectory.direction]} {trajectory.label} — {trajectory.explanation}
       </div>
     </div>
   );
@@ -110,6 +132,7 @@ export default function StatsPanel() {
 
   const biodiversity = getBiodiversityState(species.size);
   const dynamics = getEcosystemDynamics(worldState, tick, maxPopulation);
+  const trajectories = getEcosystemTrajectories(worldState, tick);
 
   return (
     <div style={panelStyle}>
@@ -128,9 +151,9 @@ export default function StatsPanel() {
       <div style={{ marginBottom: '0.45rem' }}>
         <Badge {...biodiversity} />
       </div>
-      <DynamicsRow label="Order" metric={dynamics.order} />
-      <DynamicsRow label="Chaos" metric={dynamics.chaos} />
-      <DynamicsRow label="Exploration" metric={dynamics.exploration} />
+      <DynamicsRow label="Order" metric={dynamics.order} trajectory={trajectories.order} />
+      <DynamicsRow label="Chaos" metric={dynamics.chaos} trajectory={trajectories.chaos} />
+      <DynamicsRow label="Exploration" metric={dynamics.exploration} trajectory={trajectories.exploration} />
       <div style={{ borderTop: '1px solid #383838', margin: '0.65rem 0 0.45rem' }} />
       <Row label="Population" value={alive} />
       <Row label="Species" value={species.size} />

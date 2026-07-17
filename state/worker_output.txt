@@ -1,2 +1,2 @@
-PASS — Bounded the remaining live history consumers for #82: health uses its recent window, lineage notices expire after 100 ticks, and intervention impact scans only back to the latest checkpoint.
-All 372 tests pass, including large-history equivalence and recent-milestone behavior; the production build succeeds.
+PASS — Added deterministic Order, Chaos, and Exploration trajectories for #83, with bounded comparisons and non-prescriptive plain-language explanations in the Stats panel.
+All 377 tests pass, including young-history, balancing/concentration, turnover, lineage, and large-history cases; the production build succeeds.
