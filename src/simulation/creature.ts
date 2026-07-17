@@ -423,6 +423,52 @@ export function calculateNextPosition(
   return { x, y };
 }
 
+const SEARCH_HEADING_DURATION = 6;
+const SEARCH_DIRECTIONS = [
+  { dx: 0, dy: -1 },
+  { dx: 1, dy: -1 },
+  { dx: 1, dy: 0 },
+  { dx: 1, dy: 1 },
+  { dx: 0, dy: 1 },
+  { dx: -1, dy: 1 },
+  { dx: -1, dy: 0 },
+  { dx: -1, dy: -1 },
+];
+
+/** Stable heading that changes every few ticks, producing replay-safe roaming. */
+export function getSearchTarget(creature: Creature, world: World): { x: number; y: number } {
+  const center = { x: Math.floor(world.width / 2), y: Math.floor(world.height / 2) };
+
+  // Recover immediately after reaching an edge rather than spending a heading
+  // interval walking into the boundary.
+  if (
+    creature.x <= 0 ||
+    creature.y <= 0 ||
+    creature.x >= world.width - 1 ||
+    creature.y >= world.height - 1
+  ) {
+    return center;
+  }
+
+  const headingPhase = Math.floor(creature.age / SEARCH_HEADING_DURATION);
+  const key = `${creature.id}:${headingPhase}`;
+  let hash = 2166136261;
+  for (let index = 0; index < key.length; index++) {
+    hash ^= key.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  const direction = SEARCH_DIRECTIONS[(hash >>> 0) % SEARCH_DIRECTIONS.length];
+  const distance = Math.max(
+    1,
+    Math.ceil(creature.traits.visionRange),
+    Math.ceil(creature.traits.speed * SEARCH_HEADING_DURATION)
+  );
+  return {
+    x: creature.x + direction.dx * distance,
+    y: creature.y + direction.dy * distance,
+  };
+}
+
 /**
  * Apply movement to a creature based on its decision.
  * Mutates creature's x and y position.
@@ -467,33 +513,7 @@ export function applyMovement(
     ];
     targetLocation = findNearestTarget(creature.x, creature.y, allFoodTargets);
   } else if (decision === 'search') {
-    // With no visible food, bias exploration toward the solar-rich center.
-    // Once there, fan outward in a seeded direction so the search remains
-    // deterministic without leaving every creature stacked on one cell.
-    const centerX = Math.floor(world.width / 2);
-    const centerY = Math.floor(world.height / 2);
-
-    if (creature.x === centerX && creature.y === centerY) {
-      const directionIndex = Math.floor(rng() * 8);
-      const directions = [
-        { dx: 0, dy: -1 },
-        { dx: 1, dy: -1 },
-        { dx: 1, dy: 0 },
-        { dx: 1, dy: 1 },
-        { dx: 0, dy: 1 },
-        { dx: -1, dy: 1 },
-        { dx: -1, dy: 0 },
-        { dx: -1, dy: -1 },
-      ];
-      const direction = directions[directionIndex];
-      const searchDistance = Math.max(1, Math.ceil(creature.traits.visionRange * 0.7));
-      targetLocation = {
-        x: creature.x + direction.dx * searchDistance,
-        y: creature.y + direction.dy * searchDistance,
-      };
-    } else {
-      targetLocation = { x: centerX, y: centerY };
-    }
+    targetLocation = getSearchTarget(creature, world);
   } else if (decision === 'flee') {
     // Move away from nearest threat
     if (scan.threats.length > 0) {

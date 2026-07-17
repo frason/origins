@@ -1,5 +1,15 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Creature, DecisionType, decideTick, applyMovement, scanEnvironment, chebyshevDistance, findNearestTarget, calculateNextPosition } from '../simulation/creature';
+import {
+  Creature,
+  DecisionType,
+  decideTick,
+  applyMovement,
+  scanEnvironment,
+  chebyshevDistance,
+  findNearestTarget,
+  calculateNextPosition,
+  getSearchTarget,
+} from '../simulation/creature';
 import { World } from '../simulation/world';
 import { createRng } from '../simulation/rng';
 import { DEFAULT_TRAITS } from '../utils/traits';
@@ -585,21 +595,58 @@ describe('Movement and Decision Logic', () => {
       expect(creature.y).toBeLessThan(100);
     });
 
-    it('should move toward the solar-rich center when food is not visible', () => {
+    it('should hold a heading long enough to roam beyond vision range', () => {
+      const makeRoamer = () => {
+        const roamer = new Creature({
+          speciesId: 'species_1',
+          lineageId: 'lineage_1',
+          parentId: null,
+          traits: { ...DEFAULT_TRAITS, energyStrategy: 'omnivore', visionRange: 5, speed: 2 },
+          x: 50,
+          y: 50,
+          energy: 50,
+        });
+        roamer.id = 'deterministic_roamer';
+        return roamer;
+      };
+
+      const roam = () => {
+        const roamer = makeRoamer();
+        const path = [{ x: roamer.x, y: roamer.y }];
+        for (let tick = 0; tick < 12; tick++) {
+          applyMovement(roamer, 'search', world, [roamer], createRng(100 + tick));
+          roamer.age++;
+          path.push({ x: roamer.x, y: roamer.y });
+        }
+        return path;
+      };
+
+      const path = roam();
+      const maxDistance = Math.max(
+        ...path.map((position) => chebyshevDistance(50, 50, position.x, position.y))
+      );
+      const uniqueTiles = new Set(path.map((position) => `${position.x},${position.y}`));
+
+      expect(maxDistance).toBeGreaterThanOrEqual(10);
+      expect(uniqueTiles.size).toBeGreaterThanOrEqual(7);
+      expect(roam()).toEqual(path);
+    });
+
+    it('should recover toward the world center after reaching a boundary', () => {
       const creature = new Creature({
         speciesId: 'species_1',
         lineageId: 'lineage_1',
         parentId: null,
-        traits: { ...DEFAULT_TRAITS, energyStrategy: 'omnivore', visionRange: 2, speed: 2 },
-        x: 5,
-        y: 5,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'omnivore', speed: 2 },
+        x: 0,
+        y: 25,
         energy: 50,
       });
 
+      expect(getSearchTarget(creature, world)).toEqual({ x: 50, y: 50 });
       applyMovement(creature, 'search', world, [creature], rng);
-
-      expect(creature.x).toBe(7);
-      expect(creature.y).toBe(7);
+      expect(creature.x).toBe(2);
+      expect(creature.y).toBe(27);
     });
   });
 
