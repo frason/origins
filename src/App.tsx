@@ -6,38 +6,13 @@ import StatsPanel from './ui/StatsPanel';
 import TileInfoPanel from './ui/TileInfoPanel';
 import ExtinctionSummary from './ui/ExtinctionSummary';
 import { useStore, WorldSnapshot, CreatureSnapshot } from './state/store';
-import { Creature } from './simulation/creature';
-import { createEngine, introduceSpecies, tickEngine, EngineState } from './simulation/engine';
-import { SimulationConstants } from './utils/constants';
+import { introduceSpecies, tickEngine, EngineState } from './simulation/engine';
 import type { EnergyStrategy } from './utils/traits';
-import { getBiomeProductivity } from './simulation/producer';
-import { buildStarterCreatures } from './simulation/starterWorld';
+import { buildDemoEngine } from './simulation/demoWorld';
+import { DEFAULT_WORLD_SEED } from './ui/worldSeed';
 import SettingsDrawer from './ui/SettingsDrawer';
 import EventTimeline from './ui/EventTimeline';
 import LineageHistory from './ui/LineageHistory';
-
-const WORLD_SEED = 12345;
-
-/** Build a fresh engine with seeded initial producer biomass (proportional to solar energy). */
-function buildEngine(constants: SimulationConstants): EngineState {
-  Creature.resetIdCounter();
-  const engine = createEngine(
-    WORLD_SEED,
-    buildStarterCreatures(WORLD_SEED, constants.worldWidth, constants.worldHeight),
-    constants.worldWidth,
-    constants.worldHeight,
-    constants
-  );
-  for (let y = 0; y < engine.world.height; y++) {
-    for (let x = 0; x < engine.world.width; x++) {
-      const cell = engine.world.getCell(x, y);
-      engine.world.setCell(x, y, {
-        producerBiomass: cell.energy * 2 * getBiomeProductivity(cell.biome),
-      });
-    }
-  }
-  return engine;
-}
 
 function snapshotOf(engine: EngineState): WorldSnapshot {
   const worldJSON = engine.world.toJSON() as {
@@ -73,6 +48,7 @@ export default function App() {
   const isRunning = useStore((s) => s.isRunning);
   const speed = useStore((s) => s.speed);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [worldSeed, setWorldSeed] = useState(DEFAULT_WORLD_SEED);
 
   const publish = useCallback((engine: EngineState) => {
     const store = useStore.getState();
@@ -86,8 +62,19 @@ export default function App() {
   const reset = useCallback(() => {
     const store = useStore.getState();
     store.setRunning(false);
-    const engine = buildEngine(store.constants);
+    store.setSelectedTile(null);
+    const engine = buildDemoEngine(worldSeed, store.constants);
     engineRef.current = engine;
+    publish(engine);
+  }, [publish, worldSeed]);
+
+  const newWorld = useCallback((seed: number) => {
+    const store = useStore.getState();
+    store.setRunning(false);
+    store.setSelectedTile(null);
+    const engine = buildDemoEngine(seed, store.constants);
+    engineRef.current = engine;
+    setWorldSeed(seed);
     publish(engine);
   }, [publish]);
 
@@ -108,11 +95,11 @@ export default function App() {
   // Initialize world once
   useEffect(() => {
     if (!engineRef.current) {
-      const engine = buildEngine(useStore.getState().constants);
+      const engine = buildDemoEngine(worldSeed, useStore.getState().constants);
       engineRef.current = engine;
       publish(engine);
     }
-  }, [publish]);
+  }, [publish, worldSeed]);
 
   // Game loop: advance the engine while running, at `speed` ticks per second.
   // setInterval drives it (fires even in throttled background tabs); the time
@@ -148,7 +135,7 @@ export default function App() {
         <div>
           <h1 style={{ margin: '0 0 0.5rem 0' }}>Project Origins</h1>
           <p style={{ color: '#666', fontSize: '0.9rem', margin: 0 }}>
-            A persistent ecosystem simulation — 100×100 world grid
+            A persistent ecosystem simulation — 100×100 world grid · seed {worldSeed}
           </p>
         </div>
         <button
@@ -165,7 +152,12 @@ export default function App() {
         <WorldView />
       </div>
       <SettingsDrawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}>
-          <ControlPanel onReset={reset} onIntroduceSpecies={addSpecies} />
+          <ControlPanel
+            onReset={reset}
+            onNewWorld={newWorld}
+            worldSeed={worldSeed}
+            onIntroduceSpecies={addSpecies}
+          />
           <StatsPanel />
           <EventTimeline />
           <SpeciesPanel />

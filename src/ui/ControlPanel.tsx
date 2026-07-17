@@ -3,16 +3,19 @@
  * Play/pause, speed (ticks per second), tick counter, reset, and God Mode.
  */
 
-import { CSSProperties, useState } from 'react';
+import { CSSProperties, useEffect, useState } from 'react';
 import { useStore } from '../state/store';
 import {
   BALANCED_LONGEVITY_PRESET,
   SimulationConstants,
 } from '../utils/constants';
 import type { EnergyStrategy } from '../utils/traits';
+import { parseWorldSeed } from './worldSeed';
 
 interface ControlPanelProps {
   onReset?: () => void;
+  onNewWorld?: (seed: number) => void;
+  worldSeed?: number;
   onIntroduceSpecies?: (strategy: EnergyStrategy) => string | null;
 }
 
@@ -217,7 +220,12 @@ const GOD_MODE_SLIDERS: SliderConfig[] = [
   },
 ];
 
-export default function ControlPanel({ onReset, onIntroduceSpecies }: ControlPanelProps) {
+export default function ControlPanel({
+  onReset,
+  onNewWorld,
+  worldSeed = 12345,
+  onIntroduceSpecies,
+}: ControlPanelProps) {
   const tick = useStore((s) => s.tick);
   const isRunning = useStore((s) => s.isRunning);
   const speed = useStore((s) => s.speed);
@@ -229,6 +237,10 @@ export default function ControlPanel({ onReset, onIntroduceSpecies }: ControlPan
   const [showGodMode, setShowGodMode] = useState(false);
   const [introductionStrategy, setIntroductionStrategy] = useState<EnergyStrategy>('herbivore');
   const [introductionMessage, setIntroductionMessage] = useState<string | null>(null);
+  const [seedDraft, setSeedDraft] = useState(String(worldSeed));
+  const [seedMessage, setSeedMessage] = useState<string | null>(null);
+
+  useEffect(() => setSeedDraft(String(worldSeed)), [worldSeed]);
 
   return (
     <div style={panelStyle}>
@@ -241,8 +253,8 @@ export default function ControlPanel({ onReset, onIntroduceSpecies }: ControlPan
           {isRunning ? '⏸ Pause' : '▶ Play'}
         </button>
         {onReset && (
-          <button style={buttonStyle} onClick={onReset}>
-            ↺ Reset
+          <button style={buttonStyle} onClick={onReset} title={`Replay seed ${worldSeed}`}>
+            ↺ Replay Seed
           </button>
         )}
         <span style={{ marginLeft: 'auto', color: '#999' }}>tick {tick}</span>
@@ -259,6 +271,49 @@ export default function ControlPanel({ onReset, onIntroduceSpecies }: ControlPan
           style={{ flex: 1 }}
         />
       </label>
+
+      {onNewWorld && (
+        <div style={{ borderTop: '1px solid #3a3a3a', marginTop: '0.75rem', paddingTop: '0.7rem' }}>
+          <label htmlFor="world-seed" style={{ display: 'block', color: '#aaa', fontSize: '0.75rem', marginBottom: '0.35rem' }}>
+            World seed
+          </label>
+          <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <input
+              id="world-seed"
+              inputMode="numeric"
+              value={seedDraft}
+              onChange={(event) => {
+                setSeedDraft(event.target.value);
+                setSeedMessage(null);
+              }}
+              style={{ ...buttonStyle, minWidth: 0, flex: 1, cursor: 'text' }}
+            />
+            <button
+              type="button"
+              style={{ ...buttonStyle, padding: '0.4rem 0.6rem' }}
+              onClick={() => {
+                const result = parseWorldSeed(seedDraft);
+                if (result.seed === null) {
+                  setSeedMessage(result.message);
+                  return;
+                }
+                onNewWorld(result.seed);
+                setSeedDraft(String(result.seed));
+                setSeedMessage(
+                  result.message
+                    ? `Started seed ${result.seed.toLocaleString()}. ${result.message}`
+                    : `Started seed ${result.seed.toLocaleString()}`
+                );
+              }}
+            >
+              New World
+            </button>
+          </div>
+          <div role="status" style={{ minHeight: '1rem', color: seedMessage?.startsWith('Started') ? '#79dc89' : '#c2b58c', fontSize: '0.68rem', marginTop: '0.3rem' }}>
+            {seedMessage ?? `Active seed: ${worldSeed.toLocaleString()}`}
+          </div>
+        </div>
+      )}
 
       <button
         style={{
