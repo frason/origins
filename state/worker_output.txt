@@ -1,4 +1,4 @@
-PASS — Added deterministic birth slots that prevent living population from exceeding the configured global capacity.
-Dominant species reproduction pauses above a tunable population limit while monoculture mortality continues, allowing minorities to recover or the monopoly to decline.
-A seeded 40-creature reproduction-eligible monoculture now reaches extinction instead of growing to 13,021; mixed and oversized population cases are also covered.
+PASS — Added the design proposal at docs/design-dynamic-world.md (139 lines; no simulation implementation).
+It specifies cell schema, data-driven substrate/energy affinities, deterministic static hydrology, water movement/hydration behavior, migration phases, and performance constraints.
+Six unresolved product choices are listed explicitly for client direction.
 Verification: 290/290 tests pass and the production build succeeds.
