@@ -58,6 +58,14 @@ const GOD_MODE_SLIDERS: SliderConfig[] = [
     formatter: (value) => value.toFixed(2),
   },
   {
+    label: 'Solar Falloff Curve',
+    key: 'solarFalloffExponent',
+    min: 0.25,
+    max: 4,
+    step: 0.25,
+    formatter: (value) => value.toFixed(2),
+  },
+  {
     label: 'Producer Growth Rate',
     key: 'producerGrowthRate',
     min: 0.01,

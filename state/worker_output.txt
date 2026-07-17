@@ -1,4 +1,4 @@
-PASS — The simulation now pauses automatically when the final living creature dies.
-A restartable end-of-life overlay summarizes ticks survived, species observed, births, deaths, mutations, extinctions, remaining biomass, and the final event timeline.
-The summary model is deterministic and tested for aggregation, chronology, species recovery, and extinction detection.
-Verification: 274/274 tests pass and the production build succeeds.
+PASS — Strengthened default solar edge falloff from 0.70 to 0.85 and added a tunable 1.5 radial curve exponent.
+The default world now has a broad bright core, a steep outer rim, and more than 6× center-to-corner energy contrast.
+World rendering now normalizes brightness against configured peak solar energy, making the mechanical difference clearly visible.
+Verification: 276/276 tests pass and the production build succeeds.

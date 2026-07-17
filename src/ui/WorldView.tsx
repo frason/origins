@@ -13,7 +13,6 @@ import {
  */
 const GRID_WIDTH = 100;
 const GRID_HEIGHT = 100;
-const MAX_CELL_ENERGY = 100; // Maximum energy per cell for brightness calculation
 const MAX_BIOMASS = 50; // Maximum producer biomass for green overlay opacity
 const CREATURE_RADIUS = 1; // Radius of creature dots (2px diameter)
 
@@ -200,7 +199,7 @@ function extractCreatures(worldState: any): Array<{
  */
 const WorldView: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { worldState, tick, setSelectedTile } = useStore();
+  const { worldState, tick, setSelectedTile, constants } = useStore();
   const [layout, setLayout] = useState<GridLayout>(() =>
     calculateGridLayout(400, 400, GRID_WIDTH, GRID_HEIGHT)
   );
@@ -299,7 +298,7 @@ const WorldView: React.FC = () => {
           const pixelY = layout.offsetY + y * layout.cellSize;
 
           // Tint the deterministic biome palette by local energy.
-          const energyRatio = Math.min(1, cell.energy / MAX_CELL_ENERGY);
+          const energyRatio = Math.min(1, cell.energy / Math.max(1, constants.baseSolarEnergy));
           const brightness = 0.55 + energyRatio * 0.8;
           const [baseR, baseG, baseB] = BIOME_COLORS[cell.biome];
           ctx.fillStyle = `rgb(${Math.min(255, Math.round(baseR * brightness))}, ${Math.min(
@@ -363,7 +362,7 @@ const WorldView: React.FC = () => {
         cancelAnimationFrame(animationId);
       }
     };
-  }, [worldState, layout, tick]);
+  }, [worldState, layout, tick, constants.baseSolarEnergy]);
 
   return (
     <div

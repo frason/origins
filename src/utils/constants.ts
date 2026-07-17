@@ -17,7 +17,10 @@ export const WORLD_HEIGHT = 100;
 export const BASE_SOLAR_ENERGY = 10;
 
 /** Solar energy falloff factor: controls how much energy drops at the edge (0-1) */
-export const SOLAR_EDGE_FALLOFF_FACTOR = 0.7;
+export const SOLAR_EDGE_FALLOFF_FACTOR = 0.85;
+
+/** Shape of radial falloff; values above 1 preserve a broad core and steep outer rim */
+export const SOLAR_FALLOFF_EXPONENT = 1.5;
 
 /** Producer growth rate: 0.1 × available energy per tick */
 export const PRODUCER_GROWTH_RATE = 0.1;
@@ -113,6 +116,7 @@ export interface SimulationConstants {
   worldHeight: number;
   baseSolarEnergy: number;
   solarEdgeFalloffFactor: number;
+  solarFalloffExponent: number;
   producerGrowthRate: number;
   baseMetabolism: number;
   feedingEfficiency: number;
@@ -142,6 +146,7 @@ export const SIMULATION_CONSTANTS: SimulationConstants = {
   worldHeight: WORLD_HEIGHT,
   baseSolarEnergy: BASE_SOLAR_ENERGY,
   solarEdgeFalloffFactor: SOLAR_EDGE_FALLOFF_FACTOR,
+  solarFalloffExponent: SOLAR_FALLOFF_EXPONENT,
   producerGrowthRate: PRODUCER_GROWTH_RATE,
   baseMetabolism: BASE_METABOLISM,
   feedingEfficiency: FEEDING_EFFICIENCY,

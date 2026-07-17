@@ -364,6 +364,31 @@ describe('Solar Energy Grid - Radial Dissipation', () => {
       expect(corner4).toBeLessThan(centerEnergy);
     });
 
+    it('should create a clearly pronounced center-to-edge gradient by default', () => {
+      const grid = computeSolarEnergyGrid(SIMULATION_CONSTANTS);
+      const center = grid[50][50];
+      const midpoint = grid[50][25];
+      const corner = grid[0][0];
+
+      expect(center).toBeGreaterThan(midpoint);
+      expect(midpoint).toBeGreaterThan(corner);
+      expect(center / corner).toBeGreaterThan(5);
+    });
+
+    it('should expose the falloff curve exponent', () => {
+      const broadCore = computeSolarEnergyGrid({
+        ...SIMULATION_CONSTANTS,
+        solarFalloffExponent: 2,
+      });
+      const linear = computeSolarEnergyGrid({
+        ...SIMULATION_CONSTANTS,
+        solarFalloffExponent: 1,
+      });
+
+      expect(broadCore[50][25]).toBeGreaterThan(linear[50][25]);
+      expect(broadCore[0][0]).toBeCloseTo(linear[0][0], 5);
+    });
+
     it('should have all cell values >= 1 (no cell completely dark)', () => {
       const grid = computeSolarEnergyGrid(SIMULATION_CONSTANTS);
 

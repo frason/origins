@@ -102,15 +102,16 @@ export function generateTerrain(width: number, height: number, seed: number): Te
  * Compute solar energy grid with radial dissipation from center.
  *
  * Cells at grid center (50, 50) receive maximum solar energy (BASE_SOLAR_ENERGY).
- * Cells further from center receive proportionally less based on Euclidean distance.
+ * Cells further from center receive less based on powered Euclidean distance.
  *
  * Formula:
- *   cellSolarEnergy = BASE_SOLAR_ENERGY * (1 - (distanceFromCenter / maxDistance) * SOLAR_EDGE_FALLOFF_FACTOR)
+ *   cellSolarEnergy = BASE_SOLAR_ENERGY * (1 - normalizedDistance^exponent * edgeFalloff)
  *
  * Where:
  *   - distanceFromCenter: Euclidean distance from cell to grid center (50, 50)
  *   - maxDistance: distance from center to corner ≈ 70.7
- *   - SOLAR_EDGE_FALLOFF_FACTOR: controls edge falloff (0.7 → center=10, corners≈3)
+ *   - edge falloff controls the center-to-corner contrast
+ *   - exponent controls the shape of the habitable core and outer rim
  *
  * All values are clamped to minimum of 1.0 to ensure no cell is completely dark.
  *
@@ -118,7 +119,13 @@ export function generateTerrain(width: number, height: number, seed: number): Te
  * @returns 100×100 matrix of solar energy values (deterministic, no randomness)
  */
 export function computeSolarEnergyGrid(constants: SimulationConstants): number[][] {
-  const { worldWidth, worldHeight, baseSolarEnergy, solarEdgeFalloffFactor } = constants;
+  const {
+    worldWidth,
+    worldHeight,
+    baseSolarEnergy,
+    solarEdgeFalloffFactor,
+    solarFalloffExponent,
+  } = constants;
   const centerX = worldWidth / 2;
   const centerY = worldHeight / 2;
   const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
@@ -135,8 +142,9 @@ export function computeSolarEnergyGrid(constants: SimulationConstants): number[]
       const distanceFromCenter = Math.sqrt(dx * dx + dy * dy);
 
       // Apply radial dissipation formula
-      const solarEnergy =
-        baseSolarEnergy * (1 - (distanceFromCenter / maxDistance) * solarEdgeFalloffFactor);
+      const normalizedDistance = Math.min(1, distanceFromCenter / maxDistance);
+      const radialFalloff = Math.pow(normalizedDistance, Math.max(0.1, solarFalloffExponent));
+      const solarEnergy = baseSolarEnergy * (1 - radialFalloff * solarEdgeFalloffFactor);
 
       // Clamp to minimum of 1.0
       row.push(Math.max(solarEnergy, MIN_SOLAR_ENERGY));
