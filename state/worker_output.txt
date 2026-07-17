@@ -1,2 +1,2 @@
-PASS — Added an on-demand living-session “Story so far” recap for #86 with current/peak ecology metrics and human-readable recent events, captured without pausing or repeated rescanning.
-All 392 tests pass, including living, extinct, empty, peak-history, and deterministic recap cases; the production build succeeds.
+PASS — Added in-memory Story so far baseline comparisons for #87 with signed ecology/event deltas, non-judgmental interval summaries, and reset/cross-seed protection.
+All 398 tests pass, including diversification, expansion, contraction, extinction, mixed, steady, invalid-order, cross-seed, and determinism cases; the production build succeeds.

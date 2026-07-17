@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../state/store';
 import { buildSessionSummary, type SessionSummary } from './sessionSummary';
+import { compareSessionSummaries, type SessionComparisonTone } from './sessionComparison';
 
 const overlayStyle: CSSProperties = {
   position: 'fixed', inset: 0, zIndex: 300, display: 'grid', placeItems: 'center',
@@ -20,7 +21,29 @@ const buttonStyle: CSSProperties = {
   padding: '0.25rem 0.5rem', cursor: 'pointer', fontSize: '0.68rem',
 };
 
-function RecapDialog({ summary, onClose }: { summary: SessionSummary; onClose: () => void }) {
+const comparisonColors: Record<SessionComparisonTone, string> = {
+  ended: '#ef8b8b', contraction: '#e7a16f', expansion: '#79c98a',
+  evolution: '#bba7e8', mixed: '#c2b58c', steady: '#93a0a6',
+};
+
+function signed(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  return `${rounded > 0 ? '+' : ''}${rounded.toLocaleString()}`;
+}
+
+function RecapDialog({
+  summary,
+  baseline,
+  onSaveBaseline,
+  onClearBaseline,
+  onClose,
+}: {
+  summary: SessionSummary;
+  baseline: SessionSummary | null;
+  onSaveBaseline: () => void;
+  onClearBaseline: () => void;
+  onClose: () => void;
+}) {
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
@@ -42,6 +65,18 @@ function RecapDialog({ summary, onClose }: { summary: SessionSummary; onClose: (
     ['Interventions', summary.interventions],
     ['Producer biomass', Math.round(summary.remainingBiomass)],
   ] as const;
+  const comparison = baseline ? compareSessionSummaries(baseline, summary) : null;
+  const comparisonMetrics = comparison ? [
+    ['Population', comparison.deltas.population],
+    ['Active species', comparison.deltas.activeSpecies],
+    ['Active lineages', comparison.deltas.activeLineages],
+    ['Biomass', comparison.deltas.biomass],
+    ['Births', comparison.deltas.births],
+    ['Deaths', comparison.deltas.deaths],
+    ['Mutations', comparison.deltas.mutations],
+    ['Extinctions', comparison.deltas.extinctions],
+    ['Interventions', comparison.deltas.interventions],
+  ] as const : [];
 
   return createPortal(
     <div style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby="session-recap-title">
@@ -70,6 +105,45 @@ function RecapDialog({ summary, onClose }: { summary: SessionSummary; onClose: (
           ))}
         </div>
 
+        <section style={{ border: '1px solid #3b464b', borderRadius: 7, padding: '0.65rem', marginTop: '0.85rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+            <strong style={{ fontSize: '0.76rem' }}>Compare observations</strong>
+            <div style={{ display: 'flex', gap: '0.35rem' }}>
+              {baseline && (
+                <button type="button" style={buttonStyle} onClick={onClearBaseline}>Clear baseline</button>
+              )}
+              <button type="button" style={buttonStyle} onClick={onSaveBaseline}>
+                {baseline ? 'Replace baseline' : 'Save as baseline'}
+              </button>
+            </div>
+          </div>
+          {!comparison ? (
+            <div style={{ color: '#7f8b91', fontSize: '0.68rem', marginTop: '0.35rem' }}>
+              Save this snapshot, then open Story so far later to see what changed.
+            </div>
+          ) : (
+            <>
+              <div style={{ color: comparisonColors[comparison.tone], fontWeight: 700, fontSize: '0.74rem', marginTop: '0.4rem' }}>
+                {comparison.summary}
+              </div>
+              <div style={{ color: '#7f8b91', fontSize: '0.66rem', marginTop: '0.15rem' }}>
+                Tick {comparison.fromTick.toLocaleString()} → {comparison.toTick.toLocaleString()} · {comparison.ticksElapsed.toLocaleString()} ticks elapsed
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(105px, 1fr))', gap: '0.3rem', marginTop: '0.45rem' }}>
+                {comparisonMetrics.map(([label, value]) => (
+                  <div key={label} style={{ background: '#22282c', borderRadius: 5, padding: '0.4rem' }}>
+                    <div style={{ color: '#7f8b91', fontSize: '0.61rem' }}>{label}</div>
+                    <div style={{ fontSize: '0.8rem', marginTop: '0.08rem' }}>{signed(value)}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ color: '#68747a', fontSize: '0.61rem', marginTop: '0.35rem' }}>
+                These are observed changes, not a better-or-worse score.
+              </div>
+            </>
+          )}
+        </section>
+
         <h3 style={{ fontSize: '0.85rem', margin: '1rem 0 0.35rem' }}>Recent turning points</h3>
         {summary.recentStories.length === 0 ? (
           <div style={{ color: '#747d82', fontSize: '0.74rem' }}>No major events have been recorded yet.</div>
@@ -92,6 +166,14 @@ export default function SessionRecap() {
   const world = useStore((state) => state.worldState);
   const tick = useStore((state) => state.tick);
   const [summary, setSummary] = useState<SessionSummary | null>(null);
+  const [baseline, setBaseline] = useState<SessionSummary | null>(null);
+  useEffect(() => {
+    setBaseline((current) => {
+      if (!current) return null;
+      const seed = world?.seed ?? null;
+      return current.seed !== seed || current.ticksSurvived > tick ? null : current;
+    });
+  }, [world?.seed, tick]);
   if (!world) return null;
 
   return (
@@ -103,7 +185,15 @@ export default function SessionRecap() {
       >
         Story so far
       </button>
-      {summary && <RecapDialog summary={summary} onClose={() => setSummary(null)} />}
+      {summary && (
+        <RecapDialog
+          summary={summary}
+          baseline={baseline}
+          onSaveBaseline={() => setBaseline(summary)}
+          onClearBaseline={() => setBaseline(null)}
+          onClose={() => setSummary(null)}
+        />
+      )}
     </>
   );
 }
