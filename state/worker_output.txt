@@ -1,2 +1,2 @@
-PASS — Added in-memory Story so far baseline comparisons for #87 with signed ecology/event deltas, non-judgmental interval summaries, and reset/cross-seed protection.
-All 398 tests pass, including diversification, expansion, contraction, extinction, mixed, steady, invalid-order, cross-seed, and determinism cases; the production build succeeds.
+PASS — Added optional in-memory experiment notes to Story so far baselines for #88, with normalization, a 160-character limit, comparison context, and reset/seed invalidation.
+All 404 tests pass, including whitespace, blank, length, immutability, validity, comparison, and determinism cases; the production build succeeds.

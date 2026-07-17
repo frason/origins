@@ -3,6 +3,12 @@ import { createPortal } from 'react-dom';
 import { useStore } from '../state/store';
 import { buildSessionSummary, type SessionSummary } from './sessionSummary';
 import { compareSessionSummaries, type SessionComparisonTone } from './sessionComparison';
+import {
+  createObservationBaseline,
+  isObservationBaselineValid,
+  MAX_OBSERVATION_NOTE_LENGTH,
+  type ObservationBaseline,
+} from './observationBaseline';
 
 const overlayStyle: CSSProperties = {
   position: 'fixed', inset: 0, zIndex: 300, display: 'grid', placeItems: 'center',
@@ -34,12 +40,16 @@ function signed(value: number): string {
 function RecapDialog({
   summary,
   baseline,
+  noteDraft,
+  onNoteChange,
   onSaveBaseline,
   onClearBaseline,
   onClose,
 }: {
   summary: SessionSummary;
-  baseline: SessionSummary | null;
+  baseline: ObservationBaseline | null;
+  noteDraft: string;
+  onNoteChange: (note: string) => void;
   onSaveBaseline: () => void;
   onClearBaseline: () => void;
   onClose: () => void;
@@ -65,7 +75,7 @@ function RecapDialog({
     ['Interventions', summary.interventions],
     ['Producer biomass', Math.round(summary.remainingBiomass)],
   ] as const;
-  const comparison = baseline ? compareSessionSummaries(baseline, summary) : null;
+  const comparison = baseline ? compareSessionSummaries(baseline.summary, summary) : null;
   const comparisonMetrics = comparison ? [
     ['Population', comparison.deltas.population],
     ['Active species', comparison.deltas.activeSpecies],
@@ -117,12 +127,37 @@ function RecapDialog({
               </button>
             </div>
           </div>
+          <label htmlFor="observation-note" style={{ display: 'block', color: '#899398', fontSize: '0.66rem', marginTop: '0.45rem' }}>
+            What did you change or expect? (optional)
+          </label>
+          <textarea
+            id="observation-note"
+            value={noteDraft}
+            maxLength={MAX_OBSERVATION_NOTE_LENGTH}
+            onChange={(event) => onNoteChange(event.target.value)}
+            rows={2}
+            placeholder="Example: Raised producer growth; expecting grazers to recover."
+            style={{
+              width: '100%', boxSizing: 'border-box', resize: 'vertical', marginTop: '0.2rem',
+              border: '1px solid #465159', borderRadius: 5, background: '#1c2225', color: '#d6e0e4',
+              padding: '0.4rem', font: 'inherit', fontSize: '0.7rem',
+            }}
+          />
+          <div style={{ color: '#667279', fontSize: '0.6rem', textAlign: 'right' }}>
+            {MAX_OBSERVATION_NOTE_LENGTH - noteDraft.length} characters remaining
+          </div>
           {!comparison ? (
             <div style={{ color: '#7f8b91', fontSize: '0.68rem', marginTop: '0.35rem' }}>
               Save this snapshot, then open Story so far later to see what changed.
             </div>
           ) : (
             <>
+              {baseline?.note && (
+                <div style={{ borderLeft: '2px solid #607781', paddingLeft: '0.5rem', color: '#aab7bc', fontSize: '0.68rem', marginTop: '0.4rem' }}>
+                  <strong style={{ color: '#819098' }}>Note from tick {baseline.summary.ticksSurvived.toLocaleString()}:</strong>{' '}
+                  {baseline.note}
+                </div>
+              )}
               <div style={{ color: comparisonColors[comparison.tone], fontWeight: 700, fontSize: '0.74rem', marginTop: '0.4rem' }}>
                 {comparison.summary}
               </div>
@@ -166,14 +201,14 @@ export default function SessionRecap() {
   const world = useStore((state) => state.worldState);
   const tick = useStore((state) => state.tick);
   const [summary, setSummary] = useState<SessionSummary | null>(null);
-  const [baseline, setBaseline] = useState<SessionSummary | null>(null);
+  const [baseline, setBaseline] = useState<ObservationBaseline | null>(null);
+  const [noteDraft, setNoteDraft] = useState('');
   useEffect(() => {
-    setBaseline((current) => {
-      if (!current) return null;
-      const seed = world?.seed ?? null;
-      return current.seed !== seed || current.ticksSurvived > tick ? null : current;
-    });
-  }, [world?.seed, tick]);
+    if (!baseline) return;
+    if (isObservationBaselineValid(baseline, world?.seed ?? null, tick)) return;
+    setBaseline(null);
+    setNoteDraft('');
+  }, [baseline, world?.seed, tick]);
   if (!world) return null;
 
   return (
@@ -189,8 +224,17 @@ export default function SessionRecap() {
         <RecapDialog
           summary={summary}
           baseline={baseline}
-          onSaveBaseline={() => setBaseline(summary)}
-          onClearBaseline={() => setBaseline(null)}
+          noteDraft={noteDraft}
+          onNoteChange={setNoteDraft}
+          onSaveBaseline={() => {
+            const observation = createObservationBaseline(summary, noteDraft);
+            setBaseline(observation);
+            setNoteDraft(observation.note ?? '');
+          }}
+          onClearBaseline={() => {
+            setBaseline(null);
+            setNoteDraft('');
+          }}
           onClose={() => setSummary(null)}
         />
       )}
