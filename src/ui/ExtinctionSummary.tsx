@@ -33,6 +33,7 @@ function eventText(event: ReturnType<typeof buildSessionSummary>['finalEvents'][
   if (event.type === 'birth') return `${subject} was born`;
   if (event.type === 'death') return `${subject} died`;
   if (event.type === 'mutation') return event.detail ?? `${subject} formed a new lineage`;
+  if (event.type === 'intervention') return event.detail ?? 'God Mode reshaped the world';
   return `${subject} went extinct`;
 }
 
@@ -49,6 +50,7 @@ export default function ExtinctionSummary({ onRestart }: { onRestart: () => void
     ['Deaths', summary.deaths.toLocaleString()],
     ['Mutations', summary.mutations.toLocaleString()],
     ['Extinctions', summary.extinctions.toLocaleString()],
+    ['Interventions', summary.interventions.toLocaleString()],
   ];
 
   return (

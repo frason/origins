@@ -55,4 +55,22 @@ describe('ecosystem event storytelling', () => {
     expect(first.map((story) => story.tick)).toEqual([11, 10, 9, 8]);
     expect(buildEventStories(events, 4)).toEqual(first);
   });
+
+  it('explains grouped God Mode changes in plain language', () => {
+    const [story] = buildEventStories([{
+      type: 'intervention',
+      tick: 30,
+      constantChanges: [
+        { constant: 'baseMetabolism', before: 2, after: 0.5 },
+        { constant: 'producerGrowthRate', before: 0.1, after: 0.2 },
+      ],
+    }]);
+
+    expect(story).toMatchObject({
+      tone: 'intervention',
+      title: 'God Mode reshaped the world',
+    });
+    expect(story.detail).toContain('base metabolism 2 → 0.5');
+    expect(story.detail).toContain('producer growth rate 0.1 → 0.2');
+  });
 });

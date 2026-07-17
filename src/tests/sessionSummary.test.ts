@@ -36,6 +36,7 @@ function world(): WorldSnapshot {
       { type: 'mutation', tick: 5, speciesId: 'grazer', creatureId: 'child' },
       { type: 'death', tick: 39, speciesId: 'grazer', creatureId: 'corpse-1' },
       { type: 'extinction', tick: 40, speciesId: 'predator' },
+      { type: 'intervention', tick: 41, detail: 'God Mode changed 2 settings' },
     ],
   };
 }
@@ -50,10 +51,11 @@ describe('session summary', () => {
       deaths: 1,
       mutations: 1,
       extinctions: 1,
+      interventions: 1,
       speciesObserved: 2,
       remainingBiomass: 12.5,
     });
-    expect(summary.finalEvents.map((event) => event.tick)).toEqual([40, 39, 5]);
+    expect(summary.finalEvents.map((event) => event.tick)).toEqual([41, 40, 39]);
   });
 
   it('detects extinction only when no living creatures remain', () => {

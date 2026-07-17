@@ -1,11 +1,18 @@
 import type { Traits } from '../utils/traits';
+import type { SimulationConstants } from '../utils/constants';
 
-export type SimEventType = 'birth' | 'death' | 'mutation' | 'extinction';
+export type SimEventType = 'birth' | 'death' | 'mutation' | 'extinction' | 'intervention';
 
 export interface TraitChange {
   trait: keyof Traits;
   before: number | string;
   after: number | string;
+}
+
+export interface ConstantChange {
+  constant: keyof SimulationConstants;
+  before: number;
+  after: number;
 }
 
 export interface SimEvent {
@@ -17,6 +24,21 @@ export interface SimEvent {
   parentLineageId?: string;
   lineageId?: string;
   traitChanges?: TraitChange[];
+  constantChanges?: ConstantChange[];
+}
+
+/** Capture live setting changes in stable constant-key order. */
+export function compareConstants(
+  before: SimulationConstants,
+  after: SimulationConstants
+): ConstantChange[] {
+  return (Object.keys(before) as (keyof SimulationConstants)[])
+    .filter((constant) => before[constant] !== after[constant])
+    .map((constant) => ({
+      constant,
+      before: before[constant],
+      after: after[constant],
+    }));
 }
 
 /** Capture every changed trait in stable trait-key order for replay and presentation. */

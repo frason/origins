@@ -1,4 +1,3 @@
-PASS — Extended sustainability evidence across multiple fixed seeds for #68.
-Runs now measure mutation activity, active lineages, dominance, and prolonged monoculture.
-Three longevity runs kept four species through tick 200 with 19–30 mutations and no monoculture.
-Verification: 308/308 tests pass and the production build succeeds.
+PASS — Added structured, reproducible God Mode intervention history for #69.
+Changed settings now appear in the live World Story and final session summary.
+Verification: 311/311 tests pass and the production build succeeds.

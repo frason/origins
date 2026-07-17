@@ -10,7 +10,7 @@ import {
 import { growProducers } from './producer';
 import { reproduceCreature } from './species';
 import { lineageDisplayName } from './speciesNames';
-import { compareTraits, type SimEvent } from './events';
+import { compareConstants, compareTraits, type SimEvent } from './events';
 import {
   decideTick,
   applyMovement,
@@ -32,7 +32,7 @@ import {
   dissipateToxicity,
 } from './decomposition';
 
-export type { SimEvent, SimEventType, TraitChange } from './events';
+export type { ConstantChange, SimEvent, SimEventType, TraitChange } from './events';
 
 /**
  * Complete engine state snapshot
@@ -159,6 +159,15 @@ export function tickEngine(
   }
 
   const newEvents: SimEvent[] = [];
+  const constantChanges = compareConstants(state.constants, constants);
+  if (constantChanges.length > 0) {
+    newEvents.push({
+      type: 'intervention',
+      tick: state.tick,
+      detail: `God Mode changed ${constantChanges.length} ${constantChanges.length === 1 ? 'setting' : 'settings'}`,
+      constantChanges,
+    });
+  }
 
   // Capture every creature alive at the start of the tick. Feeding can kill
   // prey before the metabolism/death phase, so this snapshot must come first.

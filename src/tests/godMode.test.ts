@@ -34,6 +34,41 @@ describe('God Mode runtime constants', () => {
 
     expect(next.creatures[0].energy).toBe(93);
     expect(next.constants.baseMetabolism).toBe(7);
+    expect(next.events.filter((event) => event.type === 'intervention')).toHaveLength(1);
+    expect(next.events.find((event) => event.type === 'intervention')?.constantChanges)
+      .toEqual(expect.arrayContaining([
+        { constant: 'baseMetabolism', before: 2, after: 7 },
+        { constant: 'reproductionEnergyThreshold', before: 150, after: 1000 },
+      ]));
+  });
+
+  it('groups changes into one intervention and does not repeat unchanged settings', () => {
+    const engine = createEngine(11, [creature('carnivore')]);
+    const changed = tickEngine(engine, {
+      ...disablePressure,
+      baseMetabolism: 3,
+      feedingEfficiency: 0.6,
+      reproductionEnergyThreshold: 1000,
+    });
+    const unchanged = tickEngine(changed, changed.constants);
+
+    expect(changed.events.filter((event) => event.type === 'intervention')).toHaveLength(1);
+    expect(changed.events.find((event) => event.type === 'intervention')?.constantChanges)
+      .toHaveLength(5);
+    expect(unchanged.events.filter((event) => event.type === 'intervention')).toHaveLength(1);
+  });
+
+  it('replays an identical intervention schedule exactly', () => {
+    const run = () => {
+      Creature.resetIdCounter();
+      let engine = createEngine(17, [creature('herbivore', 180)]);
+      engine = tickEngine(engine, { baseMetabolism: 1, reproductionEnergyThreshold: 1000 });
+      engine = tickEngine(engine);
+      engine = tickEngine(engine, { feedingEfficiency: 0.55 });
+      return JSON.stringify(engine.events);
+    };
+
+    expect(run()).toBe(run());
   });
 
   it('applies producer growth and feeding efficiency overrides', () => {

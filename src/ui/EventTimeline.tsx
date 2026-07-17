@@ -16,6 +16,7 @@ const toneColors: Record<StoryTone, string> = {
   loss: '#e7a16f',
   evolution: '#bba7e8',
   extinction: '#ef7c7c',
+  intervention: '#70c7d8',
 };
 
 export default function EventTimeline() {

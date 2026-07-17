@@ -1,7 +1,7 @@
 import type { EventSnapshot } from '../state/store';
 import { speciesDisplayName } from '../simulation/speciesNames';
 
-export type StoryTone = 'growth' | 'loss' | 'evolution' | 'extinction';
+export type StoryTone = 'growth' | 'loss' | 'evolution' | 'extinction' | 'intervention';
 
 export interface EventStory {
   id: string;
@@ -28,6 +28,14 @@ function displaySpecies(speciesId?: string): string {
   return speciesId ? speciesDisplayName(speciesId) : 'Unknown species';
 }
 
+function constantLabel(value: string): string {
+  return value.replace(/([A-Z])/g, ' $1').toLowerCase();
+}
+
+function displayValue(value: number): string {
+  return (Math.round(value * 1000) / 1000).toString();
+}
+
 /** Group noisy population events without changing the engine's append-only event history. */
 export function buildEventStories(
   events: EventSnapshot[],
@@ -36,7 +44,10 @@ export function buildEventStories(
   const grouped = new Map<string, GroupedEvent>();
 
   events.forEach((event, sequence) => {
-    const unique = event.type === 'mutation' || event.type === 'extinction';
+    const unique =
+      event.type === 'mutation' ||
+      event.type === 'extinction' ||
+      event.type === 'intervention';
     const key = unique
       ? `${event.tick}|${event.type}|${event.speciesId ?? ''}|${event.creatureId ?? sequence}`
       : `${event.tick}|${event.type}|${event.speciesId ?? ''}`;
@@ -75,6 +86,21 @@ export function buildEventStories(
           tone: 'evolution',
           title: 'A new lineage emerged',
           detail: event.detail ?? `${species} developed a new variation`,
+        };
+      }
+      if (event.type === 'intervention') {
+        const changes = event.constantChanges ?? [];
+        const visible = changes.slice(0, 3).map(
+          (change) =>
+            `${constantLabel(change.constant)} ${displayValue(change.before)} → ${displayValue(change.after)}`
+        );
+        if (changes.length > visible.length) visible.push(`+${changes.length - visible.length} more`);
+        return {
+          id: `${event.tick}-intervention-${sequence}`,
+          tick: event.tick,
+          tone: 'intervention',
+          title: 'God Mode reshaped the world',
+          detail: visible.join(' · ') || event.detail || 'Simulation settings changed',
         };
       }
       return {

@@ -6,6 +6,7 @@ export interface SessionSummary {
   deaths: number;
   mutations: number;
   extinctions: number;
+  interventions: number;
   speciesObserved: number;
   remainingBiomass: number;
   finalEvents: EventSnapshot[];
@@ -32,6 +33,7 @@ export function buildSessionSummary(
     deaths: worldState.events.filter((event) => event.type === 'death').length,
     mutations: worldState.events.filter((event) => event.type === 'mutation').length,
     extinctions: worldState.events.filter((event) => event.type === 'extinction').length,
+    interventions: worldState.events.filter((event) => event.type === 'intervention').length,
     speciesObserved: species.size,
     remainingBiomass: worldState.cells.reduce(
       (total, cell) => total + cell.producerBiomass,
