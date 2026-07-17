@@ -1,2 +1,2 @@
-PASS — Added optional, pressure-aware God Mode stewardship suggestions for #85 with exact previews, bounded values, explicit application, and ordinary intervention recording.
-All 390 tests pass, including prioritization, clamping, determinism, no-op omission, and recorded-intervention integration; the production build succeeds.
+PASS — Added an on-demand living-session “Story so far” recap for #86 with current/peak ecology metrics and human-readable recent events, captured without pausing or repeated rescanning.
+All 392 tests pass, including living, extinct, empty, peak-history, and deterministic recap cases; the production build succeeds.

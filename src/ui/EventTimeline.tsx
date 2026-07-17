@@ -6,6 +6,7 @@ import ReplayRecipe from './ReplayRecipe';
 import type { WorldRecipe } from './worldRecipe';
 import FollowedLineageNotices from './FollowedLineageNotices';
 import EvolutionTimeline from './EvolutionTimeline';
+import SessionRecap from './SessionRecap';
 
 const panelStyle: CSSProperties = {
   backgroundColor: '#222',
@@ -39,9 +40,12 @@ export default function EventTimeline({
 
   return (
     <section style={panelStyle} aria-labelledby="timeline-title">
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
         <div id="timeline-title" style={{ fontWeight: 600 }}>World Story</div>
-        <span style={{ color: '#9dc6d8', fontWeight: 600 }}>{trend.label}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+          <span style={{ color: '#9dc6d8', fontWeight: 600 }}>{trend.label}</span>
+          <SessionRecap />
+        </div>
       </div>
       <div style={{ color: '#777', fontSize: '0.68rem', margin: '0.2rem 0 0.6rem' }}>
         {trend.explanation}

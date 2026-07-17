@@ -46,7 +46,11 @@ describe('session summary', () => {
     const summary = buildSessionSummary(world(), 41, 3);
 
     expect(summary).toMatchObject({
+      status: 'ended',
       ticksSurvived: 41,
+      currentPopulation: 0,
+      activeSpecies: 0,
+      activeLineages: 0,
       births: 1,
       deaths: 1,
       mutations: 1,
@@ -56,6 +60,7 @@ describe('session summary', () => {
       remainingBiomass: 12.5,
     });
     expect(summary.finalEvents.map((event) => event.tick)).toEqual([41, 40, 39]);
+    expect(summary.recentStories[0]).toMatchObject({ tick: 41, tone: 'intervention' });
   });
 
   it('detects extinction only when no living creatures remain', () => {
@@ -64,5 +69,54 @@ describe('session summary', () => {
 
     extinctWorld.creatures[0].lifecycleState = 'alive';
     expect(hasLivingCreatures(extinctWorld)).toBe(true);
+  });
+
+  it('summarizes a living world and its recorded population peak', () => {
+    const livingWorld = world();
+    livingWorld.creatures[0].lifecycleState = 'alive';
+    livingWorld.creatures.push({
+      ...livingWorld.creatures[0],
+      id: 'hunter-1', speciesId: 'hunter', lineageId: 'hunter-root',
+    });
+    livingWorld.history = [
+      {
+        tick: 0, population: 4,
+        speciesPopulations: [
+          { speciesId: 'grazer', population: 2 },
+          { speciesId: 'hunter', population: 2 },
+        ],
+        lineageCount: 2, births: 0, deaths: 0, mutations: 0,
+      },
+      {
+        tick: 30, population: 7,
+        speciesPopulations: [
+          { speciesId: 'grazer', population: 4 },
+          { speciesId: 'hunter', population: 3 },
+        ],
+        lineageCount: 3, births: 5, deaths: 2, mutations: 1,
+      },
+    ];
+
+    expect(buildSessionSummary(livingWorld, 42)).toMatchObject({
+      status: 'living',
+      ticksSurvived: 42,
+      currentPopulation: 2,
+      peakPopulation: 7,
+      activeSpecies: 2,
+      activeLineages: 2,
+    });
+  });
+
+  it('is deterministic and handles an empty beginning honestly', () => {
+    const empty = world();
+    empty.creatures = [];
+    empty.events = [];
+    empty.history = [];
+    const first = buildSessionSummary(empty, 0);
+    expect(first).toMatchObject({
+      status: 'ended', currentPopulation: 0, peakPopulation: 0,
+      speciesObserved: 0, recentStories: [],
+    });
+    expect(buildSessionSummary(empty, 0)).toEqual(first);
   });
 });
