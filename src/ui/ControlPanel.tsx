@@ -111,6 +111,13 @@ const GOD_MODE_SLIDERS: SliderConfig[] = [
     formatter: (value) => value.toFixed(3),
   },
   {
+    label: 'Corpse Duration Ticks',
+    key: 'corpseDecayDurationTicks',
+    min: 5,
+    max: 200,
+    step: 5,
+  },
+  {
     label: 'Default Mutation Rate',
     key: 'defaultMutationRate',
     min: 0.01,

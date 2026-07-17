@@ -169,6 +169,12 @@ export function tickEngine(
 
   const newEvents: SimEvent[] = [];
 
+  // Capture every creature alive at the start of the tick. Feeding can kill
+  // prey before the metabolism/death phase, so this snapshot must come first.
+  const aliveBeforeDeath = new Set<string>(
+    creatures.filter((c) => c.lifecycleState === 'alive').map((c) => c.id)
+  );
+
   // Create deterministic RNG from seed and tick
   const rng = createRng(state.seed ^ state.tick);
 
@@ -227,11 +233,6 @@ export function tickEngine(
     }
   }
 
-  // Snapshot alive set before metabolism so starvation deaths are captured as events
-  const aliveBeforeDeath = new Set<string>(
-    creatures.filter((c) => c.lifecycleState === 'alive').map((c) => c.id)
-  );
-
   // Step 6: Energy Updates (Metabolism)
   for (const creature of creatures) {
     if (creature.lifecycleState === 'alive') {
@@ -278,7 +279,11 @@ export function tickEngine(
   for (const creature of creatures) {
     if (creature.lifecycleState !== 'alive') continue;
     creature.age++;
-    checkAgeAndStarvation(creature, constants.maxCreatureAgeTicks);
+    checkAgeAndStarvation(
+      creature,
+      constants.maxCreatureAgeTicks,
+      constants.corpseDecayDurationTicks
+    );
   }
 
   // Step 8.5: Biodiversity Pressure (density-dependent mortality and monoculture penalties)
@@ -287,6 +292,12 @@ export function tickEngine(
   // Log death events for creatures that just died
   for (const creature of creatures) {
     if (creature.lifecycleState === 'dead' && aliveBeforeDeath.has(creature.id)) {
+      // Deaths caused by feeding, metabolism, or biodiversity pressure do not
+      // pass through checkAgeAndStarvation. Give every new corpse the same
+      // configurable persistence window before decomposition removes it.
+      if (creature.corpseDecayTicks <= 0) {
+        creature.corpseDecayTicks = constants.corpseDecayDurationTicks;
+      }
       newEvents.push({
         type: 'death',
         tick: state.tick,

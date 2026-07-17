@@ -9,6 +9,7 @@ import {
 import {
   MAX_CREATURE_AGE_TICKS,
   CORPSE_DECAY_RATE,
+  CORPSE_DECAY_DURATION_TICKS,
 } from '../utils/constants';
 import { DEFAULT_TRAITS } from '../utils/traits';
 
@@ -34,7 +35,7 @@ describe('Decomposition Functions', () => {
       checkAgeAndStarvation(creature);
 
       expect(creature.lifecycleState).toBe('dead');
-      expect(creature.corpseDecayTicks).toBe(10);
+      expect(creature.corpseDecayTicks).toBe(CORPSE_DECAY_DURATION_TICKS);
     });
 
     it('should mark creature as dead when energy is negative', () => {
@@ -53,7 +54,7 @@ describe('Decomposition Functions', () => {
       checkAgeAndStarvation(creature);
 
       expect(creature.lifecycleState).toBe('dead');
-      expect(creature.corpseDecayTicks).toBe(10);
+      expect(creature.corpseDecayTicks).toBe(CORPSE_DECAY_DURATION_TICKS);
     });
 
     it('should mark creature as dead when age exceeds MAX_CREATURE_AGE_TICKS', () => {
@@ -72,7 +73,7 @@ describe('Decomposition Functions', () => {
       checkAgeAndStarvation(creature);
 
       expect(creature.lifecycleState).toBe('dead');
-      expect(creature.corpseDecayTicks).toBe(10);
+      expect(creature.corpseDecayTicks).toBe(CORPSE_DECAY_DURATION_TICKS);
     });
 
     it('should mark creature as dead when age exceeds MAX_CREATURE_AGE_TICKS by large margin', () => {
@@ -91,7 +92,7 @@ describe('Decomposition Functions', () => {
       checkAgeAndStarvation(creature);
 
       expect(creature.lifecycleState).toBe('dead');
-      expect(creature.corpseDecayTicks).toBe(10);
+      expect(creature.corpseDecayTicks).toBe(CORPSE_DECAY_DURATION_TICKS);
     });
 
     it('should not mark young, healthy creature as dead', () => {
@@ -129,7 +130,7 @@ describe('Decomposition Functions', () => {
       checkAgeAndStarvation(creature);
 
       expect(creature.lifecycleState).toBe('dead');
-      expect(creature.corpseDecayTicks).toBe(10);
+      expect(creature.corpseDecayTicks).toBe(CORPSE_DECAY_DURATION_TICKS);
     });
   });
 

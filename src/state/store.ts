@@ -43,6 +43,7 @@ export interface CreatureSnapshot {
   energy: number;
   age: number;
   lifecycleState: 'alive' | 'dead' | 'corpse';
+  corpseDecayTicks: number;
 }
 
 export interface EventSnapshot {

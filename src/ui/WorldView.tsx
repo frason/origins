@@ -172,6 +172,7 @@ function extractCreatures(worldState: any): Array<{
   x: number;
   y: number;
   speciesId: string;
+  lifecycleState: 'alive' | 'dead' | 'corpse';
 }> {
   if (!worldState) return [];
 
@@ -180,6 +181,7 @@ function extractCreatures(worldState: any): Array<{
       x: creature.x ?? 0,
       y: creature.y ?? 0,
       speciesId: creature.speciesId ?? 'unknown',
+      lifecycleState: creature.lifecycleState ?? 'alive',
     }));
   }
 
@@ -320,11 +322,18 @@ const WorldView: React.FC = () => {
           continue;
         }
 
-        const [r, g, b] = getColorFromSpeciesId(creature.speciesId);
-        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-
         const pixelX = layout.offsetX + creature.x * layout.cellSize + layout.cellSize / 2;
         const pixelY = layout.offsetY + creature.y * layout.cellSize + layout.cellSize / 2;
+
+        if (creature.lifecycleState !== 'alive') {
+          const corpseSize = Math.max(1.5, layout.cellSize * 0.45);
+          ctx.fillStyle = '#8b6f55';
+          ctx.fillRect(pixelX - corpseSize / 2, pixelY - corpseSize / 2, corpseSize, corpseSize);
+          continue;
+        }
+
+        const [r, g, b] = getColorFromSpeciesId(creature.speciesId);
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
 
         ctx.beginPath();
         ctx.arc(pixelX, pixelY, Math.max(CREATURE_RADIUS, layout.cellSize * 0.25), 0, 2 * Math.PI);

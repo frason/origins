@@ -96,6 +96,9 @@ export default function TileInfoPanel() {
   const tilesCreatures = worldState.creatures.filter(
     (c) => c.x === selectedTile.x && c.y === selectedTile.y && c.lifecycleState === 'alive'
   );
+  const tileCorpses = worldState.creatures.filter(
+    (c) => c.x === selectedTile.x && c.y === selectedTile.y && c.lifecycleState !== 'alive'
+  );
 
   const handleClose = () => {
     setSelectedTile(null);
@@ -190,6 +193,20 @@ export default function TileInfoPanel() {
         <div style={sectionStyle}>
           <div style={sectionTitleStyle}>Creatures</div>
           <div style={{ color: '#666' }}>No creatures on this tile</div>
+        </div>
+      )}
+
+      {tileCorpses.length > 0 && (
+        <div style={sectionStyle}>
+          <div style={sectionTitleStyle}>Corpses ({tileCorpses.length})</div>
+          {tileCorpses.map((corpse) => (
+            <div key={corpse.id} style={{ ...creatureRowStyle, borderLeft: '3px solid #8b6f55' }}>
+              <div><strong>{corpse.speciesId}</strong> (ID: {corpse.id})</div>
+              <div style={{ color: '#aaa', marginTop: '0.2rem' }}>
+                Decay remaining: {corpse.corpseDecayTicks} ticks
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

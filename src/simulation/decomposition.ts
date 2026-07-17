@@ -1,22 +1,27 @@
 import { Creature } from './creature';
 import { World } from './world';
-import { MAX_CREATURE_AGE_TICKS, CORPSE_DECAY_RATE } from '../utils/constants';
+import {
+  MAX_CREATURE_AGE_TICKS,
+  CORPSE_DECAY_RATE,
+  CORPSE_DECAY_DURATION_TICKS,
+} from '../utils/constants';
 
 /**
  * Check if a creature should die from age or starvation.
  * If creature age >= MAX_CREATURE_AGE_TICKS or energy <= 0:
  * - Set lifecycleState to 'dead'
- * - Set corpseDecayTicks to 10 (duration for nutrient release)
+ * - Start the corpse persistence timer
  *
  * @param creature - the creature to check
  */
 export function checkAgeAndStarvation(
   creature: Creature,
-  maxAge: number = MAX_CREATURE_AGE_TICKS
+  maxAge: number = MAX_CREATURE_AGE_TICKS,
+  corpseDuration: number = CORPSE_DECAY_DURATION_TICKS
 ): void {
   if (creature.age >= maxAge || creature.energy <= 0) {
     creature.lifecycleState = 'dead';
-    creature.corpseDecayTicks = 10;
+    creature.corpseDecayTicks = corpseDuration;
   }
 }
 

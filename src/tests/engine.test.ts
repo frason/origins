@@ -10,6 +10,7 @@ import {
 } from '../simulation/engine';
 import { DEFAULT_TRAITS } from '../utils/traits';
 import { getProducerTraits } from '../simulation/producerTypes';
+import { CORPSE_DECAY_DURATION_TICKS } from '../utils/constants';
 
 describe('Simulation Engine', () => {
   beforeEach(() => {
@@ -186,7 +187,7 @@ describe('Simulation Engine', () => {
       let engine = createEngine(12345, [creature]);
 
       // Tick until the creature is fully decomposed
-      for (let i = 0; i < 15; i++) {
+      for (let i = 0; i < CORPSE_DECAY_DURATION_TICKS + 5; i++) {
         engine = tickEngine(engine);
 
         if (engine.creatures.length === 0) {
@@ -194,8 +195,67 @@ describe('Simulation Engine', () => {
         }
       }
 
-      // After 15 ticks, creature should be fully decomposed and removed
+      // After the configured decay duration, the corpse is removed.
       expect(engine.creatures.length).toBe(0);
+    });
+
+    it('should keep metabolism deaths as visible corpses for the configured duration', () => {
+      const creature = new Creature({
+        speciesId: 'short-lived',
+        lineageId: 'lineage_1',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'carnivore' },
+        x: 50,
+        y: 50,
+        energy: 1,
+      });
+      const engine = createEngine(12345, [creature], 100, 100, {
+        corpseDecayDurationTicks: 40,
+        monocultureMortalityPenalty: 0,
+      });
+
+      const next = tickEngine(engine);
+
+      expect(next.creatures).toHaveLength(1);
+      expect(next.creatures[0].lifecycleState).toBe('dead');
+      expect(next.creatures[0].corpseDecayTicks).toBe(39);
+      expect(next.events).toContainEqual(
+        expect.objectContaining({ type: 'death', creatureId: next.creatures[0].id })
+      );
+    });
+
+    it('should preserve and log prey killed during feeding', () => {
+      const predator = new Creature({
+        speciesId: 'predator',
+        lineageId: 'predator_root',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'carnivore' },
+        x: 50,
+        y: 50,
+        energy: 20,
+      });
+      const prey = new Creature({
+        speciesId: 'prey',
+        lineageId: 'prey_root',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore' },
+        x: 50,
+        y: 50,
+        energy: 20,
+      });
+      const engine = createEngine(12345, [predator, prey], 100, 100, {
+        corpseDecayDurationTicks: 25,
+        monocultureMortalityPenalty: 0,
+      });
+
+      const next = tickEngine(engine);
+      const corpse = next.creatures.find((candidate) => candidate.speciesId === 'prey');
+
+      expect(corpse?.lifecycleState).toBe('dead');
+      expect(corpse?.corpseDecayTicks).toBe(24);
+      expect(next.events).toContainEqual(
+        expect.objectContaining({ type: 'death', creatureId: corpse?.id, speciesId: 'prey' })
+      );
     });
 
     it('should be deterministic: same seed produces same results', () => {

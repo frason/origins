@@ -111,6 +111,7 @@ function snapshotOf(engine: EngineState): WorldSnapshot {
         energy: c.energy,
         age: c.age,
         lifecycleState: c.lifecycleState,
+        corpseDecayTicks: c.corpseDecayTicks,
       })
     ),
     events: engine.events.map((event) => ({ ...event })),

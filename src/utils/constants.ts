@@ -52,6 +52,9 @@ export const MAX_CREATURE_AGE_TICKS = 500;
 /** Corpse decay rate: 10% of biomass/tick converts to nutrients */
 export const CORPSE_DECAY_RATE = 0.1;
 
+/** Number of ticks a newly dead creature remains in the world */
+export const CORPSE_DECAY_DURATION_TICKS = 30;
+
 // ============================================================================
 // Creature Energy Constants
 // ============================================================================
@@ -105,6 +108,7 @@ export interface SimulationConstants {
   reproductionEnergyCost: number;
   maxCreatureAgeTicks: number;
   corpseDecayRate: number;
+  corpseDecayDurationTicks: number;
   defaultMutationRate: number;
   mutationDrift: number;
   monocultureDominanceThreshold: number;
@@ -129,6 +133,7 @@ export const SIMULATION_CONSTANTS: SimulationConstants = {
   reproductionEnergyCost: REPRODUCTION_ENERGY_COST,
   maxCreatureAgeTicks: MAX_CREATURE_AGE_TICKS,
   corpseDecayRate: CORPSE_DECAY_RATE,
+  corpseDecayDurationTicks: CORPSE_DECAY_DURATION_TICKS,
   defaultMutationRate: DEFAULT_MUTATION_RATE,
   mutationDrift: MUTATION_DRIFT,
   monocultureDominanceThreshold: MONOCULTURE_DOMINANCE_THRESHOLD,

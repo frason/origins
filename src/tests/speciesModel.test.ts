@@ -20,6 +20,7 @@ function creature(
     energy: 100,
     age: 0,
     lifecycleState,
+    corpseDecayTicks: lifecycleState === 'alive' ? 0 : 10,
   };
 }
 
