@@ -5,6 +5,7 @@ import type { ProducerArchetype } from '../simulation/producerTypes';
 import {
   calculateGridLayout,
   GridLayout,
+  navigateTileSelection,
   viewportPointToTile,
 } from './worldViewport';
 import TurningPointNotice from './TurningPointNotice';
@@ -200,7 +201,7 @@ function extractCreatures(worldState: any): Array<{
  */
 const WorldView: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { worldState, tick, setSelectedTile, constants } = useStore();
+  const { worldState, tick, selectedTile, setSelectedTile, constants } = useStore();
   const [layout, setLayout] = useState<GridLayout>(() =>
     calculateGridLayout(400, 400, GRID_WIDTH, GRID_HEIGHT)
   );
@@ -352,6 +353,18 @@ const WorldView: React.FC = () => {
         ctx.fill();
       }
 
+      if (
+        selectedTile &&
+        selectedTile.x >= 0 && selectedTile.x < GRID_WIDTH &&
+        selectedTile.y >= 0 && selectedTile.y < GRID_HEIGHT
+      ) {
+        const pixelX = layout.offsetX + selectedTile.x * layout.cellSize;
+        const pixelY = layout.offsetY + selectedTile.y * layout.cellSize;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = Math.max(1, layout.cellSize * 0.18);
+        ctx.strokeRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
+      }
+
       animationId = requestAnimationFrame(render);
     };
 
@@ -363,7 +376,23 @@ const WorldView: React.FC = () => {
         cancelAnimationFrame(animationId);
       }
     };
-  }, [worldState, layout, tick, constants.baseSolarEnergy]);
+  }, [worldState, layout, tick, constants.baseSolarEnergy, selectedTile]);
+
+  const handleKeyboardNavigation = (event: React.KeyboardEvent<HTMLCanvasElement>) => {
+    const navigation = navigateTileSelection(
+      selectedTile,
+      event.key,
+      worldState?.width ?? GRID_WIDTH,
+      worldState?.height ?? GRID_HEIGHT
+    );
+    if (!navigation.handled) return;
+    event.preventDefault();
+    setSelectedTile(navigation.tile);
+  };
+
+  const selectionStatus = selectedTile
+    ? `Selected tile ${selectedTile.x}, ${selectedTile.y} at tick ${tick}.`
+    : `No tile selected at tick ${tick}.`;
 
   return (
     <div
@@ -377,12 +406,33 @@ const WorldView: React.FC = () => {
     >
       <canvas
         ref={canvasRef}
+        role="application"
+        aria-roledescription="interactive ecosystem grid"
+        aria-label={`Ecosystem world at tick ${tick}`}
+        aria-describedby="world-keyboard-instructions"
+        tabIndex={0}
+        onKeyDown={handleKeyboardNavigation}
         style={{
           display: 'block',
           width: '100%',
           height: '100%',
+          cursor: 'crosshair',
         }}
-      />
+      >
+        Interactive ecosystem world. Use arrow keys to inspect tiles.
+      </canvas>
+      <div
+        id="world-keyboard-instructions"
+        style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clipPath: 'inset(50%)', whiteSpace: 'nowrap' }}
+      >
+        Use arrow keys to move between tiles. Home selects the top-left tile, End selects the bottom-right tile, and Escape clears selection.
+      </div>
+      <div
+        aria-live="polite"
+        style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clipPath: 'inset(50%)', whiteSpace: 'nowrap' }}
+      >
+        {selectionStatus}
+      </div>
       <TurningPointNotice />
     </div>
   );

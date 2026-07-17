@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { calculateGridLayout, viewportPointToTile } from '../ui/worldViewport';
+import {
+  calculateGridLayout,
+  navigateTileSelection,
+  viewportPointToTile,
+} from '../ui/worldViewport';
 
 describe('world viewport layout', () => {
   it('fits a square grid by the limiting viewport dimension', () => {
@@ -36,5 +40,33 @@ describe('world viewport layout', () => {
     const layout = calculateGridLayout(1000, 600, 100, 100);
     expect(viewportPointToTile(199, 300, layout, 100, 100)).toBeNull();
     expect(viewportPointToTile(801, 300, layout, 100, 100)).toBeNull();
+  });
+
+  it('moves keyboard selection one tile and clamps every boundary', () => {
+    expect(navigateTileSelection({ x: 5, y: 5 }, 'ArrowLeft', 10, 10))
+      .toEqual({ handled: true, tile: { x: 4, y: 5 } });
+    expect(navigateTileSelection({ x: 0, y: 0 }, 'ArrowUp', 10, 10).tile)
+      .toEqual({ x: 0, y: 0 });
+    expect(navigateTileSelection({ x: 9, y: 9 }, 'ArrowRight', 10, 10).tile)
+      .toEqual({ x: 9, y: 9 });
+  });
+
+  it('starts keyboard exploration near the center and supports jump/clear keys', () => {
+    expect(navigateTileSelection(null, 'ArrowRight', 100, 100).tile)
+      .toEqual({ x: 50, y: 49 });
+    expect(navigateTileSelection({ x: 5, y: 5 }, 'Home', 100, 100).tile)
+      .toEqual({ x: 0, y: 0 });
+    expect(navigateTileSelection({ x: 5, y: 5 }, 'End', 100, 100).tile)
+      .toEqual({ x: 99, y: 99 });
+    expect(navigateTileSelection({ x: 5, y: 5 }, 'Escape', 100, 100))
+      .toEqual({ handled: true, tile: null });
+  });
+
+  it('ignores unrelated keys and invalid grids without changing selection', () => {
+    const current = { x: 2, y: 3 };
+    expect(navigateTileSelection(current, 'Enter', 10, 10))
+      .toEqual({ handled: false, tile: current });
+    expect(navigateTileSelection(current, 'ArrowDown', 0, 10))
+      .toEqual({ handled: false, tile: current });
   });
 });

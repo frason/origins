@@ -1,2 +1,2 @@
-PASS — Added optional in-memory experiment notes to Story so far baselines for #88, with normalization, a 160-character limit, comparison context, and reset/seed invalidation.
-All 404 tests pass, including whitespace, blank, length, immutability, validity, comparison, and determinism cases; the production build succeeds.
+PASS — Completed a goal-evidence audit and fixed keyboard world access for #89 with semantic landmarks, focusable canvas instructions, arrow/Home/End/Escape navigation, live selection status, and a visible tile outline.
+All 408 tests pass, including app-level rendered accessibility markup and boundary navigation; the production build succeeds. Live browser UX and evolutionary health beyond 200 ticks remain unproven.

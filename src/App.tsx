@@ -170,7 +170,7 @@ export default function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#111' }}>
-      <div style={{ padding: '1rem', backgroundColor: '#1a1a1a', color: '#fff', fontFamily: 'system-ui, -apple-system, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+      <header style={{ padding: '1rem', backgroundColor: '#1a1a1a', color: '#fff', fontFamily: 'system-ui, -apple-system, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
         <div>
           <h1 style={{ margin: '0 0 0.5rem 0' }}>Project Origins</h1>
           <p style={{ color: '#666', fontSize: '0.9rem', margin: 0 }}>
@@ -186,10 +186,10 @@ export default function App() {
         >
           ⚙ Settings
         </button>
-      </div>
-      <div style={{ flex: 1, overflow: 'hidden' }}>
+      </header>
+      <main aria-label="Ecosystem world" style={{ flex: 1, overflow: 'hidden' }}>
         <WorldView />
-      </div>
+      </main>
       <SettingsDrawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}>
           <ControlPanel
             onReset={reset}
