@@ -95,6 +95,11 @@ export interface SelectedTile {
   y: number;
 }
 
+export interface FollowedLineage {
+  speciesId: string;
+  lineageId: string;
+}
+
 /**
  * Global state shape for the store
  */
@@ -106,6 +111,7 @@ export interface StoreState {
   speciesList: SpeciesSummary[];
   constants: SimulationConstants;
   selectedTile: SelectedTile | null;
+  followedLineages: FollowedLineage[];
 
   // Actions
   setWorldState: (state: WorldSnapshot) => void;
@@ -115,6 +121,8 @@ export interface StoreState {
   updateConstants: (partial: Partial<SimulationConstants>) => void;
   resetConstants: () => void;
   setSelectedTile: (tile: SelectedTile | null) => void;
+  toggleFollowedLineage: (lineage: FollowedLineage) => void;
+  clearFollowedLineages: () => void;
 }
 
 /**
@@ -128,6 +136,7 @@ export const useStore = create<StoreState>((set) => ({
   speciesList: [],
   constants: { ...SIMULATION_CONSTANTS },
   selectedTile: null,
+  followedLineages: [],
 
   setWorldState: (state: WorldSnapshot) => {
     set({ worldState: state });
@@ -161,4 +170,22 @@ export const useStore = create<StoreState>((set) => ({
   setSelectedTile: (tile: SelectedTile | null) => {
     set({ selectedTile: tile });
   },
+
+  toggleFollowedLineage: (lineage: FollowedLineage) => {
+    set((state) => {
+      const exists = state.followedLineages.some(
+        (item) => item.speciesId === lineage.speciesId && item.lineageId === lineage.lineageId
+      );
+      return {
+        followedLineages: exists
+          ? state.followedLineages.filter(
+              (item) =>
+                item.speciesId !== lineage.speciesId || item.lineageId !== lineage.lineageId
+            )
+          : [...state.followedLineages, { ...lineage }],
+      };
+    });
+  },
+
+  clearFollowedLineages: () => set({ followedLineages: [] }),
 }));

@@ -75,6 +75,7 @@ export default function App() {
     const store = useStore.getState();
     store.setRunning(false);
     store.setSelectedTile(null);
+    store.clearFollowedLineages();
     recipeReplayRef.current = null;
     setReplayActive(false);
     setReplayStatus(null);
@@ -87,6 +88,7 @@ export default function App() {
     const store = useStore.getState();
     store.setRunning(false);
     store.setSelectedTile(null);
+    store.clearFollowedLineages();
     recipeReplayRef.current = null;
     setReplayActive(false);
     setReplayStatus(null);
@@ -117,6 +119,7 @@ export default function App() {
       const store = useStore.getState();
       store.setRunning(false);
       store.setSelectedTile(null);
+      store.clearFollowedLineages();
       store.updateConstants(session.constants);
       engineRef.current = session.state;
       recipeReplayRef.current = session;

@@ -1,3 +1,3 @@
-PASS — Added a plain-language, bounded recipe preview for #75.
-Players see seed, endpoint, starting settings, and timed actions before replay can begin.
-All 336 tests pass and the production build succeeds.
+PASS — Added session-local followed lineage bookmarks for #76.
+Players can follow branches, see living/extinct status, and return to highlighted history.
+All 338 tests pass and the production build succeeds.

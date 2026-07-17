@@ -1,4 +1,4 @@
-import type { CreatureSnapshot, EventSnapshot } from '../state/store';
+import type { CreatureSnapshot, EventSnapshot, FollowedLineage } from '../state/store';
 import type { TraitChange } from '../simulation/events';
 import { lineageDisplayName, speciesDisplayName } from '../simulation/speciesNames';
 
@@ -18,6 +18,15 @@ export interface SpeciesLineageHistory {
   name: string;
   population: number;
   lineages: LineageHistoryNode[];
+}
+
+export interface FollowedLineageStatus extends FollowedLineage {
+  speciesName: string;
+  lineageName: string;
+  population: number;
+  status: 'living' | 'extinct';
+  firstSeenTick: number | null;
+  depth: number | null;
 }
 
 interface MutableNode extends Omit<LineageHistoryNode, 'depth' | 'status'> {}
@@ -126,4 +135,24 @@ export function formatTraitChange(change: TraitChange): string {
   const value = (item: number | string) =>
     typeof item === 'number' ? (Math.round(item * 100) / 100).toString() : item;
   return `${label}: ${value(change.before)} → ${value(change.after)}`;
+}
+
+/** Resolve bookmarks against live history while retaining branches that just disappeared. */
+export function resolveFollowedLineages(
+  histories: SpeciesLineageHistory[],
+  followed: FollowedLineage[]
+): FollowedLineageStatus[] {
+  return followed.map((bookmark) => {
+    const history = histories.find((item) => item.speciesId === bookmark.speciesId);
+    const lineage = history?.lineages.find((item) => item.lineageId === bookmark.lineageId);
+    return {
+      ...bookmark,
+      speciesName: history?.name ?? speciesDisplayName(bookmark.speciesId),
+      lineageName: lineage?.name ?? lineageDisplayName(bookmark.speciesId, bookmark.lineageId),
+      population: lineage?.population ?? 0,
+      status: lineage?.status ?? 'extinct',
+      firstSeenTick: lineage?.firstSeenTick ?? null,
+      depth: lineage?.depth ?? null,
+    };
+  });
 }

@@ -20,6 +20,7 @@ describe('Store (Zustand)', () => {
       speciesList: [],
       constants: { ...SIMULATION_CONSTANTS },
       selectedTile: null,
+      followedLineages: [],
     });
   });
 
@@ -156,6 +157,26 @@ describe('Store (Zustand)', () => {
       // Clear selected tile
       store.setSelectedTile(null);
       expect(useStore.getState().selectedTile).toBeNull();
+    });
+
+    it('toggles unique lineage bookmarks without changing simulation state', () => {
+      const worldState = { marker: 'same simulation' } as any;
+      useStore.getState().setWorldState(worldState);
+      const lineage = { speciesId: 'grazer', lineageId: 'branch-a' };
+
+      useStore.getState().toggleFollowedLineage(lineage);
+      useStore.getState().toggleFollowedLineage({ ...lineage });
+      expect(useStore.getState().followedLineages).toEqual([]);
+      expect(useStore.getState().worldState).toBe(worldState);
+
+      useStore.getState().toggleFollowedLineage(lineage);
+      useStore.getState().toggleFollowedLineage({ speciesId: 'hunter', lineageId: 'root' });
+      expect(useStore.getState().followedLineages).toEqual([
+        lineage,
+        { speciesId: 'hunter', lineageId: 'root' },
+      ]);
+      useStore.getState().clearFollowedLineages();
+      expect(useStore.getState().followedLineages).toEqual([]);
     });
   });
 });

@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { CreatureSnapshot, EventSnapshot } from '../state/store';
 import { DEFAULT_TRAITS } from '../utils/traits';
-import { buildLineageHistories, formatTraitChange } from '../ui/lineageHistoryModel';
+import {
+  buildLineageHistories,
+  formatTraitChange,
+  resolveFollowedLineages,
+} from '../ui/lineageHistoryModel';
 
 function living(lineageId: string): CreatureSnapshot {
   return {
@@ -68,5 +72,28 @@ describe('lineage history model', () => {
     expect(buildLineageHistories(creatures, events)).toEqual(
       buildLineageHistories(creatures, events)
     );
+  });
+
+  it('resolves followed living, extinct, and missing lineages in bookmark order', () => {
+    const histories = buildLineageHistories([living('grazer_root'), living('branch_b')], events);
+    const followed = [
+      { speciesId: 'grazer', lineageId: 'branch_b' },
+      { speciesId: 'grazer', lineageId: 'branch_a' },
+      { speciesId: 'lost-species', lineageId: 'lost-root' },
+    ];
+    const resolved = resolveFollowedLineages(histories, followed);
+
+    expect(resolved.map(({ lineageId, population, status, firstSeenTick, depth }) => ({
+      lineageId,
+      population,
+      status,
+      firstSeenTick,
+      depth,
+    }))).toEqual([
+      { lineageId: 'branch_b', population: 1, status: 'living', firstSeenTick: 20, depth: 2 },
+      { lineageId: 'branch_a', population: 0, status: 'extinct', firstSeenTick: 10, depth: 1 },
+      { lineageId: 'lost-root', population: 0, status: 'extinct', firstSeenTick: null, depth: null },
+    ]);
+    expect(resolveFollowedLineages(histories, followed)).toEqual(resolved);
   });
 });
