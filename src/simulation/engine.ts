@@ -1,4 +1,4 @@
-import { World } from './world';
+import { computeSolarEnergyGrid, World } from './world';
 import { Creature } from './creature';
 import { createRng, RngFn } from './rng';
 import {
@@ -147,6 +147,7 @@ export function tickEngine(
   };
   // Deep copy world state from JSON
   const newWorld = World.fromJSON(state.world.toJSON());
+  applyLiveSolarConstants(newWorld, state.constants, constants);
 
   // Deep copy creatures
   const creatures: Creature[] = state.creatures.map(
@@ -418,6 +419,41 @@ export function tickEngine(
     events: state.events.concat(newEvents),
     constants,
   };
+}
+
+/**
+ * Apply a changed solar baseline without discarding energy added by nutrient recycling.
+ * The world stores solar and recycled energy together, so each cell receives only the
+ * difference between its previous and next deterministic solar grids.
+ */
+function applyLiveSolarConstants(
+  world: World,
+  previous: SimulationConstants,
+  next: SimulationConstants
+): void {
+  if (
+    previous.baseSolarEnergy === next.baseSolarEnergy &&
+    previous.solarEdgeFalloffFactor === next.solarEdgeFalloffFactor &&
+    previous.solarFalloffExponent === next.solarFalloffExponent
+  ) {
+    return;
+  }
+
+  const previousSolar = computeSolarEnergyGrid({
+    ...previous,
+    worldWidth: world.width,
+    worldHeight: world.height,
+  });
+  const nextSolar = computeSolarEnergyGrid(next);
+
+  for (let y = 0; y < world.height; y++) {
+    for (let x = 0; x < world.width; x++) {
+      const cell = world.getCell(x, y);
+      world.setCell(x, y, {
+        energy: Math.max(0, cell.energy + nextSolar[y][x] - previousSolar[y][x]),
+      });
+    }
+  }
 }
 
 interface PopulationPressure {

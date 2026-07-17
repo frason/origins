@@ -84,6 +84,21 @@ describe('God Mode runtime constants', () => {
     expect(engine.constants.baseSolarEnergy).toBe(40);
   });
 
+  it('applies solar overrides on the next tick without losing recycled energy', () => {
+    const engine = createEngine(5, []);
+    const center = engine.world.getCell(50, 50);
+    engine.world.setCell(50, 50, { energy: center.energy + 7 });
+
+    const next = tickEngine(engine, {
+      baseSolarEnergy: 40,
+      solarEdgeFalloffFactor: 0,
+    });
+
+    expect(next.world.getCell(50, 50).energy).toBe(47);
+    expect(next.world.getCell(0, 0).energy).toBe(40);
+    expect(next.constants.baseSolarEnergy).toBe(40);
+  });
+
   it('remains deterministic with identical runtime overrides', () => {
     const run = () => {
       Creature.resetIdCounter();

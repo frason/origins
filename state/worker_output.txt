@@ -1,4 +1,4 @@
-PASS — Designed deterministic organism size classes and per-tile occupancy for issue #42.
-The proposal covers microbial cohorts, decomposer roles, spatial indexing, migration, and scale tests.
-No simulation behavior was changed; eight client decisions are recorded before implementation.
-Verification: 290/290 tests pass and the production build succeeds.
+PASS — Completed functional God Mode verification and closed the remaining live-solar gap for #44.
+All sliders now affect the next simulation tick; solar changes preserve recycled cell energy.
+Added a focused regression test for changing solar settings during a running world.
+Verification: 291/291 tests pass and the production build succeeds.

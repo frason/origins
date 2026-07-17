@@ -268,7 +268,7 @@ export default function ControlPanel({ onReset }: ControlPanelProps) {
       {showGodMode && (
         <div style={godModeStyle}>
           <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '0.75rem' }}>
-            Changes apply on the next tick. Solar settings apply after Reset.
+            Changes apply on the next tick.
           </div>
           {GOD_MODE_SLIDERS.map((config) => {
             const value = constants[config.key];
