@@ -17,6 +17,10 @@ export interface SustainabilityResult {
   ecosystemSurvivalTicks: number;
   finalSpeciesCount: number;
   finalPopulation: number;
+  mutationCount: number;
+  activeLineageCount: number;
+  maximumDominantShare: number;
+  longestMonocultureTicks: number;
 }
 
 /** Build the same seeded, biomass-supported ecosystem used by the playable app. */
@@ -67,6 +71,9 @@ export function evaluateSustainability(
   const foundingSpecies = livingSpecies(state);
   let allSpeciesSurvivalTicks = 0;
   let ecosystemSurvivalTicks = 0;
+  let currentMonocultureTicks = 0;
+  let longestMonocultureTicks = 0;
+  let maximumDominantShare = 0;
 
   for (let tick = 1; tick <= tickHorizon; tick++) {
     state = tickEngine(state);
@@ -74,6 +81,19 @@ export function evaluateSustainability(
     const population = state.creatures.filter(
       (creature) => creature.lifecycleState === 'alive'
     ).length;
+
+    const speciesCounts = new Map<string, number>();
+    for (const creature of state.creatures) {
+      if (creature.lifecycleState !== 'alive') continue;
+      speciesCounts.set(creature.speciesId, (speciesCounts.get(creature.speciesId) ?? 0) + 1);
+    }
+    const dominantCount = Math.max(0, ...speciesCounts.values());
+    maximumDominantShare = Math.max(
+      maximumDominantShare,
+      population > 0 ? dominantCount / population : 0
+    );
+    currentMonocultureTicks = speciesCounts.size === 1 ? currentMonocultureTicks + 1 : 0;
+    longestMonocultureTicks = Math.max(longestMonocultureTicks, currentMonocultureTicks);
 
     if (population === 0) break;
     ecosystemSurvivalTicks = tick;
@@ -86,6 +106,11 @@ export function evaluateSustainability(
   }
 
   const finalSpecies = livingSpecies(state);
+  const activeLineages = new Set(
+    state.creatures
+      .filter((creature) => creature.lifecycleState === 'alive')
+      .map((creature) => creature.lineageId)
+  );
   return {
     preset: preset.name,
     seed,
@@ -96,6 +121,10 @@ export function evaluateSustainability(
     finalPopulation: state.creatures.filter(
       (creature) => creature.lifecycleState === 'alive'
     ).length,
+    mutationCount: state.events.filter((event) => event.type === 'mutation').length,
+    activeLineageCount: activeLineages.size,
+    maximumDominantShare,
+    longestMonocultureTicks,
   };
 }
 
@@ -107,6 +136,8 @@ export function rankSustainability(
     (a, b) =>
       b.allSpeciesSurvivalTicks - a.allSpeciesSurvivalTicks ||
       b.ecosystemSurvivalTicks - a.ecosystemSurvivalTicks ||
+      b.mutationCount - a.mutationCount ||
+      a.longestMonocultureTicks - b.longestMonocultureTicks ||
       b.finalSpeciesCount - a.finalSpeciesCount ||
       b.finalPopulation - a.finalPopulation ||
       a.preset.localeCompare(b.preset)
