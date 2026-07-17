@@ -37,10 +37,10 @@ export const FEEDING_EFFICIENCY = 0.8;
 // ============================================================================
 
 /** Energy threshold required for a creature to reproduce */
-export const REPRODUCTION_ENERGY_THRESHOLD = 200;
+export const REPRODUCTION_ENERGY_THRESHOLD = 150;
 
 /** Energy cost to produce one offspring */
-export const REPRODUCTION_ENERGY_COST = 100;
+export const REPRODUCTION_ENERGY_COST = 75;
 
 // ============================================================================
 // Lifecycle Constants
@@ -78,8 +78,8 @@ export const MAX_ENERGY_MULTIPLIER = 100;
 // Mutation Constants
 // ============================================================================
 
-/** Default mutation rate: 5% per reproduction */
-export const DEFAULT_MUTATION_RATE = 0.05;
+/** Default chance that an offspring starts a mutated lineage */
+export const DEFAULT_MUTATION_RATE = 0.12;
 
 /** Mutation drift: ±10% value change per trait mutation */
 export const MUTATION_DRIFT = 0.1;

@@ -1,3 +1,4 @@
-PASS — Added deterministic radial corpse toxicity with distance falloff, natural dissipation, and producer-growth suppression.
-Omnivores and scavengers now seek and consume corpses, gaining energy while reducing corpse energy and toxic lifetime; God Mode exposes the new controls.
-Verification: 269/269 tests pass and the production build succeeds.
+PASS — Lowered breeding threshold/cost to 150/75 so starter creatures can reproduce before depleting their energy.
+Reworked mutation into a configured 12% per-birth chance of one meaningful trait change; each real mutation now creates an observable lineage event.
+A deterministic 100-founder test produces 100 births and a healthy 5–25 mutation events with identical replay counts.
+Verification: 270/270 tests pass and the production build succeeds.

@@ -30,6 +30,8 @@ export default function StatsPanel() {
   let corpses = 0;
   let totalEnergy = 0;
   let totalBiomass = 0;
+  let births = 0;
+  let mutations = 0;
   const species = new Set<string>();
 
   if (worldState) {
@@ -45,6 +47,8 @@ export default function StatsPanel() {
     for (const cell of worldState.cells) {
       totalBiomass += cell.producerBiomass;
     }
+    births = worldState.events.filter((event) => event.type === 'birth').length;
+    mutations = worldState.events.filter((event) => event.type === 'mutation').length;
   }
 
   return (
@@ -52,6 +56,8 @@ export default function StatsPanel() {
       <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Ecosystem</div>
       <Row label="Population" value={alive} />
       <Row label="Species" value={species.size} />
+      <Row label="Births" value={births} />
+      <Row label="Mutations" value={mutations} />
       <Row label="Corpses" value={corpses} />
       <Row label="Avg energy" value={alive > 0 ? (totalEnergy / alive).toFixed(1) : '—'} />
       <Row label="Producer biomass" value={Math.round(totalBiomass).toLocaleString()} />

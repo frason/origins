@@ -360,7 +360,7 @@ describe('Simulation Engine', () => {
       // Zero out cell so producer growth doesn't cause incidental feeding
       const cell = engine.world.getCell(50, 50);
       engine.world.setCell(50, 50, { ...cell, producerBiomass: 0, energy: 0 });
-      const newEngine = tickEngine(engine);
+      const newEngine = tickEngine(engine, { reproductionEnergyThreshold: 1000 });
 
       // Metabolism cost = BASE_METABOLISM * size * metabolism
       // = 2 * 2 * 1 = 4

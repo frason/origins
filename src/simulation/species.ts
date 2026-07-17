@@ -8,7 +8,6 @@ import { RngFn, randChoice } from './rng';
 import {
   Traits,
   EnergyStrategy,
-  TRAIT_MUTATION_RATES,
   TRAIT_MIN,
   TRAIT_MAX,
 } from '../utils/traits';
@@ -28,19 +27,21 @@ export interface Species {
 
 /**
  * Mutate a creature's traits based on mutation rates and RNG.
- * Each numeric trait drifts by ±(MUTATION_DRIFT × currentValue × mutationRate).
- * energyStrategy mutates with 5% probability to a random alternative strategy.
+ * Each birth has one configured chance to mutate a trait. A successful mutation
+ * changes one numeric trait by visible drift or selects a new energy strategy.
  * All results are clamped to TRAIT_MIN and TRAIT_MAX.
  *
  * @param traits - parent traits to mutate
  * @param rng - deterministic RNG function
+ * @param mutationDrift - proportional size of a successful numeric mutation
+ * @param mutationRate - chance that this birth mutates one trait
  * @returns new mutated traits
  */
 export function mutateTraits(
   traits: Traits,
   rng: RngFn,
   mutationDrift: number = MUTATION_DRIFT,
-  strategyMutationRate: number = DEFAULT_MUTATION_RATE
+  mutationRate: number = DEFAULT_MUTATION_RATE
 ): Traits {
   const mutated: Traits = { ...traits };
 
@@ -61,34 +62,30 @@ export function mutateTraits(
     'collectiveConnection',
   ] as const;
 
-  // Mutate each numeric trait
-  for (const traitName of numericTraits) {
-    const currentValue = traits[traitName];
-    const mutationRate = TRAIT_MUTATION_RATES[traitName];
+  if (rng() >= mutationRate) return mutated;
 
-    // Calculate drift: ±(MUTATION_DRIFT × currentValue × mutationRate)
-    const driftAmount = mutationDrift * currentValue * mutationRate;
+  const mutationTargets: Array<(typeof numericTraits)[number] | 'energyStrategy'> = [
+    ...numericTraits,
+    'energyStrategy',
+  ];
+  const target = randChoice(rng, mutationTargets);
 
-    // Randomly decide sign of drift (+/-)
-    const sign = rng() < 0.5 ? -1 : 1;
-    const newValue = currentValue + sign * driftAmount;
-
-    // Clamp to min/max bounds
-    const min = TRAIT_MIN[traitName] ?? 0;
-    const max = TRAIT_MAX[traitName] ?? Infinity;
-    (mutated as any)[traitName] = Math.max(min, Math.min(max, newValue));
-  }
-
-  // Mutate energyStrategy with 5% probability
-  if (rng() < strategyMutationRate) {
+  if (target === 'energyStrategy') {
     const strategies: EnergyStrategy[] = [
       'herbivore',
       'carnivore',
       'omnivore',
       'scavenger',
-    ];
-    // Pick a random strategy (might be same as current)
+    ].filter((strategy) => strategy !== traits.energyStrategy) as EnergyStrategy[];
     mutated.energyStrategy = randChoice(rng, strategies);
+  } else {
+    const currentValue = traits[target];
+    const min = TRAIT_MIN[target] ?? 0;
+    const max = TRAIT_MAX[target] ?? Math.max(1, Math.abs(currentValue) * 2);
+    const scale = currentValue === 0 ? (max - min) * 0.1 : Math.abs(currentValue);
+    const driftAmount = mutationDrift * scale;
+    const sign = rng() < 0.5 ? -1 : 1;
+    mutated[target] = Math.max(min, Math.min(max, currentValue + sign * driftAmount));
   }
 
   return mutated;
@@ -113,20 +110,18 @@ export function reproduceCreature(
   parent: Creature,
   rng: RngFn,
   mutationDrift: number = MUTATION_DRIFT,
-  strategyMutationRate: number = DEFAULT_MUTATION_RATE
+  mutationRate: number = DEFAULT_MUTATION_RATE
 ): Creature {
-  const mutatedTraits = mutateTraits(parent.traits, rng, mutationDrift, strategyMutationRate);
+  const mutatedTraits = mutateTraits(parent.traits, rng, mutationDrift, mutationRate);
 
-  // Branch lineage when energyStrategy changes or any numeric trait drifts >15% from parent
+  // A mutation creates a visible branch in the family tree.
   const energyStrategyChanged = mutatedTraits.energyStrategy !== parent.traits.energyStrategy;
   const numericKeys = (Object.keys(mutatedTraits) as (keyof Traits)[]).filter(
     (k) => k !== 'energyStrategy'
   ) as Exclude<keyof Traits, 'energyStrategy'>[];
-  const significantDrift = numericKeys.some((trait) => {
-    const parentVal = parent.traits[trait] as number;
-    if (parentVal === 0) return false;
-    return Math.abs((mutatedTraits[trait] as number) - parentVal) / Math.abs(parentVal) > 0.15;
-  });
+  const significantDrift = numericKeys.some(
+    (trait) => mutatedTraits[trait] !== parent.traits[trait]
+  );
   // Derive branch IDs from the seeded RNG so same-seed runs stay identical
   const childLineageId =
     energyStrategyChanged || significantDrift

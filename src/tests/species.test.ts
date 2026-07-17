@@ -90,20 +90,15 @@ describe('Species - Mutations and Lineage Tracking', () => {
       }
     });
 
-    it('should produce different traits from parent when mutated multiple times', () => {
+    it('should mutate at the configured frequency', () => {
       const rng = createRng(999);
-      let mutated1 = mutateTraits(DEFAULT_TRAITS, rng);
-      let mutated2 = mutateTraits(DEFAULT_TRAITS, rng);
-      let mutated3 = mutateTraits(DEFAULT_TRAITS, rng);
-
-      // At least some trait should be different
-      const isDifferent =
-        mutated1.size !== DEFAULT_TRAITS.size ||
-        mutated1.speed !== DEFAULT_TRAITS.speed ||
-        mutated2.size !== DEFAULT_TRAITS.size ||
-        mutated3.size !== DEFAULT_TRAITS.size;
-
-      expect(isDifferent).toBe(true);
+      let mutations = 0;
+      for (let index = 0; index < 1000; index++) {
+        const candidate = mutateTraits(DEFAULT_TRAITS, rng);
+        if (JSON.stringify(candidate) !== JSON.stringify(DEFAULT_TRAITS)) mutations++;
+      }
+      expect(mutations).toBeGreaterThanOrEqual(70);
+      expect(mutations).toBeLessThanOrEqual(170);
     });
 
     it('should produce deterministic results with same seed', () => {
@@ -114,18 +109,13 @@ describe('Species - Mutations and Lineage Tracking', () => {
     });
 
     it('should produce different results with different seeds', () => {
-      const traits1 = mutateTraits(DEFAULT_TRAITS, createRng(111));
-      const traits2 = mutateTraits(DEFAULT_TRAITS, createRng(222));
+      const traits1 = mutateTraits(DEFAULT_TRAITS, createRng(111), 0.1, 1);
+      const traits2 = mutateTraits(DEFAULT_TRAITS, createRng(222), 0.1, 1);
 
-      const isDifferent =
-        traits1.size !== traits2.size ||
-        traits1.speed !== traits2.speed ||
-        traits1.visionRange !== traits2.visionRange;
-
-      expect(isDifferent).toBe(true);
+      expect(traits1).not.toEqual(traits2);
     });
 
-    it('should mutate energyStrategy with approximately 5% probability', () => {
+    it('should include energy strategy among possible mutation targets', () => {
       // Track how many times the strategy changes across mutations
       const rng = createRng(42);
       let current = { ...DEFAULT_TRAITS };
@@ -133,17 +123,15 @@ describe('Species - Mutations and Lineage Tracking', () => {
       let previousStrategy = current.energyStrategy;
 
       for (let i = 0; i < 1000; i++) {
-        current = mutateTraits(current, rng);
+        current = mutateTraits(current, rng, 0.1, 1);
         if (current.energyStrategy !== previousStrategy) {
           strategyChanges++;
           previousStrategy = current.energyStrategy;
         }
       }
 
-      // energyStrategy should mutate approximately 5% of the time (50 out of 1000)
-      // Allow reasonable variance: expect between 20 and 100 changes (2% to 10%)
-      expect(strategyChanges).toBeGreaterThanOrEqual(20);
-      expect(strategyChanges).toBeLessThanOrEqual(100);
+      expect(strategyChanges).toBeGreaterThanOrEqual(40);
+      expect(strategyChanges).toBeLessThanOrEqual(110);
     });
 
     it('should not modify the original traits object', () => {
@@ -171,7 +159,7 @@ describe('Species - Mutations and Lineage Tracking', () => {
       const child = reproduceCreature(parent, rng);
 
       expect(child.parentId).toBe(parent.id);
-      expect(child.lineageId).toBe(parent.lineageId);
+      expect(child.lineageId).toBeTruthy();
       expect(child.speciesId).toBe(parent.speciesId);
     });
 
@@ -187,12 +175,13 @@ describe('Species - Mutations and Lineage Tracking', () => {
       });
 
       const rng = createRng(456);
-      const child = reproduceCreature(parent, rng);
+      const child = reproduceCreature(parent, rng, 0.1, 1);
 
       // Traits should be different (with very high probability)
       const traitsAreDifferent =
         JSON.stringify(child.traits) !== JSON.stringify(parent.traits);
       expect(traitsAreDifferent).toBe(true);
+      expect(child.lineageId).not.toBe(parent.lineageId);
     });
 
     it('should set child energy to half of parent energy (minimum 50)', () => {

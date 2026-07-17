@@ -63,8 +63,8 @@ export const DEFAULT_TRAITS: Traits = {
 };
 
 /**
- * Mutation rate for each trait (5% per reproduction by default)
- * Used when breeding creatures to introduce genetic variation
+ * Relative per-trait mutation weights reserved for differentiated genetics.
+ * The engine's overall per-birth chance is DEFAULT_MUTATION_RATE.
  */
 export const TRAIT_MUTATION_RATES: Record<
   keyof Omit<Traits, 'energyStrategy'>,
