@@ -427,6 +427,7 @@ export function tickEngine(
         tick: state.tick,
         creatureId: child.id,
         speciesId: child.speciesId,
+        lineageId: child.lineageId,
       });
       if (child.lineageId !== creature.lineageId) {
         newEvents.push({
@@ -477,6 +478,7 @@ export function tickEngine(
         tick: state.tick,
         creatureId: creature.id,
         speciesId: creature.speciesId,
+        lineageId: creature.lineageId,
       });
     }
   }

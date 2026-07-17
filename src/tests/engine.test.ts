@@ -254,7 +254,12 @@ describe('Simulation Engine', () => {
       expect(corpse?.lifecycleState).toBe('dead');
       expect(corpse?.corpseDecayTicks).toBe(24);
       expect(next.events).toContainEqual(
-        expect.objectContaining({ type: 'death', creatureId: corpse?.id, speciesId: 'prey' })
+        expect.objectContaining({
+          type: 'death',
+          creatureId: corpse?.id,
+          speciesId: 'prey',
+          lineageId: 'prey_root',
+        })
       );
     });
 
@@ -320,6 +325,7 @@ describe('Simulation Engine', () => {
       expect(birthEvents.length).toBeGreaterThan(0);
       expect(birthEvents[0].tick).toBe(0);
       expect(birthEvents[0].speciesId).toBe('species_1');
+      expect(birthEvents[0].lineageId).toBeTruthy();
     });
 
     it('records reproducible ancestry and trait changes for mutations', () => {

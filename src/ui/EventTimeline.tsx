@@ -4,6 +4,7 @@ import { buildEventStories, getPopulationTrend, type StoryTone } from './eventTi
 import InterventionImpact from './InterventionImpact';
 import ReplayRecipe from './ReplayRecipe';
 import type { WorldRecipe } from './worldRecipe';
+import FollowedLineageNotices from './FollowedLineageNotices';
 
 const panelStyle: CSSProperties = {
   backgroundColor: '#222',
@@ -45,6 +46,7 @@ export default function EventTimeline({
         {trend.explanation}
       </div>
       <InterventionImpact />
+      <FollowedLineageNotices />
       <ReplayRecipe onReplay={onReplayRecipe} replayStatus={replayStatus} />
 
       {stories.length === 0 ? (

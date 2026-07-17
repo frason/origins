@@ -1,3 +1,3 @@
-PASS — Added session-local followed lineage bookmarks for #76.
-Players can follow branches, see living/extinct status, and return to highlighted history.
-All 338 tests pass and the production build succeeds.
+PASS — Added structured followed-lineage milestone notices for #77.
+Birth/death events identify lineages; notices cover branching, rebound, dominance, and extinction.
+All 343 tests pass and the production build succeeds.
