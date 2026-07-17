@@ -1,2 +1,2 @@
-PASS — Added reproducible tick-500 evolutionary-health evidence for #90 across three fixed seeds, including survival, diversity, mutation cadence, niche shifts, dominance pressure, and founder turnover without monoculture.
-All 408 tests pass and the production build succeeds. Species-leader turnover remains an explicit goal gap because the leading species did not change in these runs.
+PASS — Added deterministic evolving-lineage leadership tracking for #91 and proved genuine dominance turnover within the healthy three-seed tick-500 matrix without destabilizing the trophic food web.
+All 408 tests pass and the production build succeeds. Live browser UX and client-triage issue #66 remain open goal gaps.

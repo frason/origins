@@ -27,6 +27,7 @@ export interface SustainabilityResult {
   longestMutationSilenceTicks: number;
   longestHighDominanceTicks: number;
   dominanceChangeCount: number;
+  lineageDominanceChangeCount: number;
 }
 
 /** Build the same seeded, biomass-supported ecosystem used by the playable app. */
@@ -87,6 +88,8 @@ export function evaluateSustainability(
   let longestHighDominanceTicks = 0;
   let previousDominantSpecies: string | null = null;
   let dominanceChangeCount = 0;
+  let previousDominantLineage: string | null = null;
+  let lineageDominanceChangeCount = 0;
 
   for (let tick = 1; tick <= tickHorizon; tick++) {
     const previousEventCount = state.events.length;
@@ -97,9 +100,11 @@ export function evaluateSustainability(
     ).length;
 
     const speciesCounts = new Map<string, number>();
+    const lineageCounts = new Map<string, number>();
     for (const creature of state.creatures) {
       if (creature.lifecycleState !== 'alive') continue;
       speciesCounts.set(creature.speciesId, (speciesCounts.get(creature.speciesId) ?? 0) + 1);
+      lineageCounts.set(creature.lineageId, (lineageCounts.get(creature.lineageId) ?? 0) + 1);
     }
     const dominantCount = Math.max(0, ...speciesCounts.values());
     const dominantSpecies = [...speciesCounts.entries()]
@@ -109,6 +114,13 @@ export function evaluateSustainability(
       dominantSpecies !== previousDominantSpecies
     ) dominanceChangeCount++;
     if (dominantSpecies) previousDominantSpecies = dominantSpecies;
+    const dominantLineage = [...lineageCounts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? null;
+    if (
+      dominantLineage && previousDominantLineage &&
+      dominantLineage !== previousDominantLineage
+    ) lineageDominanceChangeCount++;
+    if (dominantLineage) previousDominantLineage = dominantLineage;
     const dominantShare = population > 0 ? dominantCount / population : 0;
     if (population > 0) minimumDominantShare = Math.min(minimumDominantShare, dominantShare);
     maximumDominantShare = Math.max(
@@ -172,6 +184,7 @@ export function evaluateSustainability(
     longestMutationSilenceTicks,
     longestHighDominanceTicks,
     dominanceChangeCount,
+    lineageDominanceChangeCount,
   };
 }
 
