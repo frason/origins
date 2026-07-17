@@ -61,6 +61,9 @@ describe('God Mode species introduction', () => {
       type: 'intervention',
       interventionKind: 'species-introduction',
       speciesId: 'introduced_scavenger_1',
+      introducedStrategy: 'scavenger',
+      interventionOrigin: habitableTile(state),
+      founderCount: 3,
       ecosystemBefore: { population: 1, speciesCount: 1, lineageCount: 1 },
     });
   });

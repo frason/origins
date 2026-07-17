@@ -147,6 +147,9 @@ export function introduceSpecies(
     tick: state.tick,
     speciesId,
     interventionKind: 'species-introduction',
+    interventionOrigin: { ...origin },
+    introducedStrategy: strategy,
+    founderCount: founders.length,
     ecosystemBefore: ecosystemCheckpoint(state.world, state.creatures),
     detail: `Introduced ${speciesDisplayName(speciesId)} (${strategy}) with 3 founders`,
   };

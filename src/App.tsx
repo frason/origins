@@ -40,6 +40,8 @@ function snapshotOf(engine: EngineState): WorldSnapshot {
       })
     ),
     events: engine.events.map((event) => ({ ...event })),
+    seed: engine.seed,
+    constants: { ...engine.constants },
   };
 }
 

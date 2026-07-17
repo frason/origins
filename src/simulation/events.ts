@@ -35,6 +35,9 @@ export interface SimEvent {
   constantChanges?: ConstantChange[];
   ecosystemBefore?: EcosystemCheckpoint;
   interventionKind?: 'settings-change' | 'species-introduction';
+  interventionOrigin?: { x: number; y: number };
+  introducedStrategy?: Traits['energyStrategy'];
+  founderCount?: number;
 }
 
 /** Capture live setting changes in stable constant-key order. */

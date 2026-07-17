@@ -68,6 +68,10 @@ export interface WorldSnapshot {
   // Significant engine events up to this snapshot.
   events: EventSnapshot[];
 
+  // Replay metadata for preserving the exact world recipe.
+  seed?: number;
+  constants?: SimulationConstants;
+
   // Allow additional fields for forward compatibility
   [key: string]: unknown;
 }
