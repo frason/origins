@@ -17,6 +17,7 @@ interface ControlPanelProps {
   onNewWorld?: (seed: number) => void;
   worldSeed?: number;
   onIntroduceSpecies?: (strategy: EnergyStrategy) => string | null;
+  replayActive?: boolean;
 }
 
 const panelStyle: CSSProperties = {
@@ -225,6 +226,7 @@ export default function ControlPanel({
   onNewWorld,
   worldSeed = 12345,
   onIntroduceSpecies,
+  replayActive = false,
 }: ControlPanelProps) {
   const tick = useStore((s) => s.tick);
   const isRunning = useStore((s) => s.isRunning);
@@ -331,11 +333,14 @@ export default function ControlPanel({
       {showGodMode && (
         <div style={godModeStyle}>
           <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '0.75rem' }}>
-            Changes apply on the next tick.
+            {replayActive
+              ? 'Recipe replay is controlling God Mode until playback completes.'
+              : 'Changes apply on the next tick.'}
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.85rem' }}>
             <button
               style={{ ...buttonStyle, flex: 1, padding: '0.35rem 0.5rem' }}
+              disabled={replayActive}
               onClick={() => updateConstants(BALANCED_LONGEVITY_PRESET)}
               title="Measured to keep all four starter species alive much longer"
             >
@@ -343,6 +348,7 @@ export default function ControlPanel({
             </button>
             <button
               style={{ ...buttonStyle, flex: 1, padding: '0.35rem 0.5rem' }}
+              disabled={replayActive}
               onClick={resetConstants}
             >
               Reset Defaults
@@ -357,6 +363,7 @@ export default function ControlPanel({
               <div style={{ display: 'flex', gap: '0.4rem' }}>
                 <select
                   aria-label="Founder ecological strategy"
+                  disabled={replayActive}
                   value={introductionStrategy}
                   onChange={(event) => {
                     setIntroductionStrategy(event.target.value as EnergyStrategy);
@@ -371,6 +378,7 @@ export default function ControlPanel({
                 </select>
                 <button
                   type="button"
+                  disabled={replayActive}
                   style={{ ...buttonStyle, padding: '0.35rem 0.55rem' }}
                   onClick={() => {
                     const error = onIntroduceSpecies(introductionStrategy);
@@ -418,6 +426,7 @@ export default function ControlPanel({
                 </span>
                 <input
                   type="range"
+                  disabled={replayActive}
                   min={config.min}
                   max={config.max}
                   step={config.step}

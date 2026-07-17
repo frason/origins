@@ -1,3 +1,3 @@
-PASS — Added a copyable, deterministic world recipe for #73.
-Recipes capture seed, initial settings, and ordered setting/species-introduction actions.
-All 329 tests pass and the production build succeeds.
+PASS — Added validated automatic world-recipe playback for #74.
+Playback rebuilds the seed/settings, schedules interventions, and stops at the recorded tick.
+Exact serialized replay matches; all 332 tests pass and the production build succeeds.

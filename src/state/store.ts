@@ -70,6 +70,7 @@ export interface WorldSnapshot {
 
   // Replay metadata for preserving the exact world recipe.
   seed?: number;
+  tick?: number;
   constants?: SimulationConstants;
 
   // Allow additional fields for forward compatibility

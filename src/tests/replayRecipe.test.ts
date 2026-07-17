@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { WorldSnapshot } from '../state/store';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
-import { buildWorldRecipe, serializeWorldRecipe } from '../ui/worldRecipe';
+import {
+  buildWorldRecipe,
+  parseWorldRecipe,
+  serializeWorldRecipe,
+} from '../ui/worldRecipe';
 
 function world(): WorldSnapshot {
   return {
@@ -10,6 +14,7 @@ function world(): WorldSnapshot {
     cells: [],
     creatures: [],
     seed: 42,
+    tick: 30,
     constants: {
       ...SIMULATION_CONSTANTS,
       baseMetabolism: 0.75,
@@ -51,6 +56,7 @@ describe('reproducible world recipe', () => {
     expect(buildWorldRecipe(world())).toEqual({
       version: 1,
       seed: 42,
+      throughTick: 30,
       initialSettings: {},
       actions: [
         { type: 'settings', tick: 10, values: { baseMetabolism: 1 } },
@@ -82,6 +88,16 @@ describe('reproducible world recipe', () => {
 
   it('serializes identical histories to byte-identical text', () => {
     expect(serializeWorldRecipe(world())).toBe(serializeWorldRecipe(world()));
+  });
+
+  it('parses its serialized output and rejects malformed or unsafe input', () => {
+    const text = serializeWorldRecipe(world())!;
+    expect(parseWorldRecipe(text)).toEqual({ recipe: buildWorldRecipe(world()), error: null });
+    expect(parseWorldRecipe('{oops').error).toContain('valid JSON');
+
+    const invalid = buildWorldRecipe(world())!;
+    invalid.actions[0].tick = 999;
+    expect(parseWorldRecipe(JSON.stringify(invalid)).error).toContain('ordered');
   });
 
   it('fails safely when replay metadata or structured action inputs are missing', () => {

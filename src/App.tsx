@@ -13,6 +13,12 @@ import { DEFAULT_WORLD_SEED } from './ui/worldSeed';
 import SettingsDrawer from './ui/SettingsDrawer';
 import EventTimeline from './ui/EventTimeline';
 import LineageHistory from './ui/LineageHistory';
+import {
+  advanceRecipeReplay,
+  createRecipeReplay,
+  type RecipeReplaySession,
+} from './simulation/recipeReplay';
+import type { WorldRecipe } from './ui/worldRecipe';
 
 function snapshotOf(engine: EngineState): WorldSnapshot {
   const worldJSON = engine.world.toJSON() as {
@@ -41,16 +47,20 @@ function snapshotOf(engine: EngineState): WorldSnapshot {
     ),
     events: engine.events.map((event) => ({ ...event })),
     seed: engine.seed,
+    tick: engine.tick,
     constants: { ...engine.constants },
   };
 }
 
 export default function App() {
   const engineRef = useRef<EngineState | null>(null);
+  const recipeReplayRef = useRef<RecipeReplaySession | null>(null);
   const isRunning = useStore((s) => s.isRunning);
   const speed = useStore((s) => s.speed);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [worldSeed, setWorldSeed] = useState(DEFAULT_WORLD_SEED);
+  const [replayActive, setReplayActive] = useState(false);
+  const [replayStatus, setReplayStatus] = useState<string | null>(null);
 
   const publish = useCallback((engine: EngineState) => {
     const store = useStore.getState();
@@ -65,6 +75,9 @@ export default function App() {
     const store = useStore.getState();
     store.setRunning(false);
     store.setSelectedTile(null);
+    recipeReplayRef.current = null;
+    setReplayActive(false);
+    setReplayStatus(null);
     const engine = buildDemoEngine(worldSeed, store.constants);
     engineRef.current = engine;
     publish(engine);
@@ -74,6 +87,9 @@ export default function App() {
     const store = useStore.getState();
     store.setRunning(false);
     store.setSelectedTile(null);
+    recipeReplayRef.current = null;
+    setReplayActive(false);
+    setReplayStatus(null);
     const engine = buildDemoEngine(seed, store.constants);
     engineRef.current = engine;
     setWorldSeed(seed);
@@ -81,6 +97,7 @@ export default function App() {
   }, [publish]);
 
   const addSpecies = useCallback((strategy: EnergyStrategy): string | null => {
+    if (recipeReplayRef.current) return 'Manual interventions are disabled during recipe replay';
     const engine = engineRef.current;
     const tile = useStore.getState().selectedTile;
     if (!engine || !tile) return 'Select a tile in the world first';
@@ -91,6 +108,28 @@ export default function App() {
       return null;
     } catch (error) {
       return error instanceof Error ? error.message : 'Could not introduce this species';
+    }
+  }, [publish]);
+
+  const startRecipeReplay = useCallback((recipe: WorldRecipe): string | null => {
+    try {
+      const session = createRecipeReplay(recipe);
+      const store = useStore.getState();
+      store.setRunning(false);
+      store.setSelectedTile(null);
+      store.updateConstants(session.constants);
+      engineRef.current = session.state;
+      recipeReplayRef.current = session;
+      setWorldSeed(recipe.seed);
+      setReplayActive(true);
+      setReplayStatus(`Replaying seed ${recipe.seed.toLocaleString()} to tick ${recipe.throughTick.toLocaleString()}`);
+      publish(session.state);
+      store.setRunning(true);
+      return null;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not start recipe replay';
+      setReplayStatus(message);
+      return message;
     }
   }, [publish]);
 
@@ -121,10 +160,35 @@ export default function App() {
       while (acc >= tickMs) {
         const prev = engineRef.current;
         if (prev) {
-          engineRef.current = tickEngine(prev, useStore.getState().constants);
+          const replay = recipeReplayRef.current;
+          if (replay) {
+            try {
+              const advanced = advanceRecipeReplay(replay);
+              engineRef.current = advanced.state;
+              useStore.getState().updateConstants(advanced.constants);
+              recipeReplayRef.current = advanced.complete ? null : advanced;
+              if (advanced.complete) {
+                setReplayActive(false);
+                setReplayStatus(`Replay complete at tick ${advanced.state.tick.toLocaleString()}`);
+                useStore.getState().setRunning(false);
+              } else {
+                setReplayStatus(
+                  `Replaying tick ${advanced.state.tick.toLocaleString()} of ${advanced.recipe.throughTick.toLocaleString()}`
+                );
+              }
+            } catch (error) {
+              recipeReplayRef.current = null;
+              setReplayActive(false);
+              setReplayStatus(error instanceof Error ? error.message : 'Recipe replay diverged');
+              useStore.getState().setRunning(false);
+            }
+          } else {
+            engineRef.current = tickEngine(prev, useStore.getState().constants);
+          }
           ticked = true;
         }
         acc -= tickMs;
+        if (!useStore.getState().isRunning) break;
       }
       if (ticked && engineRef.current) publish(engineRef.current);
     }, Math.max(30, tickMs));
@@ -159,9 +223,13 @@ export default function App() {
             onNewWorld={newWorld}
             worldSeed={worldSeed}
             onIntroduceSpecies={addSpecies}
+            replayActive={replayActive}
           />
           <StatsPanel />
-          <EventTimeline />
+          <EventTimeline
+            onReplayRecipe={startRecipeReplay}
+            replayStatus={replayStatus}
+          />
           <SpeciesPanel />
           <LineageHistory />
       </SettingsDrawer>
