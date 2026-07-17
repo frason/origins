@@ -97,7 +97,10 @@ export const MONOCULTURE_DOMINANCE_THRESHOLD = 0.80;
 /** Extra mortality rate for creatures in dominant species (applied when >threshold) */
 export const MONOCULTURE_MORTALITY_PENALTY = 0.05;
 
-/** Maximum sustainable global creature population (soft carrying capacity) */
+/** Population a dominant species must reach before its reproduction is suppressed */
+export const MONOCULTURE_REPRODUCTION_LIMIT = 2;
+
+/** Hard maximum sustainable global creature population */
 export const MAX_GLOBAL_POPULATION = 500;
 
 /** Overcrowding mortality rate when population exceeds max (additional probability of death per tick) */
@@ -133,6 +136,7 @@ export interface SimulationConstants {
   mutationDrift: number;
   monocultureDominanceThreshold: number;
   monocultureMortalityPenalty: number;
+  monocultureReproductionLimit: number;
   maxGlobalPopulation: number;
   overcrowdingMortalityRate: number;
 }
@@ -163,6 +167,7 @@ export const SIMULATION_CONSTANTS: SimulationConstants = {
   mutationDrift: MUTATION_DRIFT,
   monocultureDominanceThreshold: MONOCULTURE_DOMINANCE_THRESHOLD,
   monocultureMortalityPenalty: MONOCULTURE_MORTALITY_PENALTY,
+  monocultureReproductionLimit: MONOCULTURE_REPRODUCTION_LIMIT,
   maxGlobalPopulation: MAX_GLOBAL_POPULATION,
   overcrowdingMortalityRate: OVERCROWDING_MORTALITY_RATE,
 };

@@ -189,6 +189,13 @@ const GOD_MODE_SLIDERS: SliderConfig[] = [
     formatter: (value) => value.toFixed(2),
   },
   {
+    label: 'Monoculture Reproduction Limit',
+    key: 'monocultureReproductionLimit',
+    min: 1,
+    max: 500,
+    step: 5,
+  },
+  {
     label: 'Population Capacity',
     key: 'maxGlobalPopulation',
     min: 50,

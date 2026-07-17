@@ -277,8 +277,19 @@ export function tickEngine(
 
   // Step 7: Reproduction (with mutation and lineage branching via species.ts)
   const offspring: Creature[] = [];
+  const livingBeforeBirths = creatures.filter((creature) => creature.lifecycleState === 'alive');
+  const birthPressure = getPopulationPressure(livingBeforeBirths, constants);
+  let birthSlots = Math.max(0, constants.maxGlobalPopulation - livingBeforeBirths.length);
   for (const creature of creatures) {
-    if (canReproduce(creature, constants.reproductionEnergyThreshold)) {
+    const dominantReproductionSuppressed =
+      birthPressure.isMonopoly &&
+      birthPressure.dominantCount >= constants.monocultureReproductionLimit &&
+      creature.speciesId === birthPressure.dominantSpecies;
+    if (
+      birthSlots > 0 &&
+      !dominantReproductionSuppressed &&
+      canReproduce(creature, constants.reproductionEnergyThreshold)
+    ) {
       const offspringEnergy = payReproductionCost(
         creature,
         constants.reproductionEnergyCost
@@ -293,6 +304,7 @@ export function tickEngine(
       );
 
       offspring.push(child);
+      birthSlots--;
       newEvents.push({
         type: 'birth',
         tick: state.tick,
@@ -408,6 +420,39 @@ export function tickEngine(
   };
 }
 
+interface PopulationPressure {
+  dominantSpecies: string | null;
+  dominantCount: number;
+  isMonopoly: boolean;
+}
+
+function getPopulationPressure(
+  aliveCreatures: Creature[],
+  constants: SimulationConstants
+): PopulationPressure {
+  const speciesCounts = new Map<string, number>();
+  for (const creature of aliveCreatures) {
+    speciesCounts.set(creature.speciesId, (speciesCounts.get(creature.speciesId) || 0) + 1);
+  }
+
+  let dominantSpecies: string | null = null;
+  let dominantCount = 0;
+  for (const [speciesId, count] of speciesCounts) {
+    if (count > dominantCount) {
+      dominantSpecies = speciesId;
+      dominantCount = count;
+    }
+  }
+
+  return {
+    dominantSpecies,
+    dominantCount,
+    isMonopoly:
+      aliveCreatures.length > 0 &&
+      dominantCount / aliveCreatures.length > constants.monocultureDominanceThreshold,
+  };
+}
+
 /**
  * Apply biodiversity pressure penalties to prevent monoculture and overcrowding.
  * Increases mortality risk for:
@@ -428,28 +473,7 @@ function applyBiodiversityPressure(
     return;
   }
 
-  const speciesCounts = new Map<string, number>();
-  for (const creature of aliveCreatures) {
-    speciesCounts.set(
-      creature.speciesId,
-      (speciesCounts.get(creature.speciesId) || 0) + 1
-    );
-  }
-
-  // Find dominant species
-  let dominantSpecies: string | null = null;
-  let dominantCount = 0;
-  for (const [speciesId, count] of speciesCounts) {
-    if (count > dominantCount) {
-      dominantCount = count;
-      dominantSpecies = speciesId;
-    }
-  }
-
-  // Check if a species is monopolizing (>80% of population)
-  const isDominanceMonopoly =
-    dominantSpecies &&
-    dominantCount / aliveCreatures.length > constants.monocultureDominanceThreshold;
+  const pressure = getPopulationPressure(aliveCreatures, constants);
 
   // Check if population exceeds carrying capacity
   const isOvercrowded = aliveCreatures.length > constants.maxGlobalPopulation;
@@ -461,7 +485,7 @@ function applyBiodiversityPressure(
     let mortalityBonus = 0;
 
     // Penalty for creatures in the dominant species during monopoly
-    if (isDominanceMonopoly && creature.speciesId === dominantSpecies) {
+    if (pressure.isMonopoly && creature.speciesId === pressure.dominantSpecies) {
       mortalityBonus += constants.monocultureMortalityPenalty;
     }
 
@@ -474,6 +498,16 @@ function applyBiodiversityPressure(
     if (mortalityBonus > 0 && rng() < mortalityBonus) {
       creature.lifecycleState = 'dead';
     }
+  }
+
+  // Hard carrying capacity: deterministic partial Fisher-Yates selection avoids
+  // stable array-order bias while guaranteeing oversized inputs return to cap.
+  const survivors = creatures.filter((creature) => creature.lifecycleState === 'alive');
+  const excess = Math.max(0, survivors.length - constants.maxGlobalPopulation);
+  for (let index = 0; index < excess; index++) {
+    const selected = index + Math.floor(rng() * (survivors.length - index));
+    [survivors[index], survivors[selected]] = [survivors[selected], survivors[index]];
+    survivors[index].lifecycleState = 'dead';
   }
 }
 

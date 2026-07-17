@@ -24,6 +24,7 @@ function runBreedingCohort() {
     baseMetabolism: 0,
     monocultureMortalityPenalty: 0,
     overcrowdingMortalityRate: 0,
+    monocultureDominanceThreshold: 1,
   });
   return tickEngine(engine);
 }
