@@ -5,6 +5,7 @@ import {
   serializeWorldRecipe,
   type WorldRecipe,
 } from './worldRecipe';
+import { buildRecipePreview } from './recipePreview';
 
 export default function ReplayRecipe({
   onReplay,
@@ -18,6 +19,8 @@ export default function ReplayRecipe({
   const [importText, setImportText] = useState('');
   const text = serializeWorldRecipe(world);
   if (!text) return null;
+  const parsedImport = importText.trim() ? parseWorldRecipe(importText) : null;
+  const preview = parsedImport?.recipe ? buildRecipePreview(parsedImport.recipe) : null;
 
   const copy = async () => {
     try {
@@ -69,18 +72,43 @@ export default function ReplayRecipe({
             rows={4}
             style={{ width: '100%', resize: 'vertical', boxSizing: 'border-box', background: '#17191b', color: '#aeb7bb', border: '1px solid #444', borderRadius: 5, padding: '0.45rem', fontSize: '0.65rem' }}
           />
+          {parsedImport && !parsedImport.recipe && (
+            <div role="alert" style={{ color: '#e7a16f', fontSize: '0.68rem', marginTop: '0.35rem' }}>
+              {parsedImport.error}
+            </div>
+          )}
+          {preview && (
+            <div style={{ background: '#20272a', borderRadius: 6, padding: '0.55rem', marginTop: '0.45rem' }}>
+              <strong style={{ color: '#b8d3dc', fontSize: '0.72rem' }}>
+                Seed {preview.seed.toLocaleString()} · through tick {preview.throughTick.toLocaleString()}
+              </strong>
+              <div style={{ color: '#899398', fontSize: '0.66rem', marginTop: '0.2rem' }}>
+                {preview.startingSettings.length > 0
+                  ? `Starts with ${preview.startingSettings.join(' · ')}`
+                  : 'Starts with shipped simulation settings'}
+                {' · '}{preview.actionCount} {preview.actionCount === 1 ? 'action' : 'actions'}
+              </div>
+              {preview.actions.map((action, index) => (
+                <div key={`${action.tick}-${index}`} style={{ borderTop: '1px solid #354044', paddingTop: '0.3rem', marginTop: '0.3rem', color: '#abb5b9', fontSize: '0.67rem' }}>
+                  <span style={{ color: '#718087' }}>tick {action.tick}</span> — {action.text}
+                </div>
+              ))}
+              {preview.remainingActions > 0 && (
+                <div style={{ color: '#7f8a8f', fontSize: '0.65rem', marginTop: '0.3rem' }}>
+                  +{preview.remainingActions} more timed actions
+                </div>
+              )}
+            </div>
+          )}
           <button
             type="button"
+            disabled={!preview}
             onClick={() => {
-              const parsed = parseWorldRecipe(importText);
-              if (!parsed.recipe) {
-                setStatus(parsed.error);
-                return;
-              }
-              const error = onReplay(parsed.recipe);
-              setStatus(error ?? `Replay started for seed ${parsed.recipe.seed.toLocaleString()}`);
+              if (!parsedImport?.recipe) return;
+              const error = onReplay(parsedImport.recipe);
+              setStatus(error ?? `Replay started for seed ${parsedImport.recipe.seed.toLocaleString()}`);
             }}
-            style={{ marginTop: '0.4rem', border: '1px solid #557267', borderRadius: 5, padding: '0.35rem 0.6rem', background: '#2b443b', color: '#eee', cursor: 'pointer' }}
+            style={{ marginTop: '0.4rem', border: '1px solid #557267', borderRadius: 5, padding: '0.35rem 0.6rem', background: preview ? '#2b443b' : '#2b3030', color: preview ? '#eee' : '#777', cursor: preview ? 'pointer' : 'not-allowed' }}
           >
             Start replay
           </button>
