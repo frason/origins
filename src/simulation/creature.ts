@@ -3,6 +3,7 @@ import { World } from './world';
 import { RngFn } from './rng';
 import { MAX_ENERGY_MULTIPLIER } from '../utils/constants';
 import type { CreatureSpatialIndex } from './creatureSpatialIndex';
+import { moveAcrossTerrain, reachableTerrainCells } from './biomeTraversal';
 
 /**
  * Lifecycle states for creatures
@@ -218,6 +219,12 @@ export function scanEnvironment(
   const threats: Creature[] = [];
   const foodLocations: Array<{ x: number; y: number; biomass: number }> = [];
   const foodCreatures: Creature[] = [];
+  const reachable = reachableTerrainCells(
+    world,
+    creature.x,
+    creature.y,
+    creature.traits.visionRange
+  );
 
   // Scan for other creatures within vision range
   const nearbyCreatures = spatialIndex
@@ -240,7 +247,7 @@ export function scanEnvironment(
         creature.traits.energyStrategy === 'omnivore' ||
         creature.traits.energyStrategy === 'scavenger'
       ) {
-        foodCreatures.push(other);
+        if (reachable.has(`${other.x},${other.y}`)) foodCreatures.push(other);
       }
       continue;
     }
@@ -266,7 +273,7 @@ export function scanEnvironment(
     if (isFood) {
       // Prey's camouflage reduces chance of being detected by predator
       if (rng() >= other.traits.camouflage) {
-        foodCreatures.push(other);
+        if (reachable.has(`${other.x},${other.y}`)) foodCreatures.push(other);
       }
     }
   }
@@ -292,7 +299,7 @@ export function scanEnvironment(
         const distance = chebyshevDistance(creature.x, creature.y, x, y);
         if (distance <= creature.traits.visionRange) {
           const cell = world.getCell(x, y);
-          if (cell.producerBiomass > 0) {
+          if (cell.producerBiomass > 0 && reachable.has(`${x},${y}`)) {
             foodLocations.push({
               x,
               y,
@@ -558,13 +565,7 @@ export function applyMovement(
   if (targetLocation) {
     const previousX = creature.x;
     const previousY = creature.y;
-    const nextPos = calculateNextPosition(
-      creature.x,
-      creature.y,
-      targetLocation.x,
-      targetLocation.y,
-      creature.traits.speed
-    );
+    const nextPos = moveAcrossTerrain(creature, targetLocation, world);
 
     // Clamp to world bounds
     creature.x = Math.max(0, Math.min(world.width - 1, nextPos.x));

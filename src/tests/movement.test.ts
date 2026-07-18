@@ -13,6 +13,12 @@ import {
 import { World } from '../simulation/world';
 import { createRng } from '../simulation/rng';
 import { DEFAULT_TRAITS } from '../utils/traits';
+import {
+  BIOME_MOVEMENT_COST,
+  isTerrainTraversable,
+  moveAcrossTerrain,
+  reachableTerrainCells,
+} from '../simulation/biomeTraversal';
 
 describe('Movement and Decision Logic', () => {
   let world: World;
@@ -21,6 +27,9 @@ describe('Movement and Decision Logic', () => {
   beforeEach(() => {
     Creature.resetIdCounter();
     world = new World(100, 100);
+    for (let y = 0; y < world.height; y++) {
+      for (let x = 0; x < world.width; x++) world.setCell(x, y, { biome: 'grassland' });
+    }
     rng = createRng(12345); // Fixed seed for determinism
   });
 
@@ -530,6 +539,53 @@ describe('Movement and Decision Logic', () => {
         Math.abs(creature.y - 50)
       );
       expect(distance).toBeLessThanOrEqual(3);
+    });
+  });
+
+  describe('biome traversal', () => {
+    it('makes ocean and mountain impassable while keeping land costs distinct', () => {
+      world.setCell(51, 50, { biome: 'ocean' });
+      world.setCell(52, 50, { biome: 'mountain' });
+      expect(isTerrainTraversable(world, 51, 50)).toBe(false);
+      expect(isTerrainTraversable(world, 52, 50)).toBe(false);
+      expect(BIOME_MOVEMENT_COST.wetland).toBeGreaterThan(BIOME_MOVEMENT_COST.grassland);
+      expect(BIOME_MOVEMENT_COST.tundra).toBeGreaterThan(BIOME_MOVEMENT_COST.desert);
+    });
+
+    it('does not cross an impassable wall or perceive food behind it', () => {
+      const creature = new Creature({
+        speciesId: 'grazer', lineageId: 'grazer', parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore', visionRange: 5, speed: 2 },
+        x: 10, y: 10, energy: 50,
+      });
+      for (let y = 5; y <= 15; y++) world.setCell(11, y, { biome: 'ocean' });
+      world.setCell(12, 10, { producerBiomass: 20, biome: 'grassland' });
+
+      const reachable = reachableTerrainCells(world, 10, 10, 5);
+      expect(reachable.has('12,10')).toBe(false);
+      expect(scanEnvironment(creature, world, [creature], rng).foodLocations).toHaveLength(0);
+      applyMovement(creature, 'search', world, [creature], rng);
+      expect(creature.x).toBeLessThanOrEqual(10);
+    });
+
+    it('slows movement deterministically in costly passable biomes', () => {
+      const makeCreature = (age: number) => new Creature({
+        speciesId: 'grazer', lineageId: 'grazer', parentId: null,
+        traits: { ...DEFAULT_TRAITS, speed: 1 }, x: 20, y: 20, energy: 50, age,
+      });
+      for (let y = 19; y <= 21; y++) {
+        for (let x = 19; x <= 21; x++) world.setCell(x, y, { biome: 'ocean' });
+      }
+      world.setCell(20, 20, { biome: 'grassland' });
+      world.setCell(21, 20, { biome: 'wetland' });
+      world.setCell(22, 20, { biome: 'grassland' });
+      const delayed = makeCreature(5);
+      const moving = makeCreature(1);
+
+      expect(moveAcrossTerrain(delayed, { x: 22, y: 20 }, world)).toEqual({ x: 20, y: 20 });
+      expect(moveAcrossTerrain(moving, { x: 22, y: 20 }, world)).toEqual({ x: 21, y: 20 });
+      expect(moveAcrossTerrain(moving, { x: 22, y: 20 }, world))
+        .toEqual(moveAcrossTerrain(moving, { x: 22, y: 20 }, world));
     });
   });
 
