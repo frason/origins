@@ -1,0 +1,144 @@
+.tile-inspector {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 70;
+  max-height: 10rem;
+  overflow: hidden;
+  transition: max-height 180ms ease;
+}
+
+.tile-inspector--expanded {
+  max-height: min(78dvh, 42rem);
+}
+
+.tile-inspector__header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+}
+
+.tile-inspector__subtitle {
+  display: block;
+  margin-block-start: var(--sim-space-1);
+  font-family: var(--sim-font-data);
+  font-size: var(--sim-font-size-xs);
+  text-transform: capitalize;
+}
+
+.tile-inspector__body {
+  display: grid;
+  gap: var(--sim-space-2);
+  max-height: calc(min(78dvh, 42rem) - 3.5rem);
+  padding: var(--sim-space-2);
+  overflow-y: auto;
+  background: var(--sim-color-canvas);
+}
+
+.tile-inspector__section {
+  margin: 0;
+}
+
+.tile-inspector__section-heading,
+.tile-lineage__heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--sim-space-2);
+}
+
+.tile-inspector__data-grid,
+.tile-lineage__metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sim-space-1) var(--sim-space-3);
+  margin: 0;
+}
+
+.tile-inspector__data-grid div,
+.tile-lineage__metrics div {
+  display: flex;
+  min-width: 0;
+  justify-content: space-between;
+  gap: var(--sim-space-2);
+}
+
+.tile-inspector__data-grid dt,
+.tile-lineage__metrics dt {
+  color: var(--sim-color-ink-muted);
+}
+
+.tile-inspector__data-grid dd,
+.tile-lineage__metrics dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  text-align: end;
+  text-transform: capitalize;
+}
+
+.tile-inspector__text-button {
+  min-width: auto;
+  min-height: var(--sim-control-min-size);
+  padding: 0;
+  color: var(--sim-color-ink);
+  background: transparent;
+  border: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.tile-inspector__empty,
+.tile-inspector__mechanics-note,
+.tile-lineage__strategy,
+.tile-lineage__context {
+  margin: 0;
+  font-size: var(--sim-font-size-xs);
+}
+
+.tile-inspector__mechanics-note {
+  margin-block-start: var(--sim-space-2);
+  color: var(--sim-color-ink-muted);
+}
+
+.tile-lineage + .tile-lineage {
+  margin-block-start: var(--sim-space-2);
+}
+
+.tile-lineage__name {
+  margin: 0;
+  font-size: var(--sim-font-size-sm);
+}
+
+.tile-lineage__strategy {
+  margin-block-start: var(--sim-space-1);
+  text-transform: capitalize;
+}
+
+.tile-lineage__metrics {
+  margin-block: var(--sim-space-2);
+  font-size: var(--sim-font-size-xs);
+}
+
+.tile-lineage__context {
+  line-height: 1.4;
+}
+
+.tile-inspector__corpse-list {
+  margin: 0;
+  padding-inline-start: var(--sim-space-4);
+}
+
+@media (min-width: 64rem) {
+  .tile-inspector {
+    inset: 5rem var(--sim-space-4) 4rem auto;
+    width: min(25rem, 32vw);
+    max-height: none;
+  }
+
+  .tile-inspector__expand {
+    display: none;
+  }
+
+  .tile-inspector__body {
+    max-height: calc(100dvh - 12.5rem);
+  }
+}

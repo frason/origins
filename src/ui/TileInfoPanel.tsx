@@ -1,219 +1,143 @@
-/**
- * TileInfoPanel — displays detailed information about a selected tile.
- * Shows cell energy, nutrients, producer biomass, toxicity, and creatures.
- */
-
-import React, { CSSProperties } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../state/store';
 import { getProducerTraits } from '../simulation/producerTypes';
-import { lineageDisplayName } from '../simulation/speciesNames';
+import { buildTileLineageSummaries } from './tileInspectionModel';
 
-const panelStyle: CSSProperties = {
-  position: 'fixed',
-  bottom: 0,
-  left: 0,
-  right: 0,
-  backgroundColor: '#1a1a1a',
-  borderTop: '2px solid #444',
-  color: '#eee',
-  fontFamily: 'system-ui, -apple-system, sans-serif',
-  fontSize: '0.85rem',
-  padding: '1rem',
-  boxShadow: '0 -2px 8px rgba(0, 0, 0, 0.5)',
-  maxHeight: '30vh',
-  overflowY: 'auto',
-  zIndex: 100,
-};
+interface TileInfoPanelProps {
+  onOpenLineages?: () => void;
+}
 
-const headerStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: '0.75rem',
-  paddingBottom: '0.5rem',
-  borderBottom: '1px solid #444',
-};
+export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
+  const selectedTile = useStore((state) => state.selectedTile);
+  const worldState = useStore((state) => state.worldState);
+  const followedLineages = useStore((state) => state.followedLineages);
+  const setSelectedTile = useStore((state) => state.setSelectedTile);
+  const toggleFollowedLineage = useStore((state) => state.toggleFollowedLineage);
+  const [expanded, setExpanded] = useState(false);
 
-const titleStyle: CSSProperties = {
-  fontWeight: 600,
-  fontSize: '1rem',
-};
+  useEffect(() => setExpanded(false), [selectedTile?.x, selectedTile?.y]);
 
-const closeButtonStyle: CSSProperties = {
-  backgroundColor: '#444',
-  color: '#eee',
-  border: 'none',
-  borderRadius: 4,
-  padding: '0.4rem 0.8rem',
-  cursor: 'pointer',
-  fontSize: '0.85rem',
-};
+  if (!selectedTile || !worldState) return null;
 
-const sectionStyle: CSSProperties = {
-  marginBottom: '0.75rem',
-};
-
-const sectionTitleStyle: CSSProperties = {
-  fontWeight: 600,
-  color: '#aaa',
-  marginBottom: '0.25rem',
-  fontSize: '0.75rem',
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
-};
-
-const rowStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  padding: '0.2rem 0',
-};
-
-const labelStyle: CSSProperties = {
-  color: '#999',
-};
-
-const creatureRowStyle: CSSProperties = {
-  padding: '0.4rem 0.5rem',
-  backgroundColor: '#222',
-  borderRadius: 3,
-  marginBottom: '0.25rem',
-  fontSize: '0.8rem',
-};
-
-export default function TileInfoPanel() {
-  const { selectedTile, worldState, setSelectedTile } = useStore();
-
-  // If no tile is selected, don't render
-  if (!selectedTile || !worldState) {
-    return null;
-  }
-
-  // Extract cell data
   const cellIndex = selectedTile.y * worldState.width + selectedTile.x;
   const cell = worldState.cells[cellIndex];
+  if (!cell) return null;
   const producerTraits = getProducerTraits(cell.producerArchetype);
-
-  // Extract creatures on this tile
-  const tilesCreatures = worldState.creatures.filter(
-    (c) => c.x === selectedTile.x && c.y === selectedTile.y && c.lifecycleState === 'alive'
+  const tileCreatures = worldState.creatures.filter(
+    (creature) => creature.x === selectedTile.x && creature.y === selectedTile.y
   );
-  const tileCorpses = worldState.creatures.filter(
-    (c) => c.x === selectedTile.x && c.y === selectedTile.y && c.lifecycleState !== 'alive'
-  );
-
-  const handleClose = () => {
-    setSelectedTile(null);
-  };
+  const living = tileCreatures.filter((creature) => creature.lifecycleState === 'alive');
+  const corpses = tileCreatures.filter((creature) => creature.lifecycleState !== 'alive');
+  const lineages = buildTileLineageSummaries(living, corpses.length, cell.producerBiomass);
 
   return (
-    <div style={panelStyle}>
-      <div style={headerStyle}>
-        <div style={titleStyle}>
-          Tile ({selectedTile.x}, {selectedTile.y})
-        </div>
-        <button style={closeButtonStyle} onClick={handleClose}>
-          Close
-        </button>
-      </div>
-
-      <div style={sectionStyle}>
-        <div style={sectionTitleStyle}>Landscape</div>
-        <div style={rowStyle}>
-          <span style={labelStyle}>Biome</span>
-          <span style={{ textTransform: 'capitalize' }}>{cell.biome}</span>
-        </div>
-        <div style={rowStyle}>
-          <span style={labelStyle}>Elevation</span>
-          <span>{cell.elevation.toFixed(2)}</span>
-        </div>
-        <div style={rowStyle}>
-          <span style={labelStyle}>Moisture</span>
-          <span>{cell.moisture.toFixed(2)}</span>
-        </div>
-        <div style={rowStyle}>
-          <span style={labelStyle}>Temperature</span>
-          <span>{cell.temperature.toFixed(2)}</span>
-        </div>
-      </div>
-
-      <div style={sectionStyle}>
-        <div style={sectionTitleStyle}>Cell Resources</div>
-        <div style={rowStyle}>
-          <span style={labelStyle}>Energy</span>
-          <span>{cell.energy.toFixed(2)}</span>
-        </div>
-        <div style={rowStyle}>
-          <span style={labelStyle}>Nutrients</span>
-          <span>{cell.nutrients.toFixed(2)}</span>
-        </div>
-        <div style={rowStyle}>
-          <span style={labelStyle}>Producer Biomass</span>
-          <span>{cell.producerBiomass.toFixed(2)}</span>
-        </div>
-        <div style={rowStyle}>
-          <span style={labelStyle}>Producer Type</span>
-          <span style={{ textTransform: 'capitalize' }}>
-            {cell.producerArchetype.replace(/-/g, ' ')}
+    <aside
+      className={`tile-inspector sim-window${expanded ? ' tile-inspector--expanded' : ''}`}
+      aria-labelledby="tile-inspector-title"
+    >
+      <header className="tile-inspector__header sim-window__title-bar">
+        <div>
+          <h2 className="sim-window__title" id="tile-inspector-title">
+            Tile {selectedTile.x}, {selectedTile.y}
+          </h2>
+          <span className="tile-inspector__subtitle">
+            {cell.biome} · {living.length} living · {corpses.length} {corpses.length === 1 ? 'corpse' : 'corpses'}
           </span>
         </div>
-        <div style={rowStyle}>
-          <span style={labelStyle}>Growth / Capacity</span>
-          <span>
-            {producerTraits.growthMultiplier.toFixed(2)}× / {producerTraits.carryingCapacity}
-          </span>
+        <div className="sim-window__controls">
+          <button
+            type="button"
+            className="sim-button sim-button--compact tile-inspector__expand"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((value) => !value)}
+          >
+            {expanded ? 'Less' : 'Inspect'}
+          </button>
+          <button type="button" className="sim-button sim-button--compact" onClick={() => setSelectedTile(null)}>
+            Close
+          </button>
         </div>
-        <div style={rowStyle}>
-          <span style={labelStyle}>Defense / Energy Density</span>
-          <span>
-            {Math.round(producerTraits.defense * 100)}% / {producerTraits.energyDensity.toFixed(2)}×
-          </span>
-        </div>
-        <div style={rowStyle}>
-          <span style={labelStyle}>Toxicity</span>
-          <span>{cell.toxicity.toFixed(2)}</span>
-        </div>
+      </header>
+
+      <div className="tile-inspector__body">
+        <section className="tile-inspector__section sim-panel" aria-labelledby="tile-landscape-title">
+          <h3 className="sim-panel__heading" id="tile-landscape-title">Landscape</h3>
+          <dl className="tile-inspector__data-grid">
+            <div><dt>Biome</dt><dd>{cell.biome}</dd></div>
+            <div><dt>Elevation</dt><dd>{cell.elevation.toFixed(2)}</dd></div>
+            <div><dt>Moisture</dt><dd>{cell.moisture.toFixed(2)}</dd></div>
+            <div><dt>Temperature</dt><dd>{cell.temperature.toFixed(2)}</dd></div>
+          </dl>
+        </section>
+
+        <section className="tile-inspector__section sim-panel" aria-labelledby="tile-resources-title">
+          <h3 className="sim-panel__heading" id="tile-resources-title">Resources</h3>
+          <dl className="tile-inspector__data-grid">
+            <div><dt>Energy</dt><dd>{cell.energy.toFixed(2)}</dd></div>
+            <div><dt>Nutrients</dt><dd>{cell.nutrients.toFixed(2)}</dd></div>
+            <div><dt>Biomass</dt><dd>{cell.producerBiomass.toFixed(2)}</dd></div>
+            <div><dt>Toxicity</dt><dd>{cell.toxicity.toFixed(2)}</dd></div>
+            <div><dt>Producer</dt><dd>{cell.producerArchetype.replace(/-/g, ' ')}</dd></div>
+            <div><dt>Growth / capacity</dt><dd>{producerTraits.growthMultiplier.toFixed(2)}× / {producerTraits.carryingCapacity}</dd></div>
+          </dl>
+        </section>
+
+        <section className="tile-inspector__section tile-inspector__section--life" aria-labelledby="tile-life-title">
+          <div className="tile-inspector__section-heading">
+            <h3 className="sim-panel__heading" id="tile-life-title">Life here</h3>
+            {lineages.length > 0 && onOpenLineages && (
+              <button type="button" className="tile-inspector__text-button" onClick={onOpenLineages}>
+                Open lineage history
+              </button>
+            )}
+          </div>
+          {lineages.length === 0 ? (
+            <p className="tile-inspector__empty">No living creatures on this tile.</p>
+          ) : lineages.map((lineage) => {
+            const followed = followedLineages.some(
+              (item) => item.speciesId === lineage.speciesId && item.lineageId === lineage.lineageId
+            );
+            return (
+              <article className="tile-lineage sim-panel sim-panel--sunken" key={`${lineage.speciesId}:${lineage.lineageId}`}>
+                <div className="tile-lineage__heading">
+                  <div>
+                    <h4 className="tile-lineage__name">{lineage.name}</h4>
+                    <p className="tile-lineage__strategy">{lineage.strategy} · {lineage.population} present</p>
+                  </div>
+                  <button
+                    type="button"
+                    className={`sim-button sim-button--compact${followed ? ' sim-button--pressed' : ''}`}
+                    aria-pressed={followed}
+                    onClick={() => toggleFollowedLineage({ speciesId: lineage.speciesId, lineageId: lineage.lineageId })}
+                  >
+                    {followed ? '★ Following' : '☆ Follow'}
+                  </button>
+                </div>
+                <dl className="tile-lineage__metrics sim-data">
+                  <div><dt>Avg. energy</dt><dd>{lineage.averageEnergy.toFixed(1)}</dd></div>
+                  <div><dt>Avg. age</dt><dd>{lineage.averageAge.toFixed(1)}</dd></div>
+                  <div><dt>Energy load</dt><dd>{lineage.metabolicLoad.toFixed(2)}×</dd></div>
+                </dl>
+                <p className="tile-lineage__context">{lineage.localContext}</p>
+              </article>
+            );
+          })}
+          <p className="tile-inspector__mechanics-note">
+            Current survival reflects food access, energy use, and movement. Biome-specific creature fitness is planned separately.
+          </p>
+        </section>
+
+        {corpses.length > 0 && (
+          <section className="tile-inspector__section sim-panel" aria-labelledby="tile-corpses-title">
+            <h3 className="sim-panel__heading" id="tile-corpses-title">Corpses ({corpses.length})</h3>
+            <ul className="tile-inspector__corpse-list">
+              {corpses.map((corpse) => (
+                <li key={corpse.id}>Decay remaining: <span className="sim-data">{corpse.corpseDecayTicks} ticks</span></li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
-
-      {tilesCreatures.length > 0 && (
-        <div style={sectionStyle}>
-          <div style={sectionTitleStyle}>Creatures ({tilesCreatures.length})</div>
-          {tilesCreatures.map((creature) => (
-            <div key={creature.id} style={creatureRowStyle}>
-              <div>
-                <strong>{lineageDisplayName(creature.speciesId, creature.lineageId)}</strong>{' '}
-                <span style={{ color: '#777' }}>({creature.speciesId} · {creature.id})</span>
-              </div>
-              <div style={{ color: '#aaa', marginTop: '0.2rem' }}>
-                Energy: {creature.energy.toFixed(2)} | Age: {creature.age}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tilesCreatures.length === 0 && (
-        <div style={sectionStyle}>
-          <div style={sectionTitleStyle}>Creatures</div>
-          <div style={{ color: '#666' }}>No creatures on this tile</div>
-        </div>
-      )}
-
-      {tileCorpses.length > 0 && (
-        <div style={sectionStyle}>
-          <div style={sectionTitleStyle}>Corpses ({tileCorpses.length})</div>
-          {tileCorpses.map((corpse) => (
-            <div key={corpse.id} style={{ ...creatureRowStyle, borderLeft: '3px solid #8b6f55' }}>
-              <div>
-                <strong>{lineageDisplayName(corpse.speciesId, corpse.lineageId)}</strong>{' '}
-                <span style={{ color: '#777' }}>({corpse.speciesId} · {corpse.id})</span>
-              </div>
-              <div style={{ color: '#aaa', marginTop: '0.2rem' }}>
-                Decay remaining: {corpse.corpseDecayTicks} ticks
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    </aside>
   );
 }

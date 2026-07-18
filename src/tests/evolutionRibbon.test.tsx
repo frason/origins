@@ -1,12 +1,12 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_TRAITS } from '../utils/traits';
-import { useStore } from '../state/store';
+import { useStore, type StoreState } from '../state/store';
 import EvolutionRibbon from '../ui/EvolutionRibbon';
 
 describe('EvolutionRibbon', () => {
   it('keeps bounded evolution metrics visible in the world shell', () => {
-    useStore.setState({
+    const snapshot: Partial<StoreState> = {
       tick: 10,
       worldState: {
         width: 1,
@@ -20,7 +20,9 @@ describe('EvolutionRibbon', () => {
         }],
         history: [],
       },
-    });
+    };
+    useStore.setState(snapshot);
+    Object.assign(useStore.getInitialState(), snapshot);
 
     const html = renderToStaticMarkup(<EvolutionRibbon onOpenLineages={() => undefined} />);
     expect(html).toContain('Evolution over time');

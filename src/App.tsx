@@ -259,7 +259,7 @@ export default function App() {
           <SpeciesPanel />
           <LineageHistory />
       </SettingsDrawer>
-      <TileInfoPanel />
+      <TileInfoPanel onOpenLineages={() => setSettingsOpen(true)} />
       <ExtinctionSummary onRestart={reset} />
     </div>
   );
