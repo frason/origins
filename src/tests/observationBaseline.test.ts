@@ -26,6 +26,7 @@ function summary(): SessionSummary {
     remainingBiomass: 900,
     finalEvents: [],
     recentStories: [],
+    story: { heading: 'Test world', paragraphs: ['Recorded evidence.'] },
   };
 }
 

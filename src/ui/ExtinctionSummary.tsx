@@ -3,6 +3,7 @@ import { useStore } from '../state/store';
 import { buildSessionSummary, hasLivingCreatures } from './sessionSummary';
 import { speciesDisplayName } from '../simulation/speciesNames';
 import PopulationHistoryChart from './PopulationHistoryChart';
+import WorldStoryPanel from './WorldStoryPanel';
 
 const overlayStyle: CSSProperties = {
   position: 'fixed',
@@ -66,6 +67,8 @@ export default function ExtinctionSummary({ onRestart }: { onRestart: () => void
         <p style={{ color: '#aaa', margin: '0 0 1.25rem' }}>
           The last creature is gone, but the world records what happened.
         </p>
+
+        <WorldStoryPanel story={summary.story} headingId="extinction-world-story-heading" />
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem' }}>
           {metrics.map(([label, value]) => (

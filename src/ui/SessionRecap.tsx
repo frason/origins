@@ -9,6 +9,7 @@ import {
   MAX_OBSERVATION_NOTE_LENGTH,
   type ObservationBaseline,
 } from './observationBaseline';
+import WorldStoryPanel from './WorldStoryPanel';
 
 const overlayStyle: CSSProperties = {
   position: 'fixed', inset: 0, zIndex: 300, display: 'grid', placeItems: 'center',
@@ -107,6 +108,8 @@ function RecapDialog({
             Close
           </button>
         </div>
+
+        <WorldStoryPanel story={summary.story} headingId="recap-world-story-heading" />
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(125px, 1fr))', gap: '0.45rem', marginTop: '1rem' }}>
           {metrics.map(([label, value]) => (
