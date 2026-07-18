@@ -10,7 +10,11 @@ import {
 } from '../utils/constants';
 import { growProducers } from './producer';
 import { reproduceCreature } from './species';
-import { lineageDisplayName, speciesDisplayName } from './speciesNames';
+import {
+  introducedSpeciesId,
+  lineageDisplayName,
+  speciesDisplayName,
+} from './speciesNames';
 import { DEFAULT_TRAITS, type EnergyStrategy } from '../utils/traits';
 import {
   appendEcosystemHistory,
@@ -97,7 +101,8 @@ const INTRODUCTION_ENERGY: Record<EnergyStrategy, number> = {
 export function introduceSpecies(
   state: EngineState,
   strategy: EnergyStrategy,
-  origin: { x: number; y: number }
+  origin: { x: number; y: number },
+  requestedName?: string
 ): SpeciesIntroduction {
   if (
     !Number.isInteger(origin.x) || !Number.isInteger(origin.y) ||
@@ -138,7 +143,9 @@ export function introduceSpecies(
   const introductionNumber = state.events.filter(
     (event) => event.interventionKind === 'species-introduction'
   ).length + 1;
-  const speciesId = `introduced_${strategy}_${introductionNumber}`;
+  const speciesId = requestedName === undefined
+    ? `introduced_${strategy}_${introductionNumber}`
+    : introducedSpeciesId(strategy, introductionNumber, requestedName);
   const founders = candidates.slice(0, 3).map((position, index) => {
     const creature = new Creature({
       speciesId,

@@ -2,6 +2,7 @@ import { SIMULATION_CONSTANTS, type SimulationConstants } from '../utils/constan
 import type { WorldRecipe } from '../ui/worldRecipe';
 import { buildDemoEngine } from './demoWorld';
 import { introduceSpecies, tickEngine, type EngineState } from './engine';
+import { customSpeciesName } from './speciesNames';
 
 export interface RecipeReplaySession {
   recipe: WorldRecipe;
@@ -30,7 +31,13 @@ function applyActionsAtCurrentTick(session: RecipeReplaySession): RecipeReplaySe
   ) {
     const action = session.recipe.actions[actionIndex];
     if (action.type === 'introduce-species') {
-      const result = introduceSpecies(state, action.strategy, action.origin);
+      const customName = customSpeciesName(action.speciesId);
+      const result = introduceSpecies(
+        state,
+        action.strategy,
+        action.origin,
+        customName ?? undefined
+      );
       if (result.speciesId !== action.speciesId || result.creatureIds.length !== action.founderCount) {
         throw new Error(`Recipe species identity diverged at tick ${state.tick}`);
       }

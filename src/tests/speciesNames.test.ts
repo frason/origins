@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  customSpeciesName,
+  introducedSpeciesId,
   lineageDisplayName,
+  normalizeSpeciesName,
   speciesDisplayName,
+  suggestedIntroducedSpeciesName,
 } from '../simulation/speciesNames';
 
 describe('reproducible species names', () => {
@@ -35,5 +39,19 @@ describe('reproducible species names', () => {
     expect(lineageDisplayName('grazer', 'grazer_root')).toBe(
       speciesDisplayName('grazer')
     );
+  });
+
+  it('normalizes and preserves player names in species and lineage labels', () => {
+    const id = introducedSpeciesId('herbivore', 1, '  Little   Snow Walkers\n');
+
+    expect(normalizeSpeciesName('  Little   Snow Walkers\n')).toBe('Little Snow Walkers');
+    expect(customSpeciesName(id)).toBe('Little Snow Walkers');
+    expect(speciesDisplayName(id)).toBe('Little Snow Walkers');
+    expect(lineageDisplayName(id, 'mutated_branch')).toMatch(/^Little Snow Walkers — /);
+  });
+
+  it('uses its deterministic suggestion when a requested name is blank', () => {
+    const id = introducedSpeciesId('scavenger', 2, '   ');
+    expect(speciesDisplayName(id)).toBe(suggestedIntroducedSpeciesName('scavenger', 2));
   });
 });

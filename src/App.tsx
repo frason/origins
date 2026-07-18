@@ -76,13 +76,13 @@ export default function App() {
     publish(engine);
   }, [publish]);
 
-  const addSpecies = useCallback((strategy: EnergyStrategy): string | null => {
+  const addSpecies = useCallback((strategy: EnergyStrategy, name: string): string | null => {
     if (recipeReplayRef.current) return 'Manual interventions are disabled during recipe replay';
     const engine = engineRef.current;
     const tile = useStore.getState().selectedTile;
     if (!engine || !tile) return 'Select a tile in the world first';
     try {
-      const introduction = introduceSpecies(engine, strategy, tile);
+      const introduction = introduceSpecies(engine, strategy, tile, name);
       engineRef.current = introduction.state;
       publish(introduction.state);
       return null;

@@ -10,6 +10,9 @@ const EPITHETS = [
   'solaris', 'tenuis', 'viridis', 'vorax',
 ] as const;
 
+export const MAX_SPECIES_NAME_LENGTH = 40;
+const CUSTOM_NAME_SEPARATOR = '~';
+
 /** Stable FNV-1a hash. Naming never consumes the simulation's seeded RNG stream. */
 function hash(value: string): number {
   let result = 0x811c9dc5;
@@ -35,8 +38,48 @@ function isFounderLineage(speciesId: string, lineageId: string): boolean {
   );
 }
 
+/** Make player-entered names safe and consistent without changing their wording. */
+export function normalizeSpeciesName(value: string): string {
+  return value
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, MAX_SPECIES_NAME_LENGTH)
+    .trim();
+}
+
+export function customSpeciesName(speciesId: string): string | null {
+  const separator = speciesId.indexOf(CUSTOM_NAME_SEPARATOR);
+  if (separator < 0) return null;
+  try {
+    const name = normalizeSpeciesName(decodeURIComponent(speciesId.slice(separator + 1)));
+    return name || null;
+  } catch {
+    return null;
+  }
+}
+
+export function suggestedIntroducedSpeciesName(
+  strategy: string,
+  introductionNumber: number
+): string {
+  return speciesDisplayName(`introduced_${strategy}_${introductionNumber}`);
+}
+
+export function introducedSpeciesId(
+  strategy: string,
+  introductionNumber: number,
+  requestedName: string
+): string {
+  const baseId = `introduced_${strategy}_${introductionNumber}`;
+  const name = normalizeSpeciesName(requestedName) || speciesDisplayName(baseId);
+  return `${baseId}${CUSTOM_NAME_SEPARATOR}${encodeURIComponent(name)}`;
+}
+
 /** Return a stable pseudo-Latin binomial for a founding species. */
 export function speciesDisplayName(speciesId: string): string {
+  const customName = customSpeciesName(speciesId);
+  if (customName) return customName;
   return `${genusFor(speciesId)} ${founderEpithetFor(speciesId)}`;
 }
 
@@ -47,5 +90,8 @@ export function lineageDisplayName(speciesId: string, lineageId: string): string
   const founderEpithet = founderEpithetFor(speciesId);
   let index = hash(`lineage:${lineageId}`) % EPITHETS.length;
   if (EPITHETS[index] === founderEpithet) index = (index + 1) % EPITHETS.length;
-  return `${genusFor(speciesId)} ${EPITHETS[index]}`;
+  const customName = customSpeciesName(speciesId);
+  return customName
+    ? `${customName} — ${EPITHETS[index]}`
+    : `${genusFor(speciesId)} ${EPITHETS[index]}`;
 }

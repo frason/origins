@@ -7,12 +7,16 @@ import { getEcosystemPressures } from './ecosystemPressures';
 import { getEcosystemTrajectories } from './ecosystemTrajectory';
 import { getGodModeRecommendations, recommendationPatch } from './godModeRecommendations';
 import { defaultValueFor, GOD_MODE_GROUPS, type GodModeSliderConfig } from './godModeControls';
+import {
+  MAX_SPECIES_NAME_LENGTH,
+  suggestedIntroducedSpeciesName,
+} from '../simulation/speciesNames';
 
 interface ControlPanelProps {
   onReset?: () => void;
   onNewWorld?: (seed: number) => void;
   worldSeed?: number;
-  onIntroduceSpecies?: (strategy: EnergyStrategy) => string | null;
+  onIntroduceSpecies?: (strategy: EnergyStrategy, name: string) => string | null;
   replayActive?: boolean;
 }
 
@@ -66,6 +70,7 @@ export default function ControlPanel({
   const resetConstants = useStore((state) => state.resetConstants);
   const [showGodMode, setShowGodMode] = useState(false);
   const [introductionStrategy, setIntroductionStrategy] = useState<EnergyStrategy>('herbivore');
+  const [introductionName, setIntroductionName] = useState('');
   const [introductionMessage, setIntroductionMessage] = useState<string | null>(null);
   const [seedDraft, setSeedDraft] = useState(String(worldSeed));
   const [seedMessage, setSeedMessage] = useState<string | null>(null);
@@ -78,6 +83,13 @@ export default function ControlPanel({
         constants
       )
     : [];
+  const introductionNumber = (world?.events ?? []).filter(
+    (event) => event.interventionKind === 'species-introduction'
+  ).length + 1;
+  const suggestedName = suggestedIntroducedSpeciesName(
+    introductionStrategy,
+    introductionNumber
+  );
 
   useEffect(() => setSeedDraft(String(worldSeed)), [worldSeed]);
 
@@ -196,6 +208,24 @@ export default function ControlPanel({
             <section className="control-panel__section" aria-labelledby="introduce-species-title">
               <h4 className="control-panel__section-title" id="introduce-species-title">Introduce species</h4>
               <p className="control-panel__help">Select a habitable tile, then seed three founders nearby.</p>
+              <label className="control-panel__field">
+                <span>Species name</span>
+                <input
+                  className="control-panel__input"
+                  aria-label="Introduced species name"
+                  disabled={replayActive}
+                  maxLength={MAX_SPECIES_NAME_LENGTH}
+                  placeholder={suggestedName}
+                  value={introductionName}
+                  onChange={(event) => {
+                    setIntroductionName(event.target.value);
+                    setIntroductionMessage(null);
+                  }}
+                />
+                <span className="control-panel__help">
+                  Leave blank to use {suggestedName}.
+                </span>
+              </label>
               <div className="control-panel__field-row">
                 <select
                   className="control-panel__input"
@@ -214,8 +244,9 @@ export default function ControlPanel({
                   type="button"
                   disabled={replayActive}
                   onClick={() => {
-                    const error = onIntroduceSpecies(introductionStrategy);
-                    setIntroductionMessage(error ?? 'Founder group introduced');
+                    const error = onIntroduceSpecies(introductionStrategy, introductionName);
+                    setIntroductionMessage(error ?? `${introductionName.trim() || suggestedName} introduced`);
+                    if (!error) setIntroductionName('');
                   }}
                 >
                   Introduce

@@ -73,11 +73,11 @@ function serialized(state: EngineState) {
 describe('automatic recipe replay', () => {
   it('reaches the exact serialized state and history of the source run', () => {
     let source = buildDemoEngine(2468, constants);
-    source = introduceSpecies(source, 'scavenger', habitableTile(source)).state;
+    source = introduceSpecies(source, 'scavenger', habitableTile(source), 'Ash Runners').state;
     const tuned = { ...constants, baseMetabolism: 1, producerGrowthRate: 0.2 };
     source = tickEngine(source, tuned);
     source = tickEngine(source, tuned);
-    source = introduceSpecies(source, 'herbivore', habitableTile(source, 10)).state;
+    source = introduceSpecies(source, 'herbivore', habitableTile(source, 10), '').state;
     source = tickEngine(source, tuned);
     source = tickEngine(source, tuned);
 

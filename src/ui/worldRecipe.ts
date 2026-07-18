@@ -169,7 +169,7 @@ export function parseWorldRecipe(text: string): WorldRecipeParseResult {
       const origin = raw.origin;
       if (
         !strategies.includes(raw.strategy as EnergyStrategy) ||
-        typeof raw.speciesId !== 'string' || raw.speciesId.length === 0 ||
+        typeof raw.speciesId !== 'string' || raw.speciesId.length === 0 || raw.speciesId.length > 200 ||
         raw.founderCount !== 3 || !isRecord(origin) ||
         typeof origin.x !== 'number' || !Number.isInteger(origin.x) ||
         typeof origin.y !== 'number' || !Number.isInteger(origin.y) ||

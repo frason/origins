@@ -80,6 +80,23 @@ describe('God Mode species introduction', () => {
     expect(new Set(second.creatureIds).size).toBe(3);
   });
 
+  it('records a normalized player name in the stable species identity', () => {
+    const state = engine();
+    const result = introduceSpecies(
+      state,
+      'herbivore',
+      habitableTile(state),
+      '  Tundra   Nibblers '
+    );
+
+    expect(result.speciesId).toContain('~Tundra%20Nibblers');
+    expect(result.state.events[result.state.events.length - 1]?.detail)
+      .toContain('Tundra Nibblers');
+    expect(result.state.creatures.slice(-3).every(
+      (creature) => creature.speciesId === result.speciesId
+    )).toBe(true);
+  });
+
   it('rejects out-of-world and uninhabitable origins without changing state', () => {
     const state = engine();
     expect(() => introduceSpecies(state, 'omnivore', { x: -1, y: 0 }))
