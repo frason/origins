@@ -6,10 +6,17 @@ export interface SpeciesPopulationSample {
   population: number;
 }
 
+export interface LineagePopulationSample {
+  speciesId: string;
+  lineageId: string;
+  population: number;
+}
+
 export interface EcosystemHistorySample {
   tick: number;
   population: number;
   speciesPopulations: SpeciesPopulationSample[];
+  lineagePopulations?: LineagePopulationSample[];
   lineageCount: number;
   births: number;
   deaths: number;
@@ -26,12 +33,21 @@ export function createEcosystemHistorySample(
 ): EcosystemHistorySample {
   const species = new Map<string, number>();
   const lineages = new Set<string>();
+  const lineagePopulations = new Map<string, LineagePopulationSample>();
   let population = 0;
   for (const creature of creatures) {
     if (creature.lifecycleState !== 'alive') continue;
     population++;
     species.set(creature.speciesId, (species.get(creature.speciesId) ?? 0) + 1);
     lineages.add(`${creature.speciesId}:${creature.lineageId}`);
+    const lineageKey = `${creature.speciesId}:${creature.lineageId}`;
+    const lineage = lineagePopulations.get(lineageKey);
+    if (lineage) lineage.population++;
+    else lineagePopulations.set(lineageKey, {
+      speciesId: creature.speciesId,
+      lineageId: creature.lineageId,
+      population: 1,
+    });
   }
   return {
     tick,
@@ -39,6 +55,9 @@ export function createEcosystemHistorySample(
     speciesPopulations: [...species.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([speciesId, count]) => ({ speciesId, population: count })),
+    lineagePopulations: [...lineagePopulations.values()].sort(
+      (a, b) => a.speciesId.localeCompare(b.speciesId) || a.lineageId.localeCompare(b.lineageId)
+    ),
     lineageCount: lineages.size,
     births: events.filter((event) => event.type === 'birth').length,
     deaths: events.filter((event) => event.type === 'death').length,

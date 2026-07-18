@@ -31,6 +31,11 @@ describe('bounded ecosystem history', () => {
         { speciesId: 'ant', population: 2 },
         { speciesId: 'zebra', population: 1 },
       ],
+      lineagePopulations: [
+        { speciesId: 'ant', lineageId: 'a-branch', population: 1 },
+        { speciesId: 'ant', lineageId: 'a-root', population: 1 },
+        { speciesId: 'zebra', lineageId: 'z-root', population: 1 },
+      ],
       lineageCount: 3,
       births: 1,
       deaths: 1,

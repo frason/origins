@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import { useStore } from '../state/store';
 import { buildSessionSummary, hasLivingCreatures } from './sessionSummary';
 import { speciesDisplayName } from '../simulation/speciesNames';
+import PopulationHistoryChart from './PopulationHistoryChart';
 
 const overlayStyle: CSSProperties = {
   position: 'fixed',
@@ -79,6 +80,8 @@ export default function ExtinctionSummary({ onRestart }: { onRestart: () => void
           The empty world still holds {Math.round(summary.remainingBiomass).toLocaleString()} units
           of producer biomass.
         </div>
+
+        <PopulationHistoryChart world={worldState} tick={tick} />
 
         <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '0.9rem' }}>Final events</h3>
         {summary.finalEvents.length === 0 ? (
