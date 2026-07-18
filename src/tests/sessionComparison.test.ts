@@ -22,6 +22,7 @@ function summary(overrides: Partial<SessionSummary> = {}): SessionSummary {
     finalEvents: [],
     recentStories: [],
     story: { heading: 'Test world', paragraphs: ['Recorded evidence.'] },
+    points: { total: 0, breakdown: { survival: 0, biodiversity: 0, exploration: 0, recovery: 0, stewardship: 0 }, awards: [], history: [] },
     ...overrides,
   };
 }

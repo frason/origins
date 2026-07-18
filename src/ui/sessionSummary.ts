@@ -2,6 +2,7 @@ import type { EventSnapshot, WorldSnapshot } from '../state/store';
 import { buildEventStories, type EventStory } from './eventTimelineModel';
 import { worldNameFromSeed } from './worldName';
 import { buildWorldStory, type WorldStory } from './worldStory';
+import { buildEcosystemPoints, type EcosystemPoints } from './ecosystemPoints';
 
 export interface SessionSummary {
   worldName: string | null;
@@ -22,6 +23,7 @@ export interface SessionSummary {
   finalEvents: EventSnapshot[];
   recentStories: EventStory[];
   story: WorldStory;
+  points: EcosystemPoints;
 }
 
 export function hasLivingCreatures(worldState: WorldSnapshot | null): boolean {
@@ -84,5 +86,6 @@ export function buildSessionSummary(
     finalEvents: worldState.events.slice(-Math.max(0, timelineLength)).reverse(),
     recentStories: buildEventStories(worldState.events, timelineLength),
     story: buildWorldStory(worldState, tick),
+    points: buildEcosystemPoints(worldState, tick),
   };
 }

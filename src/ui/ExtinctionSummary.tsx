@@ -4,6 +4,7 @@ import { buildSessionSummary, hasLivingCreatures } from './sessionSummary';
 import { speciesDisplayName } from '../simulation/speciesNames';
 import PopulationHistoryChart from './PopulationHistoryChart';
 import WorldStoryPanel from './WorldStoryPanel';
+import EcosystemPointsPanel from './EcosystemPointsPanel';
 
 const overlayStyle: CSSProperties = {
   position: 'fixed',
@@ -69,6 +70,7 @@ export default function ExtinctionSummary({ onRestart }: { onRestart: () => void
         </p>
 
         <WorldStoryPanel story={summary.story} headingId="extinction-world-story-heading" />
+        <EcosystemPointsPanel points={summary.points} />
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem' }}>
           {metrics.map(([label, value]) => (

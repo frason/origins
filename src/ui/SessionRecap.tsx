@@ -10,6 +10,7 @@ import {
   type ObservationBaseline,
 } from './observationBaseline';
 import WorldStoryPanel from './WorldStoryPanel';
+import EcosystemPointsPanel from './EcosystemPointsPanel';
 
 const overlayStyle: CSSProperties = {
   position: 'fixed', inset: 0, zIndex: 300, display: 'grid', placeItems: 'center',
@@ -110,6 +111,7 @@ function RecapDialog({
         </div>
 
         <WorldStoryPanel story={summary.story} headingId="recap-world-story-heading" />
+        <EcosystemPointsPanel points={summary.points} />
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(125px, 1fr))', gap: '0.45rem', marginTop: '1rem' }}>
           {metrics.map(([label, value]) => (
