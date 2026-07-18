@@ -1,0 +1,55 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 20rem;
+  font-family: var(--sim-font-interface);
+  font-size: 100%;
+  background: var(--sim-color-canvas);
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--sim-color-ink);
+  background: var(--sim-color-canvas);
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  min-width: var(--sim-control-min-size);
+  min-height: var(--sim-control-min-size);
+}
+
+canvas,
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+:focus-visible {
+  outline: 0.1875rem solid var(--sim-color-focus);
+  outline-offset: 0.125rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto;
+    transition-duration: 0.01ms;
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
+}

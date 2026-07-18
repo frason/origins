@@ -1,0 +1,40 @@
+:root {
+  color-scheme: light;
+
+  --sim-color-ink: #292116;
+  --sim-color-ink-muted: #66583d;
+  --sim-color-canvas: #bcb18d;
+  --sim-color-panel: #d8c89f;
+  --sim-color-panel-raised: #eadcb7;
+  --sim-color-panel-sunken: #aaa27f;
+  --sim-color-title: #18254f;
+  --sim-color-title-text: #fff3ce;
+  --sim-color-border: #4a3c25;
+  --sim-color-highlight: #fff1c9;
+  --sim-color-shadow: #756747;
+  --sim-color-positive: #355d38;
+  --sim-color-warning: #80641d;
+  --sim-color-danger: #7d3328;
+  --sim-color-focus: #1e4f8c;
+
+  --sim-font-interface: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --sim-font-data: "Courier New", Courier, monospace;
+  --sim-font-size-xs: 0.6875rem;
+  --sim-font-size-sm: 0.8125rem;
+  --sim-font-size-md: 1rem;
+  --sim-font-size-lg: clamp(1.125rem, 0.95rem + 0.8vw, 1.5rem);
+
+  --sim-space-1: 0.25rem;
+  --sim-space-2: 0.5rem;
+  --sim-space-3: 0.75rem;
+  --sim-space-4: 1rem;
+  --sim-space-5: 1.5rem;
+
+  --sim-border-thin: 0.0625rem;
+  --sim-border-strong: 0.125rem;
+  --sim-control-min-size: 2.75rem;
+  --sim-panel-radius: 0.125rem;
+  --sim-layout-mobile: 24.375rem;
+  --sim-layout-tablet: 48rem;
+  --sim-layout-desktop: 64rem;
+}

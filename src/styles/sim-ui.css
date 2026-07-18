@@ -1,0 +1,138 @@
+/* Reusable 1990s simulation-software primitives. Components own layout; these
+   classes own the visual language and remain intentionally low-specificity. */
+
+.sim-window {
+  color: var(--sim-color-ink);
+  background: var(--sim-color-panel);
+  border: var(--sim-border-strong) solid var(--sim-color-border);
+  border-radius: var(--sim-panel-radius);
+  box-shadow:
+    inset var(--sim-border-thin) var(--sim-border-thin) var(--sim-color-highlight),
+    inset calc(var(--sim-border-thin) * -1) calc(var(--sim-border-thin) * -1) var(--sim-color-shadow);
+}
+
+.sim-window__title-bar {
+  display: flex;
+  min-height: 1.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sim-space-2);
+  padding: var(--sim-space-1) var(--sim-space-2);
+  color: var(--sim-color-title-text);
+  background: var(--sim-color-title);
+}
+
+.sim-window__title {
+  overflow: hidden;
+  margin: 0;
+  font-family: var(--sim-font-data);
+  font-size: var(--sim-font-size-sm);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sim-window__menu-bar,
+.sim-window__status-bar {
+  display: flex;
+  min-height: 1.5rem;
+  align-items: center;
+  gap: var(--sim-space-3);
+  padding: var(--sim-space-1) var(--sim-space-2);
+  font-family: var(--sim-font-data);
+  font-size: var(--sim-font-size-xs);
+  background: var(--sim-color-panel-raised);
+  border-block: var(--sim-border-thin) solid var(--sim-color-border);
+}
+
+.sim-window__body {
+  padding: var(--sim-space-2);
+}
+
+.sim-window__controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--sim-space-1);
+}
+
+.sim-panel {
+  min-width: 0;
+  padding: var(--sim-space-2);
+  background: var(--sim-color-panel);
+  border: var(--sim-border-thin) solid var(--sim-color-border);
+  box-shadow:
+    inset var(--sim-border-thin) var(--sim-border-thin) var(--sim-color-highlight),
+    inset calc(var(--sim-border-thin) * -1) calc(var(--sim-border-thin) * -1) var(--sim-color-shadow);
+}
+
+.sim-panel--sunken {
+  background: var(--sim-color-panel-sunken);
+  box-shadow:
+    inset var(--sim-border-thin) var(--sim-border-thin) var(--sim-color-shadow),
+    inset calc(var(--sim-border-thin) * -1) calc(var(--sim-border-thin) * -1) var(--sim-color-highlight);
+}
+
+.sim-panel__heading {
+  margin: 0 0 var(--sim-space-2);
+  font-family: var(--sim-font-data);
+  font-size: var(--sim-font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.sim-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sim-space-1);
+  min-width: var(--sim-control-min-size);
+  min-height: var(--sim-control-min-size);
+  padding: var(--sim-space-2) var(--sim-space-3);
+  color: var(--sim-color-ink);
+  background: var(--sim-color-panel);
+  border: var(--sim-border-thin) solid var(--sim-color-border);
+  border-radius: 0;
+  box-shadow:
+    inset var(--sim-border-thin) var(--sim-border-thin) var(--sim-color-highlight),
+    inset calc(var(--sim-border-thin) * -2) calc(var(--sim-border-thin) * -2) var(--sim-color-shadow);
+  cursor: pointer;
+}
+
+.sim-button:active,
+.sim-button--pressed {
+  padding-block-start: calc(var(--sim-space-2) + var(--sim-border-thin));
+  box-shadow:
+    inset var(--sim-border-thin) var(--sim-border-thin) var(--sim-color-shadow),
+    inset calc(var(--sim-border-thin) * -1) calc(var(--sim-border-thin) * -1) var(--sim-color-highlight);
+}
+
+.sim-button--compact {
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+  padding: var(--sim-space-1);
+}
+
+.sim-data {
+  font-family: var(--sim-font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.sim-status--positive {
+  color: var(--sim-color-positive);
+}
+
+.sim-status--warning {
+  color: var(--sim-color-warning);
+}
+
+.sim-status--danger {
+  color: var(--sim-color-danger);
+}
+
+@media (min-width: 48rem) {
+  .sim-window__body {
+    padding: var(--sim-space-3);
+  }
+}
