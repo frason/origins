@@ -43,6 +43,7 @@ import {
   recycleNutrients,
   dissipateToxicity,
 } from './decomposition';
+import { applyEnvironmentalStress } from './biomeStress';
 
 export type {
   ConstantChange,
@@ -423,6 +424,11 @@ export function tickEngine(
       applyMetabolism(creature, constants.baseMetabolism);
       if (creature.energy <= 0) {
         deathCauses.set(creature.id, 'starvation');
+        continue;
+      }
+      const stress = applyEnvironmentalStress(creature, newWorld);
+      if (creature.energy <= 0 && stress.totalCost > 0) {
+        deathCauses.set(creature.id, 'environmental-stress');
       }
     }
   }

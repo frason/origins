@@ -26,6 +26,7 @@ describe('God Mode runtime constants', () => {
 
   it('applies metabolism overrides on the next tick', () => {
     const engine = createEngine(1, [creature('carnivore')]);
+    engine.world.setCell(50, 50, { temperature: 0.5, moisture: 0.5 });
     const next = tickEngine(engine, {
       ...disablePressure,
       baseMetabolism: 7,
