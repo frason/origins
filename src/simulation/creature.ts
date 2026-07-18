@@ -223,7 +223,8 @@ export function scanEnvironment(
     world,
     creature.x,
     creature.y,
-    creature.traits.visionRange
+    creature.traits.visionRange,
+    creature.traits
   );
 
   // Scan for other creatures within vision range

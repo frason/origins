@@ -6,7 +6,10 @@ export interface EnvironmentalStress {
   hydrationCost: number;
   totalCost: number;
   waterRelief: boolean;
+  adaptationCost: number;
 }
+
+const expressed = (value: number) => Math.max(0, (value - 0.5) / 0.5);
 
 function hasWaterRelief(world: World, x: number, y: number): boolean {
   for (let offsetY = -1; offsetY <= 1; offsetY++) {
@@ -30,13 +33,25 @@ export function getEnvironmentalStress(
   const coldCost = Math.max(0, 0.28 - cell.temperature) * 0.4;
   const heatCost = Math.max(0, cell.temperature - 0.78) * 0.3;
   const waterRelief = hasWaterRelief(world, creature.x, creature.y);
-  const hydrationCost = waterRelief ? 0 : Math.max(0, 0.25 - cell.moisture) * 0.3;
+  const thermalTolerance = expressed(creature.traits.thermalTolerance);
+  const waterRetention = expressed(creature.traits.waterRetention);
+  const aquaticAffinity = expressed(creature.traits.aquaticAffinity);
+  const terrainGrip = expressed(creature.traits.terrainGrip);
+  const thermalProtection = 1 - thermalTolerance * 0.75;
+  const retentionProtection = 1 - waterRetention * 0.75;
+  const hydrationCost = waterRelief
+    ? 0
+    : Math.max(0, 0.25 - cell.moisture) * 0.3 * retentionProtection;
   const sizeScale = Math.max(0.5, Math.min(2, creature.traits.size));
-  const temperatureCost = (coldCost + heatCost) * sizeScale;
+  const temperatureCost = (coldCost + heatCost) * sizeScale * thermalProtection;
+  const adaptationCost = (
+    thermalTolerance + waterRetention + aquaticAffinity + terrainGrip
+  ) * 0.01;
   return {
     temperatureCost,
     hydrationCost: hydrationCost * sizeScale,
-    totalCost: Math.min(0.2, temperatureCost + hydrationCost * sizeScale),
+    adaptationCost,
+    totalCost: Math.min(0.2, temperatureCost + hydrationCost * sizeScale + adaptationCost),
     waterRelief,
   };
 }

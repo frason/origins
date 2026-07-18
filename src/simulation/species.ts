@@ -92,8 +92,24 @@ export function mutateTraits(
     const max = TRAIT_MAX[target] ?? Math.max(1, Math.abs(currentValue) * 2);
     const scale = currentValue === 0 ? (max - min) * 0.1 : Math.abs(currentValue);
     const driftAmount = mutationDrift * scale;
-    const sign = rng() < 0.5 ? -1 : 1;
+    const directionDraw = rng();
+    const sign = directionDraw < 0.5 ? -1 : 1;
     mutated[target] = Math.max(min, Math.min(max, currentValue + sign * driftAmount));
+
+    // Habitat adaptations co-evolve with related physical traits without
+    // disturbing the simulation's established seeded mutation sequence.
+    const adaptationFor = {
+      armor: 'thermalTolerance',
+      metabolism: 'waterRetention',
+      speed: 'aquaticAffinity',
+      boneDensity: 'terrainGrip',
+    } as const;
+    const adaptation = adaptationFor[target as keyof typeof adaptationFor];
+    if (adaptation && mutated[target] !== currentValue) {
+      const currentAdaptation = traits[adaptation];
+      const adaptationDrift = mutationDrift * (currentAdaptation === 0 ? 0.1 : currentAdaptation);
+      mutated[adaptation] = Math.max(0, Math.min(1, currentAdaptation + (currentAdaptation === 0 ? 1 : sign) * adaptationDrift));
+    }
   }
 
   return mutated;

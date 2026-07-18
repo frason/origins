@@ -31,6 +31,12 @@ export interface Traits {
   communication: number; // coordinate with same species (0-1)
   collectiveConnection: number; // herd behavior, symbiosis (0-1)
 
+  // Habitat adaptations (0-1); specialization reduces local penalties but costs energy
+  thermalTolerance: number;
+  waterRetention: number;
+  aquaticAffinity: number;
+  terrainGrip: number;
+
   // Ecological trait
   energyStrategy: EnergyStrategy; // herbivore, carnivore, omnivore, or scavenger
 }
@@ -58,6 +64,11 @@ export const DEFAULT_TRAITS: Traits = {
   communication: 0,
   collectiveConnection: 0,
 
+  thermalTolerance: 0,
+  waterRetention: 0,
+  aquaticAffinity: 0,
+  terrainGrip: 0,
+
   // Ecological
   energyStrategy: 'omnivore',
 };
@@ -83,6 +94,10 @@ export const TRAIT_MUTATION_RATES: Record<
   consciousnessLevel: 0.05,
   communication: 0.05,
   collectiveConnection: 0.05,
+  thermalTolerance: 0.05,
+  waterRetention: 0.05,
+  aquaticAffinity: 0.05,
+  terrainGrip: 0.05,
 };
 
 /**
@@ -102,6 +117,10 @@ export const TRAIT_MIN: Partial<Traits> = {
   consciousnessLevel: 0,
   communication: 0,
   collectiveConnection: 0,
+  thermalTolerance: 0,
+  waterRetention: 0,
+  aquaticAffinity: 0,
+  terrainGrip: 0,
 };
 
 /**
@@ -121,4 +140,8 @@ export const TRAIT_MAX: Partial<Traits> = {
   consciousnessLevel: 1,
   communication: 1,
   collectiveConnection: 1,
+  thermalTolerance: 1,
+  waterRetention: 1,
+  aquaticAffinity: 1,
+  terrainGrip: 1,
 };

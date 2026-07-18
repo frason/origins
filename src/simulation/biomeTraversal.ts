@@ -1,5 +1,6 @@
 import type { Creature } from './creature';
 import type { Biome, World } from './world';
+import type { Traits } from '../utils/traits';
 
 export const BIOME_MOVEMENT_COST: Record<Biome, number> = {
   grassland: 1,
@@ -11,14 +12,33 @@ export const BIOME_MOVEMENT_COST: Record<Biome, number> = {
   mountain: Infinity,
 };
 
+const expressed = (value: number) => Math.max(0, (value - 0.5) / 0.5);
+
 const DIRECTIONS = [
   { dx: 0, dy: -1 }, { dx: 1, dy: -1 }, { dx: 1, dy: 0 }, { dx: 1, dy: 1 },
   { dx: 0, dy: 1 }, { dx: -1, dy: 1 }, { dx: -1, dy: 0 }, { dx: -1, dy: -1 },
 ] as const;
 
-export function isTerrainTraversable(world: World, x: number, y: number): boolean {
+export function terrainMovementCost(biome: Biome, traits?: Pick<Traits, 'aquaticAffinity' | 'terrainGrip'>): number {
+  const aquaticAffinity = expressed(traits?.aquaticAffinity ?? 0);
+  const terrainGrip = expressed(traits?.terrainGrip ?? 0);
+  if (biome === 'ocean') return aquaticAffinity >= 0.6 ? 1.8 - aquaticAffinity * 0.6 : Infinity;
+  if (biome === 'mountain') return terrainGrip >= 0.6 ? 1.8 - terrainGrip * 0.5 : Infinity;
+  const baseCost = BIOME_MOVEMENT_COST[biome];
+  const relevantAdaptation = biome === 'wetland'
+    ? Math.max(aquaticAffinity, terrainGrip)
+    : biome === 'tundra' ? terrainGrip : 0;
+  return 1 + (baseCost - 1) * (1 - relevantAdaptation * 0.75);
+}
+
+export function isTerrainTraversable(
+  world: World,
+  x: number,
+  y: number,
+  traits?: Pick<Traits, 'aquaticAffinity' | 'terrainGrip'>
+): boolean {
   if (x < 0 || y < 0 || x >= world.width || y >= world.height) return false;
-  return Number.isFinite(BIOME_MOVEMENT_COST[world.getCell(x, y).biome]);
+  return Number.isFinite(terrainMovementCost(world.getCell(x, y).biome, traits));
 }
 
 const key = (x: number, y: number) => `${x},${y}`;
@@ -28,7 +48,8 @@ export function reachableTerrainCells(
   world: World,
   originX: number,
   originY: number,
-  range: number
+  range: number,
+  traits?: Pick<Traits, 'aquaticAffinity' | 'terrainGrip'>
 ): Set<string> {
   const boundedRange = Math.max(0, Math.min(50, Math.floor(range)));
   const reachable = new Set<string>([key(originX, originY)]);
@@ -40,7 +61,7 @@ export function reachableTerrainCells(
       const y = current.y + direction.dy;
       if (
         Math.max(Math.abs(x - originX), Math.abs(y - originY)) > boundedRange ||
-        !isTerrainTraversable(world, x, y) || reachable.has(key(x, y))
+        !isTerrainTraversable(world, x, y, traits) || reachable.has(key(x, y))
       ) continue;
       reachable.add(key(x, y));
       queue.push({ x, y });
@@ -70,12 +91,12 @@ export function moveAcrossTerrain(
     if (currentDistance === 0) break;
     const candidates = DIRECTIONS
       .map((direction) => ({ x: x + direction.dx, y: y + direction.dy }))
-      .filter((candidate) => isTerrainTraversable(world, candidate.x, candidate.y))
+      .filter((candidate) => isTerrainTraversable(world, candidate.x, candidate.y, creature.traits))
       .map((candidate) => ({
         ...candidate,
         distance: distance(candidate.x, candidate.y, targetX, targetY),
         directDistance: Math.abs(targetX - candidate.x) + Math.abs(targetY - candidate.y),
-        cost: BIOME_MOVEMENT_COST[world.getCell(candidate.x, candidate.y).biome],
+        cost: terrainMovementCost(world.getCell(candidate.x, candidate.y).biome, creature.traits),
       }))
       // Equal-distance steps allow deterministic routing around a shoreline or ridge.
       .filter((candidate) => candidate.distance <= currentDistance)

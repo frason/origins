@@ -27,6 +27,10 @@ describe('Traits - Definitions and Constants', () => {
       expect(typeof trait.consciousnessLevel).toBe('number');
       expect(typeof trait.communication).toBe('number');
       expect(typeof trait.collectiveConnection).toBe('number');
+      expect(typeof trait.thermalTolerance).toBe('number');
+      expect(typeof trait.waterRetention).toBe('number');
+      expect(typeof trait.aquaticAffinity).toBe('number');
+      expect(typeof trait.terrainGrip).toBe('number');
 
       // Verify energyStrategy is valid
       expect(['herbivore', 'carnivore', 'omnivore', 'scavenger']).toContain(
@@ -48,6 +52,10 @@ describe('Traits - Definitions and Constants', () => {
       expect(DEFAULT_TRAITS.consciousnessLevel).toBeDefined();
       expect(DEFAULT_TRAITS.communication).toBeDefined();
       expect(DEFAULT_TRAITS.collectiveConnection).toBeDefined();
+      expect(DEFAULT_TRAITS.thermalTolerance).toBeDefined();
+      expect(DEFAULT_TRAITS.waterRetention).toBeDefined();
+      expect(DEFAULT_TRAITS.aquaticAffinity).toBeDefined();
+      expect(DEFAULT_TRAITS.terrainGrip).toBeDefined();
       expect(DEFAULT_TRAITS.energyStrategy).toBeDefined();
     });
   });
@@ -68,6 +76,10 @@ describe('Traits - Definitions and Constants', () => {
         'consciousnessLevel',
         'communication',
         'collectiveConnection',
+        'thermalTolerance',
+        'waterRetention',
+        'aquaticAffinity',
+        'terrainGrip',
       ] as const;
 
       for (const traitName of numericTraits) {
@@ -113,6 +125,10 @@ describe('Traits - Definitions and Constants', () => {
         'consciousnessLevel',
         'communication',
         'collectiveConnection',
+        'thermalTolerance',
+        'waterRetention',
+        'aquaticAffinity',
+        'terrainGrip',
       ] as const;
 
       for (const traitName of numericTraits) {
