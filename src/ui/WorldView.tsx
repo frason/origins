@@ -395,15 +395,7 @@ const WorldView: React.FC = () => {
     : `No tile selected at tick ${tick}.`;
 
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        overflow: 'hidden',
-        backgroundColor: '#000000',
-        position: 'relative',
-      }}
-    >
+    <div className="world-view">
       <canvas
         ref={canvasRef}
         role="application"
@@ -412,24 +404,19 @@ const WorldView: React.FC = () => {
         aria-describedby="world-keyboard-instructions"
         tabIndex={0}
         onKeyDown={handleKeyboardNavigation}
-        style={{
-          display: 'block',
-          width: '100%',
-          height: '100%',
-          cursor: 'crosshair',
-        }}
+        className="world-view__canvas"
       >
         Interactive ecosystem world. Use arrow keys to inspect tiles.
       </canvas>
       <div
         id="world-keyboard-instructions"
-        style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clipPath: 'inset(50%)', whiteSpace: 'nowrap' }}
+        className="world-view__assistive-text"
       >
         Use arrow keys to move between tiles. Home selects the top-left tile, End selects the bottom-right tile, and Escape clears selection.
       </div>
       <div
         aria-live="polite"
-        style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clipPath: 'inset(50%)', whiteSpace: 'nowrap' }}
+        className="world-view__assistive-text"
       >
         {selectionStatus}
       </div>

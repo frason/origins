@@ -1,0 +1,87 @@
+.app-shell {
+  width: 100vw;
+  min-width: 20rem;
+  height: 100dvh;
+  padding: var(--sim-space-1);
+  overflow: hidden;
+  background: var(--sim-color-canvas);
+}
+
+.app-shell__window {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+.app-shell__window-body {
+  min-height: 0;
+  padding: var(--sim-space-1);
+}
+
+.app-shell__world {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: #000;
+  border: var(--sim-border-thin) solid var(--sim-color-border);
+  box-shadow:
+    inset var(--sim-border-thin) var(--sim-border-thin) var(--sim-color-shadow),
+    inset calc(var(--sim-border-thin) * -1) calc(var(--sim-border-thin) * -1) var(--sim-color-highlight);
+}
+
+.app-shell__menu-button {
+  min-width: auto;
+  min-height: auto;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.app-shell__menu-button:hover {
+  text-decoration: underline;
+}
+
+.app-shell__seed {
+  margin-inline-start: auto;
+}
+
+.app-shell__transport {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: var(--sim-space-1);
+}
+
+.app-shell__speed {
+  min-width: 2.5rem;
+  text-align: center;
+}
+
+.app-shell__tick {
+  margin-inline-start: auto;
+  white-space: nowrap;
+}
+
+.app-shell__run-state {
+  display: none;
+  white-space: nowrap;
+}
+
+@media (min-width: 48rem) {
+  .app-shell {
+    padding: var(--sim-space-2);
+  }
+
+  .app-shell__window-body {
+    padding: var(--sim-space-2);
+  }
+
+  .app-shell__run-state {
+    display: inline;
+  }
+}

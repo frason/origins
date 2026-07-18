@@ -21,12 +21,16 @@ import {
 import type { WorldRecipe } from './ui/worldRecipe';
 import { snapshotEngine } from './state/snapshot';
 import { getUiFrameInterval } from './ui/framePacing';
+import SimWindow from './ui/SimWindow';
 
 export default function App() {
   const engineRef = useRef<EngineState | null>(null);
   const recipeReplayRef = useRef<RecipeReplaySession | null>(null);
   const isRunning = useStore((s) => s.isRunning);
   const speed = useStore((s) => s.speed);
+  const tick = useStore((s) => s.tick);
+  const setRunning = useStore((s) => s.setRunning);
+  const setSpeed = useStore((s) => s.setSpeed);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [worldSeed, setWorldSeed] = useState(DEFAULT_WORLD_SEED);
   const [replayActive, setReplayActive] = useState(false);
@@ -169,27 +173,74 @@ export default function App() {
   }, [isRunning, speed, publish]);
 
   return (
-    <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#111' }}>
-      <header style={{ padding: '1rem', backgroundColor: '#1a1a1a', color: '#fff', fontFamily: 'system-ui, -apple-system, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-        <div>
-          <h1 style={{ margin: '0 0 0.5rem 0' }}>Project Origins</h1>
-          <p style={{ color: '#666', fontSize: '0.9rem', margin: 0 }}>
-            A persistent ecosystem simulation — 100×100 world grid · seed {worldSeed}
-          </p>
-        </div>
-        <button
-          type="button"
-          aria-controls="settings-drawer"
-          aria-expanded={settingsOpen}
-          onClick={() => setSettingsOpen((open) => !open)}
-          style={{ border: '1px solid #555', borderRadius: 7, padding: '0.55rem 0.8rem', background: settingsOpen ? '#4a3a2a' : '#292c30', color: '#eee', cursor: 'pointer', whiteSpace: 'nowrap' }}
-        >
-          ⚙ Settings
-        </button>
-      </header>
-      <main aria-label="Ecosystem world" style={{ flex: 1, overflow: 'hidden' }}>
-        <WorldView />
-      </main>
+    <div className="app-shell">
+      <SimWindow
+        title="Project Origins — Living World"
+        titleAs="h1"
+        className="app-shell__window"
+        bodyClassName="app-shell__window-body"
+        controls={(
+          <button
+            type="button"
+            className="sim-button sim-button--compact"
+            aria-label="Open world controls"
+            aria-controls="settings-drawer"
+            aria-expanded={settingsOpen}
+            onClick={() => setSettingsOpen(true)}
+          >
+            ⚙
+          </button>
+        )}
+        menu={(
+          <>
+            <strong aria-current="page">World</strong>
+            <button type="button" className="app-shell__menu-button" onClick={() => setSettingsOpen(true)}>
+              Simulation
+            </button>
+            <button type="button" className="app-shell__menu-button" onClick={() => setSettingsOpen(true)}>
+              Data
+            </button>
+            <span className="app-shell__seed">Seed <span className="sim-data">{worldSeed}</span></span>
+          </>
+        )}
+        status={(
+          <div className="app-shell__transport" aria-label="Simulation transport">
+            <button
+              type="button"
+              className={`sim-button sim-button--compact${isRunning ? ' sim-button--pressed' : ''}`}
+              aria-pressed={isRunning}
+              onClick={() => setRunning(!isRunning)}
+            >
+              {isRunning ? 'Pause' : 'Play'}
+            </button>
+            <button
+              type="button"
+              className="sim-button sim-button--compact"
+              aria-label="Decrease simulation speed"
+              onClick={() => setSpeed(Math.max(0.25, speed / 2))}
+            >
+              −
+            </button>
+            <output className="app-shell__speed sim-data" aria-label="Simulation speed">{speed}×</output>
+            <button
+              type="button"
+              className="sim-button sim-button--compact"
+              aria-label="Increase simulation speed"
+              onClick={() => setSpeed(Math.min(64, speed * 2))}
+            >
+              +
+            </button>
+            <output className="app-shell__tick sim-data">Tick {tick.toLocaleString()}</output>
+            <span className={`app-shell__run-state ${isRunning ? 'sim-status--positive' : 'sim-status--warning'}`}>
+              {isRunning ? 'Simulation running' : 'Simulation paused'}
+            </span>
+          </div>
+        )}
+      >
+        <main aria-label="Ecosystem world" className="app-shell__world">
+          <WorldView />
+        </main>
+      </SimWindow>
       <SettingsDrawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}>
           <ControlPanel
             onReset={reset}
