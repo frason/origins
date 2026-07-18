@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/store';
 import { getEcosystemTrajectories } from './ecosystemTrajectory';
 import { buildEvolutionTimeline } from './evolutionTimelineModel';
@@ -12,6 +12,21 @@ export default function EvolutionRibbon({ onOpenLineages }: EvolutionRibbonProps
   const world = useStore((state) => state.worldState);
   const tick = useStore((state) => state.tick);
   const [expanded, setExpanded] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!expanded) return;
+    closeButtonRef.current?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setExpanded(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('keydown', closeOnEscape);
+      triggerRef.current?.focus();
+    };
+  }, [expanded]);
+
   const model = buildEvolutionTimeline(world?.history, world, tick);
   if (!model) return null;
 
@@ -22,6 +37,7 @@ export default function EvolutionRibbon({ onOpenLineages }: EvolutionRibbonProps
     <section className="evolution-ribbon sim-panel" aria-labelledby="evolution-ribbon-heading">
       <button
         type="button"
+        ref={triggerRef}
         className="evolution-ribbon__summary"
         aria-expanded={expanded}
         aria-controls="evolution-history-panel"
@@ -48,7 +64,7 @@ export default function EvolutionRibbon({ onOpenLineages }: EvolutionRibbonProps
         >
           <header className="evolution-history__header sim-window__title-bar">
             <h2 className="sim-window__title" id="evolution-history-title">Evolution over time</h2>
-            <button type="button" className="sim-button sim-button--compact" onClick={() => setExpanded(false)}>
+            <button ref={closeButtonRef} type="button" className="sim-button sim-button--compact" onClick={() => setExpanded(false)}>
               Close
             </button>
           </header>

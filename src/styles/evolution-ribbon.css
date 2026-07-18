@@ -224,7 +224,21 @@
   }
 
   .evolution-history {
-    inset: 5rem var(--sim-space-4) auto auto;
+    inset: 5rem auto auto var(--sim-space-4);
     width: min(34rem, calc(100vw - 2rem));
+  }
+}
+
+@media (orientation: landscape) and (max-height: 32rem) {
+  .evolution-ribbon__summary {
+    grid-template-areas: "label chart action";
+  }
+
+  .evolution-ribbon__metric {
+    display: none;
+  }
+
+  .evolution-history {
+    max-height: 94dvh;
   }
 }

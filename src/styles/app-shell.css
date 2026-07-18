@@ -88,3 +88,34 @@
     display: inline;
   }
 }
+
+@media (orientation: landscape) and (max-height: 32rem) {
+  .app-shell__window > .sim-window__menu-bar {
+    display: none;
+  }
+
+  .app-shell__window-body {
+    padding: var(--sim-space-1);
+  }
+
+  .app-shell__run-state,
+  .app-shell__seed {
+    display: none;
+  }
+}
+
+@media (min-width: 64rem) {
+  .app-shell__window-body--inspecting {
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 25rem);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .app-shell__window-body--inspecting > .evolution-ribbon {
+    grid-column: 1 / -1;
+  }
+
+  .app-shell__window-body--inspecting > .app-shell__world {
+    grid-column: 1;
+    grid-row: 2;
+  }
+}

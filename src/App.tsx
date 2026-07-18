@@ -30,6 +30,7 @@ export default function App() {
   const isRunning = useStore((s) => s.isRunning);
   const speed = useStore((s) => s.speed);
   const tick = useStore((s) => s.tick);
+  const selectedTile = useStore((s) => s.selectedTile);
   const setRunning = useStore((s) => s.setRunning);
   const setSpeed = useStore((s) => s.setSpeed);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -179,7 +180,7 @@ export default function App() {
         title="Project Origins — Living World"
         titleAs="h1"
         className="app-shell__window"
-        bodyClassName="app-shell__window-body"
+        bodyClassName={`app-shell__window-body${selectedTile ? ' app-shell__window-body--inspecting' : ''}`}
         controls={(
           <button
             type="button"
@@ -242,6 +243,7 @@ export default function App() {
         <main aria-label="Ecosystem world" className="app-shell__world">
           <WorldView />
         </main>
+        <TileInfoPanel onOpenLineages={() => setSettingsOpen(true)} />
       </SimWindow>
       <SettingsDrawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}>
           <ControlPanel
@@ -259,7 +261,6 @@ export default function App() {
           <SpeciesPanel />
           <LineageHistory />
       </SettingsDrawer>
-      <TileInfoPanel onOpenLineages={() => setSettingsOpen(true)} />
       <ExtinctionSummary onRestart={reset} />
     </div>
   );

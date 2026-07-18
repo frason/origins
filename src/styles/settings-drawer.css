@@ -49,3 +49,9 @@
   overflow-y: auto;
   background: var(--sim-color-canvas);
 }
+
+@media (min-width: 64rem) {
+  .settings-drawer {
+    width: min(28rem, 40vw);
+  }
+}
