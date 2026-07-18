@@ -23,6 +23,7 @@ import { snapshotEngine } from './state/snapshot';
 import { getUiFrameInterval } from './ui/framePacing';
 import SimWindow from './ui/SimWindow';
 import EvolutionRibbon from './ui/EvolutionRibbon';
+import { worldNameFromSeed } from './ui/worldName';
 
 export default function App() {
   const engineRef = useRef<EngineState | null>(null);
@@ -37,6 +38,7 @@ export default function App() {
   const [worldSeed, setWorldSeed] = useState(DEFAULT_WORLD_SEED);
   const [replayActive, setReplayActive] = useState(false);
   const [replayStatus, setReplayStatus] = useState<string | null>(null);
+  const worldName = worldNameFromSeed(worldSeed);
 
   const publish = useCallback((engine: EngineState) => {
     const store = useStore.getState();
@@ -202,7 +204,10 @@ export default function App() {
             <button type="button" className="app-shell__menu-button" onClick={() => setSettingsOpen(true)}>
               Data
             </button>
-            <span className="app-shell__seed">Seed <span className="sim-data">{worldSeed}</span></span>
+            <span className="app-shell__seed">
+              <strong className="app-shell__world-name">{worldName}</strong>
+              {' · '}Seed <span className="sim-data">{worldSeed}</span>
+            </span>
           </>
         )}
         status={(

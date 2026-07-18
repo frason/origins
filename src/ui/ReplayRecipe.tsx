@@ -80,7 +80,7 @@ export default function ReplayRecipe({
           {preview && (
             <div style={{ background: '#20272a', borderRadius: 6, padding: '0.55rem', marginTop: '0.45rem' }}>
               <strong style={{ color: '#b8d3dc', fontSize: '0.72rem' }}>
-                Seed {preview.seed.toLocaleString()} · through tick {preview.throughTick.toLocaleString()}
+                {preview.worldName} · seed {preview.seed.toLocaleString()} · through tick {preview.throughTick.toLocaleString()}
               </strong>
               <div style={{ color: '#899398', fontSize: '0.66rem', marginTop: '0.2rem' }}>
                 {preview.startingSettings.length > 0

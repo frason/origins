@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { speciesDisplayName } from '../simulation/speciesNames';
 import { buildRecipePreview } from '../ui/recipePreview';
 import { parseWorldRecipe, type WorldRecipe } from '../ui/worldRecipe';
+import { worldNameFromSeed } from '../ui/worldName';
 
 function recipe(): WorldRecipe {
   return {
@@ -34,6 +35,7 @@ describe('world recipe preview', () => {
     empty.actions = [];
 
     expect(buildRecipePreview(empty)).toEqual({
+      worldName: worldNameFromSeed(4242),
       seed: 4242,
       throughTick: 80,
       startingSettings: [],

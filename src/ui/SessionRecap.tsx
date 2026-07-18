@@ -96,7 +96,9 @@ function RecapDialog({
             <div style={{ color: summary.status === 'living' ? '#79c98a' : '#ef8b8b', fontSize: '0.68rem', letterSpacing: '0.12em' }}>
               {summary.status === 'living' ? 'LIVING WORLD' : 'SESSION ENDED'}
             </div>
-            <h2 id="session-recap-title" style={{ margin: '0.25rem 0 0.2rem' }}>Story so far</h2>
+            <h2 id="session-recap-title" style={{ margin: '0.25rem 0 0.2rem' }}>
+              {summary.worldName ? `${summary.worldName} — story so far` : 'Story so far'}
+            </h2>
             <div style={{ color: '#899398', fontSize: '0.75rem' }}>
               Snapshot captured at tick {summary.ticksSurvived.toLocaleString()}; the simulation was not paused.
             </div>

@@ -7,6 +7,7 @@ import type { WorldRecipe } from './worldRecipe';
 import FollowedLineageNotices from './FollowedLineageNotices';
 import EvolutionTimeline from './EvolutionTimeline';
 import SessionRecap from './SessionRecap';
+import { worldNameFromSeed } from './worldName';
 
 const panelStyle: CSSProperties = {
   backgroundColor: '#222',
@@ -37,11 +38,16 @@ export default function EventTimeline({
   const events = worldState?.events ?? [];
   const stories = buildEventStories(events);
   const trend = getPopulationTrend(events, tick);
+  const worldName = typeof worldState?.seed === 'number'
+    ? worldNameFromSeed(worldState.seed)
+    : null;
 
   return (
     <section style={panelStyle} aria-labelledby="timeline-title">
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
-        <div id="timeline-title" style={{ fontWeight: 600 }}>World Story</div>
+        <div id="timeline-title" style={{ fontWeight: 600 }}>
+          {worldName ? `${worldName} — World Story` : 'World Story'}
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
           <span style={{ color: '#9dc6d8', fontWeight: 600 }}>{trend.label}</span>
           <SessionRecap />

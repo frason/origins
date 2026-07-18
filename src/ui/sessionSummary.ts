@@ -1,7 +1,9 @@
 import type { EventSnapshot, WorldSnapshot } from '../state/store';
 import { buildEventStories, type EventStory } from './eventTimelineModel';
+import { worldNameFromSeed } from './worldName';
 
 export interface SessionSummary {
+  worldName: string | null;
   seed: number | null;
   status: 'living' | 'ended';
   ticksSurvived: number;
@@ -59,6 +61,7 @@ export function buildSessionSummary(
   );
 
   return {
+    worldName: typeof worldState.seed === 'number' ? worldNameFromSeed(worldState.seed) : null,
     seed: worldState.seed ?? null,
     status: currentPopulation > 0 ? 'living' : 'ended',
     ticksSurvived: tick,

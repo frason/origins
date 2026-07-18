@@ -1,6 +1,7 @@
 import { speciesDisplayName } from '../simulation/speciesNames';
 import { SIMULATION_CONSTANTS, type SimulationConstants } from '../utils/constants';
 import type { WorldRecipe } from './worldRecipe';
+import { worldNameFromSeed } from './worldName';
 
 export interface RecipeActionPreview {
   tick: number;
@@ -8,6 +9,7 @@ export interface RecipeActionPreview {
 }
 
 export interface RecipePreview {
+  worldName: string;
   seed: number;
   throughTick: number;
   startingSettings: string[];
@@ -51,6 +53,7 @@ export function buildRecipePreview(recipe: WorldRecipe, actionLimit = 6): Recipe
   });
 
   return {
+    worldName: worldNameFromSeed(recipe.seed),
     seed: recipe.seed,
     throughTick: recipe.throughTick,
     startingSettings: settingDescriptions(recipe.initialSettings, 5),

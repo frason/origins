@@ -60,7 +60,7 @@ export default function ExtinctionSummary({ onRestart }: { onRestart: () => void
           SESSION COMPLETE
         </div>
         <h2 id="extinction-title" style={{ margin: '0.35rem 0 0.4rem', fontSize: '2rem' }}>
-          Life has ended
+          Life has ended{summary.worldName ? ` in ${summary.worldName}` : ''}
         </h2>
         <p style={{ color: '#aaa', margin: '0 0 1.25rem' }}>
           The last creature is gone, but the world records what happened.

@@ -9,6 +9,7 @@ import type { SessionSummary } from '../ui/sessionSummary';
 
 function summary(): SessionSummary {
   return {
+    worldName: 'Rainmere',
     seed: 42,
     status: 'living',
     ticksSurvived: 100,

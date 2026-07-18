@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { WorldSnapshot } from '../state/store';
 import { DEFAULT_TRAITS } from '../utils/traits';
 import { buildSessionSummary, hasLivingCreatures } from '../ui/sessionSummary';
+import { worldNameFromSeed } from '../ui/worldName';
 
 function world(): WorldSnapshot {
   return {
@@ -43,9 +44,13 @@ function world(): WorldSnapshot {
 
 describe('session summary', () => {
   it('summarizes the final world and returns latest events first', () => {
-    const summary = buildSessionSummary(world(), 41, 3);
+    const endedWorld = world();
+    endedWorld.seed = 42;
+    const summary = buildSessionSummary(endedWorld, 41, 3);
 
     expect(summary).toMatchObject({
+      worldName: worldNameFromSeed(42),
+      seed: 42,
       status: 'ended',
       ticksSurvived: 41,
       currentPopulation: 0,
