@@ -9,6 +9,7 @@ import {
   viewportPointToTile,
 } from './worldViewport';
 import TurningPointNotice from './TurningPointNotice';
+import { createDrawScheduler, type DrawScheduler } from './drawScheduler';
 
 /**
  * Rendering constants for the canvas grid
@@ -104,65 +105,39 @@ function getColorFromSpeciesId(speciesId: string): [number, number, number] {
  * @param worldState - the world state from store
  * @returns 2D array of cells [y][x] or null if invalid
  */
-function extractGrid(
-  worldState: any
-): Array<
-  Array<{
+interface RenderCell {
     energy: number;
     producerBiomass: number;
     toxicity: number;
     biome: Biome;
     producerArchetype: ProducerArchetype;
-  }>
-> | null {
+}
+
+interface RenderGrid {
+  width: number;
+  height: number;
+  cellAt: (x: number, y: number) => RenderCell;
+}
+
+function extractGrid(worldState: any): RenderGrid | null {
   if (!worldState) return null;
 
   // Handle serialized World format (cells as 1D array)
   if (worldState.cells && Array.isArray(worldState.cells) && worldState.width && worldState.height) {
-    const grid: Array<
-      Array<{
-        energy: number;
-        producerBiomass: number;
-        toxicity: number;
-        biome: Biome;
-        producerArchetype: ProducerArchetype;
-      }>
-    > = [];
-    for (let y = 0; y < worldState.height; y++) {
-      const row: Array<{
-        energy: number;
-        producerBiomass: number;
-        toxicity: number;
-        biome: Biome;
-        producerArchetype: ProducerArchetype;
-      }> = [];
-      for (let x = 0; x < worldState.width; x++) {
-        const index = y * worldState.width + x;
-        const cell = worldState.cells[index];
-        row.push({
-          energy: cell?.energy ?? 0,
-          producerBiomass: cell?.producerBiomass ?? 0,
-          toxicity: cell?.toxicity ?? 0,
-          biome: cell?.biome ?? 'grassland',
-          producerArchetype: cell?.producerArchetype ?? 'ground-cover',
-        });
-      }
-      grid.push(row);
-    }
-    return grid;
+    return {
+      width: worldState.width,
+      height: worldState.height,
+      cellAt: (x, y) => worldState.cells[y * worldState.width + x],
+    };
   }
 
   // Handle 2D grid format
   if (Array.isArray(worldState.grid) && worldState.grid.length > 0) {
-    return worldState.grid.map((row: any[]) =>
-      row.map((cell: any) => ({
-        energy: cell?.energy ?? 0,
-        producerBiomass: cell?.producerBiomass ?? 0,
-        toxicity: cell?.toxicity ?? 0,
-        biome: cell?.biome ?? 'grassland',
-        producerArchetype: cell?.producerArchetype ?? 'ground-cover',
-      }))
-    );
+    return {
+      width: worldState.grid[0]?.length ?? 0,
+      height: worldState.grid.length,
+      cellAt: (x, y) => worldState.grid[y][x],
+    };
   }
 
   return null;
@@ -183,12 +158,7 @@ function extractCreatures(worldState: any): Array<{
   if (!worldState) return [];
 
   if (Array.isArray(worldState.creatures)) {
-    return worldState.creatures.map((creature: any) => ({
-      x: creature.x ?? 0,
-      y: creature.y ?? 0,
-      speciesId: creature.speciesId ?? 'unknown',
-      lifecycleState: creature.lifecycleState ?? 'alive',
-    }));
+    return worldState.creatures;
   }
 
   return [];
@@ -201,10 +171,19 @@ function extractCreatures(worldState: any): Array<{
  */
 const WorldView: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawSchedulerRef = useRef<DrawScheduler | null>(null);
   const { worldState, tick, selectedTile, setSelectedTile, constants } = useStore();
   const [layout, setLayout] = useState<GridLayout>(() =>
     calculateGridLayout(400, 400, GRID_WIDTH, GRID_HEIGHT)
   );
+
+  useEffect(() => {
+    drawSchedulerRef.current = createDrawScheduler(requestAnimationFrame, cancelAnimationFrame);
+    return () => {
+      drawSchedulerRef.current?.dispose();
+      drawSchedulerRef.current = null;
+    };
+  }, []);
 
   /**
    * Handle canvas resize and update cell size
@@ -250,19 +229,16 @@ const WorldView: React.FC = () => {
     return () => canvas.removeEventListener('click', handleCanvasClick);
   }, [layout, setSelectedTile]);
 
-  /**
-   * Main render loop using requestAnimationFrame
-   */
+  /** Paint once when a published visual input changes; remain idle otherwise. */
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const scheduler = drawSchedulerRef.current;
+    if (!canvas || !scheduler) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let animationId: number;
-
-    const render = () => {
+    scheduler.schedule(() => {
       // Clear canvas with black background
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -274,7 +250,6 @@ const WorldView: React.FC = () => {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('Initializing world…', canvas.width / 2, canvas.height / 2);
-        animationId = requestAnimationFrame(render);
         return;
       }
 
@@ -288,14 +263,13 @@ const WorldView: React.FC = () => {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('Invalid world state', canvas.width / 2, canvas.height / 2);
-        animationId = requestAnimationFrame(render);
         return;
       }
 
       // Render grid cells
-      for (let y = 0; y < grid.length; y++) {
-        for (let x = 0; x < grid[y].length; x++) {
-          const cell = grid[y][x];
+      for (let y = 0; y < grid.height; y++) {
+        for (let x = 0; x < grid.width; x++) {
+          const cell = grid.cellAt(x, y);
           const pixelX = layout.offsetX + x * layout.cellSize;
           const pixelY = layout.offsetY + y * layout.cellSize;
 
@@ -365,18 +339,8 @@ const WorldView: React.FC = () => {
         ctx.strokeRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
       }
 
-      animationId = requestAnimationFrame(render);
-    };
-
-    // Start rendering
-    animationId = requestAnimationFrame(render);
-
-    return () => {
-      if (animationId) {
-        cancelAnimationFrame(animationId);
-      }
-    };
-  }, [worldState, layout, tick, constants.baseSolarEnergy, selectedTile]);
+    });
+  }, [worldState, layout, constants.baseSolarEnergy, selectedTile]);
 
   const handleKeyboardNavigation = (event: React.KeyboardEvent<HTMLCanvasElement>) => {
     const navigation = navigateTileSelection(
