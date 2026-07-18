@@ -1,0 +1,230 @@
+.evolution-ribbon {
+  padding: var(--sim-space-1);
+}
+
+.evolution-ribbon__summary {
+  display: grid;
+  width: 100%;
+  min-height: var(--sim-control-min-size);
+  grid-template-columns: auto minmax(4rem, 1fr) auto;
+  grid-template-areas:
+    "label chart action"
+    "metric metric action";
+  align-items: center;
+  gap: 0 var(--sim-space-2);
+  padding: var(--sim-space-1) var(--sim-space-2);
+  color: var(--sim-color-ink);
+  text-align: start;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.evolution-ribbon__label {
+  grid-area: label;
+  font-family: var(--sim-font-data);
+  font-size: var(--sim-font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.evolution-ribbon__sparkline {
+  width: 100%;
+  height: 2.25rem;
+  grid-area: chart;
+  background: var(--sim-color-panel-sunken);
+  border: var(--sim-border-thin) solid var(--sim-color-border);
+}
+
+.evolution-ribbon__line {
+  fill: none;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.evolution-ribbon__line--population {
+  stroke: var(--sim-color-positive);
+}
+
+.evolution-ribbon__line--species {
+  stroke: var(--sim-color-warning);
+}
+
+.evolution-ribbon__line--lineage {
+  stroke: var(--sim-color-focus);
+}
+
+.evolution-ribbon__metric {
+  overflow: hidden;
+  grid-area: metric;
+  font-size: var(--sim-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.evolution-ribbon__action {
+  grid-area: action;
+  font-family: var(--sim-font-data);
+  font-size: var(--sim-font-size-xs);
+  text-decoration: underline;
+}
+
+.evolution-history {
+  position: fixed;
+  inset: auto var(--sim-space-2) var(--sim-space-2);
+  z-index: 80;
+  max-height: calc(100dvh - var(--sim-space-4));
+  overflow: hidden;
+}
+
+.evolution-history__header {
+  position: sticky;
+  inset-block-start: 0;
+}
+
+.evolution-history__body {
+  display: grid;
+  gap: var(--sim-space-2);
+  padding: var(--sim-space-2);
+  overflow-y: auto;
+  background: var(--sim-color-canvas);
+}
+
+.evolution-history__chart {
+  width: 100%;
+  min-height: 11rem;
+  padding: 0;
+  aspect-ratio: 16 / 8;
+}
+
+.evolution-history__axis,
+.evolution-history__moment-line {
+  stroke: var(--sim-color-border);
+  stroke-width: 0.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.evolution-history__moment-line {
+  stroke-dasharray: 2 2;
+}
+
+.evolution-history__moment-dot {
+  fill: var(--sim-color-danger);
+}
+
+.evolution-history__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sim-space-3);
+  font-family: var(--sim-font-data);
+  font-size: var(--sim-font-size-xs);
+}
+
+.evolution-history__legend-item::before {
+  content: "— ";
+}
+
+.evolution-history__legend-item--population {
+  color: var(--sim-color-positive);
+}
+
+.evolution-history__legend-item--species {
+  color: var(--sim-color-warning);
+}
+
+.evolution-history__legend-item--lineage {
+  color: var(--sim-color-focus);
+}
+
+.evolution-history__summary {
+  margin: 0;
+  font-size: var(--sim-font-size-xs);
+}
+
+.evolution-story {
+  padding: var(--sim-space-3);
+  background: var(--sim-color-panel-raised);
+  border: var(--sim-border-strong) solid var(--sim-color-warning);
+}
+
+.evolution-story--critical {
+  border-color: var(--sim-color-danger);
+}
+
+.evolution-story--positive {
+  border-color: var(--sim-color-positive);
+}
+
+.evolution-story__eyebrow,
+.evolution-story__detail {
+  margin: 0;
+  font-size: var(--sim-font-size-xs);
+}
+
+.evolution-story__eyebrow {
+  font-family: var(--sim-font-data);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.evolution-story__title {
+  margin: var(--sim-space-1) 0;
+  font-size: var(--sim-font-size-md);
+}
+
+.evolution-story__detail {
+  margin-block-end: var(--sim-space-2);
+}
+
+.turning-point {
+  position: absolute;
+  inset: auto var(--sim-space-3) var(--sim-space-3);
+  z-index: 20;
+  padding: var(--sim-space-2) var(--sim-space-3);
+  pointer-events: none;
+  color: var(--sim-color-ink);
+  background: var(--sim-color-panel-raised);
+  border: var(--sim-border-strong) solid var(--sim-color-warning);
+  box-shadow: 0 var(--sim-space-2) var(--sim-space-4) rgb(30 25 15 / 35%);
+}
+
+.turning-point--critical {
+  border-color: var(--sim-color-danger);
+}
+
+.turning-point--positive {
+  border-color: var(--sim-color-positive);
+}
+
+.turning-point__eyebrow,
+.turning-point__detail {
+  font-size: var(--sim-font-size-xs);
+}
+
+.turning-point__eyebrow {
+  font-family: var(--sim-font-data);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.turning-point__title {
+  margin-block-start: var(--sim-space-1);
+  font-weight: 700;
+}
+
+.turning-point__detail {
+  margin-block-start: var(--sim-space-1);
+  line-height: 1.35;
+}
+
+@media (min-width: 48rem) {
+  .evolution-ribbon__summary {
+    grid-template-columns: auto minmax(12rem, 1fr) auto auto;
+    grid-template-areas: "label chart metric action";
+  }
+
+  .evolution-history {
+    inset: 5rem var(--sim-space-4) auto auto;
+    width: min(34rem, calc(100vw - 2rem));
+  }
+}

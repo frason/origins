@@ -19,8 +19,16 @@ export interface EvolutionTimelineModel {
   lineagePolyline: string;
   peakPopulation: number;
   dominanceChanges: number;
+  dominanceMoments: EvolutionDominanceMoment[];
   currentDominantName: string | null;
   description: string;
+}
+
+export interface EvolutionDominanceMoment {
+  tick: number;
+  x: number;
+  speciesId: string;
+  speciesName: string;
 }
 
 function dominantSpecies(sample: EcosystemHistorySample): string | null {
@@ -90,9 +98,16 @@ export function buildEvolutionTimeline(
   }));
   let dominanceChanges = 0;
   let previousDominant: string | null = null;
+  const dominanceMoments: EvolutionDominanceMoment[] = [];
   for (const point of points) {
     if (point.dominantSpeciesId && previousDominant && point.dominantSpeciesId !== previousDominant) {
       dominanceChanges++;
+      dominanceMoments.push({
+        tick: point.tick,
+        x: point.x,
+        speciesId: point.dominantSpeciesId,
+        speciesName: speciesDisplayName(point.dominantSpeciesId),
+      });
     }
     if (point.dominantSpeciesId) previousDominant = point.dominantSpeciesId;
   }
@@ -108,6 +123,7 @@ export function buildEvolutionTimeline(
     lineagePolyline: polyline('lineageY'),
     peakPopulation,
     dominanceChanges,
+    dominanceMoments,
     currentDominantName,
     description: `${points.length} samples through tick ${tick}. Peak population ${peakPopulation}. ${dominanceChanges} dominance ${dominanceChanges === 1 ? 'shift' : 'shifts'}. ${currentDominantName ? `${currentDominantName} currently leads.` : 'No living species currently leads.'}`,
   };

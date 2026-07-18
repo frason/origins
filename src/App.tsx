@@ -22,6 +22,7 @@ import type { WorldRecipe } from './ui/worldRecipe';
 import { snapshotEngine } from './state/snapshot';
 import { getUiFrameInterval } from './ui/framePacing';
 import SimWindow from './ui/SimWindow';
+import EvolutionRibbon from './ui/EvolutionRibbon';
 
 export default function App() {
   const engineRef = useRef<EngineState | null>(null);
@@ -237,6 +238,7 @@ export default function App() {
           </div>
         )}
       >
+        <EvolutionRibbon onOpenLineages={() => setSettingsOpen(true)} />
         <main aria-label="Ecosystem world" className="app-shell__world">
           <WorldView />
         </main>

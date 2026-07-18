@@ -40,6 +40,9 @@ describe('evolution timeline presentation model', () => {
     expect(model.points[model.points.length - 1].x).toBe(100);
     expect(model.peakPopulation).toBe(4);
     expect(model.dominanceChanges).toBe(1);
+    expect(model.dominanceMoments).toHaveLength(1);
+    expect(model.dominanceMoments[0]).toMatchObject({ tick: 10, speciesId: 'beta' });
+    expect(model.dominanceMoments[0].x).toBeCloseTo(66.67, 1);
     expect(model.currentDominantName).toBeTruthy();
     expect(model.description).toContain('3 samples through tick 15');
   });

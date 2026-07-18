@@ -15,8 +15,11 @@
 }
 
 .app-shell__window-body {
+  display: grid;
   min-height: 0;
   padding: var(--sim-space-1);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--sim-space-1);
 }
 
 .app-shell__world {
