@@ -18,6 +18,8 @@ interface ControlPanelProps {
   worldSeed?: number;
   onIntroduceSpecies?: (strategy: EnergyStrategy, name: string) => string | null;
   replayActive?: boolean;
+  checkpointTicks?: number[];
+  onRestoreCheckpoint?: (tick: number) => string | null;
 }
 
 function GodModeSlider({ config, disabled }: { config: GodModeSliderConfig; disabled: boolean }) {
@@ -58,6 +60,8 @@ export default function ControlPanel({
   worldSeed = 12345,
   onIntroduceSpecies,
   replayActive = false,
+  checkpointTicks = [],
+  onRestoreCheckpoint,
 }: ControlPanelProps) {
   const tick = useStore((state) => state.tick);
   const world = useStore((state) => state.worldState);
@@ -75,6 +79,8 @@ export default function ControlPanel({
   const [seedDraft, setSeedDraft] = useState(String(worldSeed));
   const [seedMessage, setSeedMessage] = useState<string | null>(null);
   const [recommendationMessage, setRecommendationMessage] = useState<string | null>(null);
+  const [checkpointDraft, setCheckpointDraft] = useState('');
+  const [checkpointMessage, setCheckpointMessage] = useState<string | null>(null);
 
   const recommendations = showGodMode
     ? getGodModeRecommendations(
@@ -92,6 +98,14 @@ export default function ControlPanel({
   );
 
   useEffect(() => setSeedDraft(String(worldSeed)), [worldSeed]);
+  useEffect(() => {
+    if (checkpointTicks.length === 0) {
+      setCheckpointDraft('');
+      return;
+    }
+    if (checkpointTicks.includes(Number(checkpointDraft))) return;
+    setCheckpointDraft(String(checkpointTicks[checkpointTicks.length - 1]));
+  }, [checkpointDraft, checkpointTicks]);
 
   const startNewWorld = () => {
     if (!onNewWorld) return;
@@ -147,6 +161,45 @@ export default function ControlPanel({
           <div className={`control-panel__status ${seedMessage?.startsWith('Started') ? 'sim-status--positive' : 'sim-status--warning'}`} role="status">
             {seedMessage ?? `Active seed: ${worldSeed.toLocaleString()}`}
           </div>
+        </section>
+      )}
+
+      {onRestoreCheckpoint && checkpointTicks.length > 0 && (
+        <section className="control-panel__section" aria-labelledby="restore-point-title">
+          <h3 className="control-panel__section-title" id="restore-point-title">Restore point</h3>
+          <p className="control-panel__help sim-status--warning">
+            Restoring pauses the simulation. Continuing replaces the current future and removes later events and interventions.
+          </p>
+          <div className="control-panel__field-row">
+            <select
+              className="control-panel__input sim-data"
+              aria-label="Restore point tick"
+              disabled={replayActive}
+              value={checkpointDraft}
+              onChange={(event) => { setCheckpointDraft(event.target.value); setCheckpointMessage(null); }}
+            >
+              {checkpointTicks.map((checkpointTick) => (
+                <option key={checkpointTick} value={checkpointTick}>Tick {checkpointTick.toLocaleString()}</option>
+              ))}
+            </select>
+            <button
+              className="sim-button"
+              type="button"
+              disabled={replayActive || checkpointDraft === '' || Number(checkpointDraft) === tick}
+              onClick={() => {
+                const restoreTick = Number(checkpointDraft);
+                const error = onRestoreCheckpoint(restoreTick);
+                setCheckpointMessage(error ?? `Restored tick ${restoreTick.toLocaleString()}; future history was removed`);
+              }}
+            >
+              Restore
+            </button>
+          </div>
+          {checkpointMessage && (
+            <div className={`control-panel__status ${checkpointMessage.startsWith('Restored') ? 'sim-status--positive' : 'sim-status--danger'}`} role="status">
+              {checkpointMessage}
+            </div>
+          )}
         </section>
       )}
 

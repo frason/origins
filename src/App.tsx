@@ -24,10 +24,16 @@ import { getUiFrameInterval } from './ui/framePacing';
 import SimWindow from './ui/SimWindow';
 import EvolutionRibbon from './ui/EvolutionRibbon';
 import { worldNameFromSeed } from './ui/worldName';
+import {
+  captureCheckpoint,
+  restoreCheckpoint,
+  type SimulationCheckpoint,
+} from './simulation/checkpointTimeline';
 
 export default function App() {
   const engineRef = useRef<EngineState | null>(null);
   const recipeReplayRef = useRef<RecipeReplaySession | null>(null);
+  const checkpointsRef = useRef<SimulationCheckpoint<EngineState>[]>([]);
   const isRunning = useStore((s) => s.isRunning);
   const speed = useStore((s) => s.speed);
   const tick = useStore((s) => s.tick);
@@ -38,6 +44,7 @@ export default function App() {
   const [worldSeed, setWorldSeed] = useState(DEFAULT_WORLD_SEED);
   const [replayActive, setReplayActive] = useState(false);
   const [replayStatus, setReplayStatus] = useState<string | null>(null);
+  const [checkpointTicks, setCheckpointTicks] = useState<number[]>([]);
   const worldName = worldNameFromSeed(worldSeed);
 
   const publish = useCallback((engine: EngineState) => {
@@ -47,6 +54,13 @@ export default function App() {
     if (engine.tick > 0 && !engine.creatures.some((creature) => creature.lifecycleState === 'alive')) {
       store.setRunning(false);
     }
+  }, []);
+
+  const recordCheckpoint = useCallback((engine: EngineState) => {
+    const next = captureCheckpoint(checkpointsRef.current, engine);
+    if (next === checkpointsRef.current) return;
+    checkpointsRef.current = next;
+    setCheckpointTicks(next.map((checkpoint) => checkpoint.tick));
   }, []);
 
   const reset = useCallback(() => {
@@ -59,8 +73,10 @@ export default function App() {
     setReplayStatus(null);
     const engine = buildDemoEngine(worldSeed, store.constants);
     engineRef.current = engine;
+    checkpointsRef.current = [];
+    recordCheckpoint(engine);
     publish(engine);
-  }, [publish, worldSeed]);
+  }, [publish, recordCheckpoint, worldSeed]);
 
   const newWorld = useCallback((seed: number) => {
     const store = useStore.getState();
@@ -72,9 +88,11 @@ export default function App() {
     setReplayStatus(null);
     const engine = buildDemoEngine(seed, store.constants);
     engineRef.current = engine;
+    checkpointsRef.current = [];
+    recordCheckpoint(engine);
     setWorldSeed(seed);
     publish(engine);
-  }, [publish]);
+  }, [publish, recordCheckpoint]);
 
   const addSpecies = useCallback((strategy: EnergyStrategy, name: string): string | null => {
     if (recipeReplayRef.current) return 'Manual interventions are disabled during recipe replay';
@@ -84,11 +102,30 @@ export default function App() {
     try {
       const introduction = introduceSpecies(engine, strategy, tile, name);
       engineRef.current = introduction.state;
+      recordCheckpoint(introduction.state);
       publish(introduction.state);
       return null;
     } catch (error) {
       return error instanceof Error ? error.message : 'Could not introduce this species';
     }
+  }, [publish, recordCheckpoint]);
+
+  const restoreToTick = useCallback((restoreTick: number): string | null => {
+    const restored = restoreCheckpoint(checkpointsRef.current, restoreTick);
+    if (!restored) return 'That restore point is no longer available';
+    const store = useStore.getState();
+    store.setRunning(false);
+    store.setSelectedTile(null);
+    store.clearFollowedLineages();
+    store.updateConstants(restored.state.constants);
+    recipeReplayRef.current = null;
+    setReplayActive(false);
+    setReplayStatus(null);
+    checkpointsRef.current = restored.checkpoints;
+    setCheckpointTicks(restored.checkpoints.map((checkpoint) => checkpoint.tick));
+    engineRef.current = restored.state;
+    publish(restored.state);
+    return null;
   }, [publish]);
 
   const startRecipeReplay = useCallback((recipe: WorldRecipe): string | null => {
@@ -100,6 +137,8 @@ export default function App() {
       store.clearFollowedLineages();
       store.updateConstants(session.constants);
       engineRef.current = session.state;
+      checkpointsRef.current = [];
+      recordCheckpoint(session.state);
       recipeReplayRef.current = session;
       setWorldSeed(recipe.seed);
       setReplayActive(true);
@@ -112,16 +151,17 @@ export default function App() {
       setReplayStatus(message);
       return message;
     }
-  }, [publish]);
+  }, [publish, recordCheckpoint]);
 
   // Initialize world once
   useEffect(() => {
     if (!engineRef.current) {
       const engine = buildDemoEngine(worldSeed, useStore.getState().constants);
       engineRef.current = engine;
+      recordCheckpoint(engine);
       publish(engine);
     }
-  }, [publish, worldSeed]);
+  }, [publish, recordCheckpoint, worldSeed]);
 
   // Game loop: advance the engine while running, at `speed` ticks per second.
   // setInterval drives it (fires even in throttled background tabs); the time
@@ -166,6 +206,7 @@ export default function App() {
           } else {
             engineRef.current = tickEngine(prev, useStore.getState().constants);
           }
+          if (engineRef.current) recordCheckpoint(engineRef.current);
           ticked = true;
         }
         acc -= tickMs;
@@ -174,7 +215,7 @@ export default function App() {
       if (ticked && engineRef.current) publish(engineRef.current);
     }, getUiFrameInterval(speed));
     return () => clearInterval(interval);
-  }, [isRunning, speed, publish]);
+  }, [isRunning, speed, publish, recordCheckpoint]);
 
   return (
     <div className="app-shell">
@@ -257,6 +298,8 @@ export default function App() {
             worldSeed={worldSeed}
             onIntroduceSpecies={addSpecies}
             replayActive={replayActive}
+            checkpointTicks={checkpointTicks}
+            onRestoreCheckpoint={restoreToTick}
           />
           <StatsPanel />
           <EventTimeline
