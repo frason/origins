@@ -2,6 +2,7 @@ import { Traits } from '../utils/traits';
 import { World } from './world';
 import { RngFn } from './rng';
 import { MAX_ENERGY_MULTIPLIER } from '../utils/constants';
+import type { CreatureSpatialIndex } from './creatureSpatialIndex';
 
 /**
  * Lifecycle states for creatures
@@ -211,14 +212,18 @@ export function scanEnvironment(
   creature: Creature,
   world: World,
   allCreatures: Creature[],
-  rng: RngFn
+  rng: RngFn,
+  spatialIndex?: CreatureSpatialIndex
 ): VisionScan {
   const threats: Creature[] = [];
   const foodLocations: Array<{ x: number; y: number; biomass: number }> = [];
   const foodCreatures: Creature[] = [];
 
   // Scan for other creatures within vision range
-  for (const other of allCreatures) {
+  const nearbyCreatures = spatialIndex
+    ? spatialIndex.querySquare(creature.x, creature.y, creature.traits.visionRange)
+    : allCreatures;
+  for (const other of nearbyCreatures) {
     if (other.id === creature.id) {
       continue;
     }
@@ -327,10 +332,11 @@ export function decideTick(
   creature: Creature,
   world: World,
   allCreatures: Creature[],
-  rng: RngFn
+  rng: RngFn,
+  spatialIndex?: CreatureSpatialIndex
 ): DecisionType {
   // Scan environment
-  const scan = scanEnvironment(creature, world, allCreatures, rng);
+  const scan = scanEnvironment(creature, world, allCreatures, rng, spatialIndex);
 
   // If threatened, flee
   if (scan.threats.length > 0) {
@@ -504,14 +510,15 @@ export function applyMovement(
   decision: DecisionType,
   world: World,
   allCreatures: Creature[],
-  rng: RngFn
+  rng: RngFn,
+  spatialIndex?: CreatureSpatialIndex
 ): void {
   if (decision === 'idle' || decision === 'eat' || decision === 'reproduce') {
     // No movement
     return;
   }
 
-  const scan = scanEnvironment(creature, world, allCreatures, rng);
+  const scan = scanEnvironment(creature, world, allCreatures, rng, spatialIndex);
 
   let targetLocation: { x: number; y: number } | null = null;
 
@@ -549,6 +556,8 @@ export function applyMovement(
 
   // Apply movement if we have a target
   if (targetLocation) {
+    const previousX = creature.x;
+    const previousY = creature.y;
     const nextPos = calculateNextPosition(
       creature.x,
       creature.y,
@@ -560,5 +569,6 @@ export function applyMovement(
     // Clamp to world bounds
     creature.x = Math.max(0, Math.min(world.width - 1, nextPos.x));
     creature.y = Math.max(0, Math.min(world.height - 1, nextPos.y));
+    spatialIndex?.move(creature, previousX, previousY);
   }
 }

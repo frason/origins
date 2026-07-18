@@ -1,2 +1,2 @@
-PASS — Added deterministic evolving-lineage leadership tracking for #91 and proved genuine dominance turnover within the healthy three-seed tick-500 matrix without destabilizing the trophic food web.
-All 408 tests pass and the production build succeeds. Live browser UX and client-triage issue #66 remain open goal gaps.
+PASS — Implemented deterministic spatial indexing for #101 so vision, movement, predation, and corpse lookup query local buckets while preserving original creature order and sequential movement semantics.
+All 411 tests pass, including full-scan equivalence and a deterministic 2,000-creature stress case with more than 10× fewer candidate checks; the production build succeeds.

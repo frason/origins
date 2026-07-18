@@ -1,5 +1,6 @@
 import { computeSolarEnergyGrid, World } from './world';
 import { Creature } from './creature';
+import { CreatureSpatialIndex } from './creatureSpatialIndex';
 import { createRng, RngFn } from './rng';
 import {
   WORLD_WIDTH,
@@ -325,11 +326,12 @@ export function tickEngine(
 
   // Step 3 & 4: Creature Decisions and Movement
   const decisions = new Map<string, DecisionType>();
+  const creatureIndex = new CreatureSpatialIndex(creatures);
   for (const creature of creatures) {
     if (creature.lifecycleState === 'alive') {
-      const decision = decideTick(creature, newWorld, creatures, rng);
+      const decision = decideTick(creature, newWorld, creatures, rng, creatureIndex);
       decisions.set(creature.id, decision);
-      applyMovement(creature, decision, newWorld, creatures, rng);
+      applyMovement(creature, decision, newWorld, creatures, rng, creatureIndex);
     }
   }
 
@@ -360,7 +362,7 @@ export function tickEngine(
         creature.traits.energyStrategy === 'carnivore' ||
         creature.traits.energyStrategy === 'omnivore'
       ) {
-        for (const prey of creatures) {
+        for (const prey of creatureIndex.at(creature.x, creature.y)) {
           if (
             prey.id !== creature.id &&
             prey.lifecycleState === 'alive' &&
@@ -379,7 +381,7 @@ export function tickEngine(
         creature.traits.energyStrategy === 'omnivore' ||
         creature.traits.energyStrategy === 'scavenger'
       ) {
-        const corpse = creatures.find(
+        const corpse = creatureIndex.at(creature.x, creature.y).find(
           (candidate) =>
             candidate.lifecycleState !== 'alive' &&
             candidate.corpseDecayTicks > 0 &&
