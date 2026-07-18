@@ -1,22 +1,12 @@
-/**
- * ControlPanel — simulation transport controls.
- * Play/pause, speed (ticks per second), tick counter, reset, and God Mode.
- */
-
-import { CSSProperties, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../state/store';
-import {
-  BALANCED_LONGEVITY_PRESET,
-  SimulationConstants,
-} from '../utils/constants';
+import { BALANCED_LONGEVITY_PRESET } from '../utils/constants';
 import type { EnergyStrategy } from '../utils/traits';
 import { parseWorldSeed } from './worldSeed';
 import { getEcosystemPressures } from './ecosystemPressures';
 import { getEcosystemTrajectories } from './ecosystemTrajectory';
-import {
-  getGodModeRecommendations,
-  recommendationPatch,
-} from './godModeRecommendations';
+import { getGodModeRecommendations, recommendationPatch } from './godModeRecommendations';
+import { defaultValueFor, GOD_MODE_GROUPS, type GodModeSliderConfig } from './godModeControls';
 
 interface ControlPanelProps {
   onReset?: () => void;
@@ -26,206 +16,37 @@ interface ControlPanelProps {
   replayActive?: boolean;
 }
 
-const panelStyle: CSSProperties = {
-  backgroundColor: '#222',
-  borderRadius: 8,
-  padding: '0.75rem 1rem',
-  color: '#eee',
-  fontFamily: 'system-ui, -apple-system, sans-serif',
-  fontSize: '0.85rem',
-};
+function GodModeSlider({ config, disabled }: { config: GodModeSliderConfig; disabled: boolean }) {
+  const value = useStore((state) => state.constants[config.key]);
+  const updateConstants = useStore((state) => state.updateConstants);
+  const displayValue = config.formatter ? config.formatter(value) : Math.round(value * 100) / 100;
+  const defaultValue = defaultValueFor(config);
+  const listId = `god-mode-${config.key}-defaults`;
 
-const buttonStyle: CSSProperties = {
-  padding: '0.4rem 1rem',
-  borderRadius: 6,
-  border: '1px solid #555',
-  backgroundColor: '#333',
-  color: '#eee',
-  cursor: 'pointer',
-  fontSize: '0.85rem',
-};
-
-const godModeStyle: CSSProperties = {
-  backgroundColor: '#1a1a1a',
-  borderRadius: 6,
-  padding: '0.75rem',
-  marginTop: '0.75rem',
-  border: '1px solid #444',
-};
-
-interface SliderConfig {
-  label: string;
-  key: keyof SimulationConstants;
-  min: number;
-  max: number;
-  step: number;
-  formatter?: (value: number) => string;
+  return (
+    <label className="control-panel__slider">
+      <span className="control-panel__slider-heading">
+        <span>{config.label}</span>
+        <output className="control-panel__slider-value sim-data">{displayValue}</output>
+      </span>
+      <input
+        className="control-panel__range"
+        type="range"
+        disabled={disabled}
+        min={config.min}
+        max={config.max}
+        step={config.step}
+        value={value}
+        list={listId}
+        onChange={(event) => updateConstants({ [config.key]: Number(event.target.value) })}
+      />
+      <datalist id={listId}>
+        <option value={defaultValue} label={`Default ${defaultValue}`} />
+      </datalist>
+      <span className="control-panel__default sim-data">Default: {defaultValue}</span>
+    </label>
+  );
 }
-
-const GOD_MODE_SLIDERS: SliderConfig[] = [
-  { label: 'Base Solar Energy', key: 'baseSolarEnergy', min: 1, max: 50, step: 1 },
-  {
-    label: 'Solar Edge Falloff Factor',
-    key: 'solarEdgeFalloffFactor',
-    min: 0,
-    max: 1,
-    step: 0.05,
-    formatter: (value) => value.toFixed(2),
-  },
-  {
-    label: 'Solar Falloff Curve',
-    key: 'solarFalloffExponent',
-    min: 0.25,
-    max: 4,
-    step: 0.25,
-    formatter: (value) => value.toFixed(2),
-  },
-  {
-    label: 'Producer Growth Rate',
-    key: 'producerGrowthRate',
-    min: 0.01,
-    max: 0.5,
-    step: 0.01,
-    formatter: (value) => value.toFixed(3),
-  },
-  {
-    label: 'Base Metabolism',
-    key: 'baseMetabolism',
-    min: 0.5,
-    max: 10,
-    step: 0.5,
-    formatter: (value) => value.toFixed(1),
-  },
-  {
-    label: 'Feeding Efficiency',
-    key: 'feedingEfficiency',
-    min: 0.1,
-    max: 1,
-    step: 0.05,
-    formatter: (value) => value.toFixed(2),
-  },
-  {
-    label: 'Reproduction Energy Threshold',
-    key: 'reproductionEnergyThreshold',
-    min: 50,
-    max: 500,
-    step: 10,
-  },
-  {
-    label: 'Reproduction Energy Cost',
-    key: 'reproductionEnergyCost',
-    min: 25,
-    max: 300,
-    step: 5,
-  },
-  {
-    label: 'Max Creature Age Ticks',
-    key: 'maxCreatureAgeTicks',
-    min: 100,
-    max: 2000,
-    step: 50,
-  },
-  {
-    label: 'Corpse Decay Rate',
-    key: 'corpseDecayRate',
-    min: 0.01,
-    max: 0.5,
-    step: 0.01,
-    formatter: (value) => value.toFixed(3),
-  },
-  {
-    label: 'Corpse Duration Ticks',
-    key: 'corpseDecayDurationTicks',
-    min: 5,
-    max: 200,
-    step: 5,
-  },
-  {
-    label: 'Corpse Toxicity',
-    key: 'corpseToxicityPerTick',
-    min: 0,
-    max: 5,
-    step: 0.1,
-    formatter: (value) => value.toFixed(1),
-  },
-  {
-    label: 'Toxicity Radius',
-    key: 'corpseToxicityRadius',
-    min: 0,
-    max: 10,
-    step: 1,
-  },
-  {
-    label: 'Toxicity Retention',
-    key: 'toxicityRetention',
-    min: 0,
-    max: 1,
-    step: 0.05,
-    formatter: (value) => value.toFixed(2),
-  },
-  {
-    label: 'Scavenging Rate',
-    key: 'scavengingRate',
-    min: 0.05,
-    max: 1,
-    step: 0.05,
-    formatter: (value) => value.toFixed(2),
-  },
-  {
-    label: 'Default Mutation Rate',
-    key: 'defaultMutationRate',
-    min: 0.01,
-    max: 0.2,
-    step: 0.01,
-    formatter: (value) => value.toFixed(3),
-  },
-  {
-    label: 'Mutation Drift',
-    key: 'mutationDrift',
-    min: 0,
-    max: 0.5,
-    step: 0.01,
-    formatter: (value) => value.toFixed(2),
-  },
-  {
-    label: 'Monoculture Threshold',
-    key: 'monocultureDominanceThreshold',
-    min: 0.5,
-    max: 1,
-    step: 0.05,
-    formatter: (value) => value.toFixed(2),
-  },
-  {
-    label: 'Monoculture Mortality',
-    key: 'monocultureMortalityPenalty',
-    min: 0,
-    max: 0.5,
-    step: 0.01,
-    formatter: (value) => value.toFixed(2),
-  },
-  {
-    label: 'Monoculture Reproduction Limit',
-    key: 'monocultureReproductionLimit',
-    min: 1,
-    max: 500,
-    step: 5,
-  },
-  {
-    label: 'Population Capacity',
-    key: 'maxGlobalPopulation',
-    min: 50,
-    max: 2000,
-    step: 50,
-  },
-  {
-    label: 'Overcrowding Mortality',
-    key: 'overcrowdingMortalityRate',
-    min: 0,
-    max: 0.5,
-    step: 0.01,
-    formatter: (value) => value.toFixed(2),
-  },
-];
 
 export default function ControlPanel({
   onReset,
@@ -234,15 +55,15 @@ export default function ControlPanel({
   onIntroduceSpecies,
   replayActive = false,
 }: ControlPanelProps) {
-  const tick = useStore((s) => s.tick);
-  const world = useStore((s) => s.worldState);
-  const isRunning = useStore((s) => s.isRunning);
-  const speed = useStore((s) => s.speed);
-  const constants = useStore((s) => s.constants);
-  const setRunning = useStore((s) => s.setRunning);
-  const setSpeed = useStore((s) => s.setSpeed);
-  const updateConstants = useStore((s) => s.updateConstants);
-  const resetConstants = useStore((s) => s.resetConstants);
+  const tick = useStore((state) => state.tick);
+  const world = useStore((state) => state.worldState);
+  const isRunning = useStore((state) => state.isRunning);
+  const speed = useStore((state) => state.speed);
+  const constants = useStore((state) => state.constants);
+  const setRunning = useStore((state) => state.setRunning);
+  const setSpeed = useStore((state) => state.setSpeed);
+  const updateConstants = useStore((state) => state.updateConstants);
+  const resetConstants = useStore((state) => state.resetConstants);
   const [showGodMode, setShowGodMode] = useState(false);
   const [introductionStrategy, setIntroductionStrategy] = useState<EnergyStrategy>('herbivore');
   const [introductionMessage, setIntroductionMessage] = useState<string | null>(null);
@@ -260,192 +81,128 @@ export default function ControlPanel({
 
   useEffect(() => setSeedDraft(String(worldSeed)), [worldSeed]);
 
+  const startNewWorld = () => {
+    if (!onNewWorld) return;
+    const result = parseWorldSeed(seedDraft);
+    if (result.seed === null) {
+      setSeedMessage(result.message);
+      return;
+    }
+    onNewWorld(result.seed);
+    setSeedDraft(String(result.seed));
+    setSeedMessage(
+      result.message
+        ? `Started seed ${result.seed.toLocaleString()}. ${result.message}`
+        : `Started seed ${result.seed.toLocaleString()}`
+    );
+  };
+
   return (
-    <div style={panelStyle}>
-      <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Simulation</div>
-      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.6rem' }}>
+    <section className="control-panel sim-panel" aria-labelledby="simulation-controls-title">
+      <h2 className="sim-panel__heading" id="simulation-controls-title">Simulation</h2>
+      <div className="control-panel__transport">
         <button
-          style={{ ...buttonStyle, backgroundColor: isRunning ? '#7a2d2d' : '#2d7a3a' }}
+          className={`sim-button${isRunning ? ' sim-button--pressed' : ''}`}
+          type="button"
+          aria-pressed={isRunning}
           onClick={() => setRunning(!isRunning)}
         >
-          {isRunning ? '⏸ Pause' : '▶ Play'}
+          {isRunning ? 'Pause' : 'Play'}
         </button>
-        {onReset && (
-          <button style={buttonStyle} onClick={onReset} title={`Replay seed ${worldSeed}`}>
-            ↺ Replay Seed
-          </button>
-        )}
-        <span style={{ marginLeft: 'auto', color: '#999' }}>tick {tick}</span>
+        {onReset && <button className="sim-button" type="button" onClick={onReset}>Replay seed</button>}
+        <output className="control-panel__tick sim-data">Tick {tick.toLocaleString()}</output>
       </div>
-      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <span style={{ color: '#999', whiteSpace: 'nowrap' }}>Speed {speed}×</span>
-        <input
-          type="range"
-          min={1}
-          max={20}
-          step={1}
-          value={speed}
-          onChange={(e) => setSpeed(Number(e.target.value))}
-          style={{ flex: 1 }}
-        />
+
+      <label className="control-panel__field">
+        <span>Speed <span className="sim-data">{speed}×</span></span>
+        <input className="control-panel__range" type="range" min="1" max="20" step="1" value={speed} onChange={(event) => setSpeed(Number(event.target.value))} />
       </label>
 
       {onNewWorld && (
-        <div style={{ borderTop: '1px solid #3a3a3a', marginTop: '0.75rem', paddingTop: '0.7rem' }}>
-          <label htmlFor="world-seed" style={{ display: 'block', color: '#aaa', fontSize: '0.75rem', marginBottom: '0.35rem' }}>
-            World seed
-          </label>
-          <div style={{ display: 'flex', gap: '0.4rem' }}>
+        <section className="control-panel__section" aria-labelledby="world-seed-title">
+          <h3 className="control-panel__section-title" id="world-seed-title">World seed</h3>
+          <div className="control-panel__field-row">
             <input
+              className="control-panel__input sim-data"
               id="world-seed"
+              aria-label="World seed"
               inputMode="numeric"
               value={seedDraft}
-              onChange={(event) => {
-                setSeedDraft(event.target.value);
-                setSeedMessage(null);
-              }}
-              style={{ ...buttonStyle, minWidth: 0, flex: 1, cursor: 'text' }}
+              onChange={(event) => { setSeedDraft(event.target.value); setSeedMessage(null); }}
             />
-            <button
-              type="button"
-              style={{ ...buttonStyle, padding: '0.4rem 0.6rem' }}
-              onClick={() => {
-                const result = parseWorldSeed(seedDraft);
-                if (result.seed === null) {
-                  setSeedMessage(result.message);
-                  return;
-                }
-                onNewWorld(result.seed);
-                setSeedDraft(String(result.seed));
-                setSeedMessage(
-                  result.message
-                    ? `Started seed ${result.seed.toLocaleString()}. ${result.message}`
-                    : `Started seed ${result.seed.toLocaleString()}`
-                );
-              }}
-            >
-              New World
-            </button>
+            <button className="sim-button" type="button" onClick={startNewWorld}>New world</button>
           </div>
-          <div role="status" style={{ minHeight: '1rem', color: seedMessage?.startsWith('Started') ? '#79dc89' : '#c2b58c', fontSize: '0.68rem', marginTop: '0.3rem' }}>
+          <div className={`control-panel__status ${seedMessage?.startsWith('Started') ? 'sim-status--positive' : 'sim-status--warning'}`} role="status">
             {seedMessage ?? `Active seed: ${worldSeed.toLocaleString()}`}
           </div>
-        </div>
+        </section>
       )}
 
       <button
-        style={{
-          ...buttonStyle,
-          backgroundColor: showGodMode ? '#4a3a2a' : '#333',
-          width: '100%',
-          marginTop: '0.75rem',
-          textAlign: 'left',
-        }}
+        className={`sim-button control-panel__god-mode-toggle${showGodMode ? ' sim-button--pressed' : ''}`}
+        type="button"
+        aria-expanded={showGodMode}
+        aria-controls="god-mode-controls"
         onClick={() => setShowGodMode((visible) => !visible)}
       >
-        {showGodMode ? '▼ God Mode' : '▶ God Mode'}
+        {showGodMode ? 'Hide God Mode' : 'Open God Mode'}
       </button>
 
       {showGodMode && (
-        <div style={godModeStyle}>
-          <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '0.75rem' }}>
-            {replayActive
-              ? 'Recipe replay is controlling God Mode until playback completes.'
-              : 'Changes apply on the next tick.'}
+        <section className="control-panel__god-mode sim-panel sim-panel--sunken" id="god-mode-controls" aria-labelledby="god-mode-title">
+          <h3 className="control-panel__section-title" id="god-mode-title">God Mode / Intervention</h3>
+          <p className="control-panel__help">
+            {replayActive ? 'Recipe replay controls these values until playback completes.' : 'Changes apply on the next tick and are recorded in world history.'}
+          </p>
+          <div className="control-panel__field-row">
+            <button className="sim-button" type="button" disabled={replayActive} onClick={() => updateConstants(BALANCED_LONGEVITY_PRESET)}>Apply longevity</button>
+            <button className="sim-button" type="button" disabled={replayActive} onClick={resetConstants}>Reset defaults</button>
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.85rem' }}>
-            <button
-              style={{ ...buttonStyle, flex: 1, padding: '0.35rem 0.5rem' }}
-              disabled={replayActive}
-              onClick={() => updateConstants(BALANCED_LONGEVITY_PRESET)}
-              title="Measured to keep all four starter species alive much longer"
-            >
-              Apply Longevity
-            </button>
-            <button
-              style={{ ...buttonStyle, flex: 1, padding: '0.35rem 0.5rem' }}
-              disabled={replayActive}
-              onClick={resetConstants}
-            >
-              Reset Defaults
-            </button>
-          </div>
+
           {recommendations.length > 0 && (
-            <section
-              aria-labelledby="stewardship-title"
-              style={{ borderTop: '1px solid #45413b', paddingTop: '0.75rem', marginBottom: '0.85rem' }}
-            >
-              <div id="stewardship-title" style={{ fontWeight: 600, marginBottom: '0.25rem' }}>
-                Stewardship suggestions
-              </div>
-              <div style={{ color: '#888', fontSize: '0.68rem', marginBottom: '0.45rem' }}>
-                Optional responses to measured conditions—not automatic fixes.
-              </div>
+            <section className="control-panel__section" aria-labelledby="stewardship-title">
+              <h4 className="control-panel__section-title" id="stewardship-title">Stewardship suggestions</h4>
+              <p className="control-panel__help">Optional responses to measured conditions—not automatic fixes.</p>
               {recommendations.map((recommendation) => (
-                <article
-                  key={recommendation.id}
-                  style={{ border: '1px solid #3e4548', borderRadius: 6, padding: '0.55rem', marginTop: '0.45rem' }}
-                >
-                  <div style={{ color: '#b9d3dc', fontWeight: 700, fontSize: '0.75rem' }}>
-                    {recommendation.title}
-                  </div>
-                  <div style={{ color: '#8e989c', fontSize: '0.67rem', lineHeight: 1.35, marginTop: '0.2rem' }}>
-                    {recommendation.reason}
-                  </div>
-                  {recommendation.guidance && (
-                    <div style={{ color: '#d0b887', fontSize: '0.67rem', lineHeight: 1.35, marginTop: '0.3rem' }}>
-                      {recommendation.guidance}
+                <article className="control-panel__recommendation sim-panel" key={recommendation.id}>
+                  <h5 className="control-panel__recommendation-title">{recommendation.title}</h5>
+                  <p>{recommendation.reason}</p>
+                  {recommendation.guidance && <p className="sim-status--warning">{recommendation.guidance}</p>}
+                  {recommendation.changes.map((item) => (
+                    <div className="control-panel__change sim-data" key={item.constant}>
+                      <span>{item.label}</span><span>{item.before} → {item.after}</span>
                     </div>
-                  )}
+                  ))}
                   {recommendation.changes.length > 0 && (
-                    <>
-                      <div style={{ marginTop: '0.35rem' }}>
-                        {recommendation.changes.map((item) => (
-                          <div
-                            key={item.constant}
-                            style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', color: '#aaa', fontSize: '0.65rem' }}
-                          >
-                            <span>{item.label}</span>
-                            <span>{item.before} → {item.after}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <button
-                        type="button"
-                        disabled={replayActive}
-                        style={{ ...buttonStyle, width: '100%', padding: '0.3rem 0.5rem', marginTop: '0.4rem' }}
-                        onClick={() => {
-                          updateConstants(recommendationPatch(recommendation));
-                          setRecommendationMessage(`${recommendation.title} queued for the next tick`);
-                        }}
-                      >
-                        Apply these changes
-                      </button>
-                    </>
+                    <button
+                      className="sim-button control-panel__wide-button"
+                      type="button"
+                      disabled={replayActive}
+                      onClick={() => {
+                        updateConstants(recommendationPatch(recommendation));
+                        setRecommendationMessage(`${recommendation.title} queued for the next tick`);
+                      }}
+                    >
+                      Apply these changes
+                    </button>
                   )}
                 </article>
               ))}
-              <div role="status" style={{ minHeight: recommendationMessage ? '1rem' : 0, color: '#79dc89', fontSize: '0.67rem', marginTop: '0.35rem' }}>
-                {recommendationMessage}
-              </div>
+              <div className="control-panel__status sim-status--positive" role="status">{recommendationMessage}</div>
             </section>
           )}
+
           {onIntroduceSpecies && (
-            <div style={{ borderTop: '1px solid #45413b', paddingTop: '0.75rem', marginBottom: '0.85rem' }}>
-              <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Introduce species</div>
-              <div style={{ color: '#888', fontSize: '0.7rem', marginBottom: '0.5rem' }}>
-                Select a habitable tile, then seed three founders nearby.
-              </div>
-              <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <section className="control-panel__section" aria-labelledby="introduce-species-title">
+              <h4 className="control-panel__section-title" id="introduce-species-title">Introduce species</h4>
+              <p className="control-panel__help">Select a habitable tile, then seed three founders nearby.</p>
+              <div className="control-panel__field-row">
                 <select
+                  className="control-panel__input"
                   aria-label="Founder ecological strategy"
                   disabled={replayActive}
                   value={introductionStrategy}
-                  onChange={(event) => {
-                    setIntroductionStrategy(event.target.value as EnergyStrategy);
-                    setIntroductionMessage(null);
-                  }}
-                  style={{ ...buttonStyle, flex: 1, padding: '0.35rem 0.4rem' }}
+                  onChange={(event) => { setIntroductionStrategy(event.target.value as EnergyStrategy); setIntroductionMessage(null); }}
                 >
                   <option value="herbivore">Herbivore</option>
                   <option value="carnivore">Carnivore</option>
@@ -453,9 +210,9 @@ export default function ControlPanel({
                   <option value="scavenger">Scavenger</option>
                 </select>
                 <button
+                  className="sim-button"
                   type="button"
                   disabled={replayActive}
-                  style={{ ...buttonStyle, padding: '0.35rem 0.55rem' }}
                   onClick={() => {
                     const error = onIntroduceSpecies(introductionStrategy);
                     setIntroductionMessage(error ?? 'Founder group introduced');
@@ -465,58 +222,27 @@ export default function ControlPanel({
                 </button>
               </div>
               {introductionMessage && (
-                <div
-                  role="status"
-                  style={{
-                    color: introductionMessage.includes('introduced') ? '#79dc89' : '#e7a16f',
-                    fontSize: '0.7rem',
-                    marginTop: '0.4rem',
-                  }}
-                >
+                <div className={`control-panel__status ${introductionMessage.includes('introduced') ? 'sim-status--positive' : 'sim-status--danger'}`} role="status">
                   {introductionMessage}
                 </div>
               )}
-            </div>
+            </section>
           )}
-          {GOD_MODE_SLIDERS.map((config) => {
-            const value = constants[config.key];
-            const displayValue = config.formatter
-              ? config.formatter(value)
-              : Math.round(value * 100) / 100;
 
-            return (
-              <label
-                key={config.key}
-                style={{ display: 'block', marginBottom: '0.75rem' }}
-              >
-                <span
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    marginBottom: '0.3rem',
-                    fontSize: '0.8rem',
-                  }}
-                >
-                  <span>{config.label}</span>
-                  <span style={{ color: '#aaa', fontWeight: 500 }}>{displayValue}</span>
-                </span>
-                <input
-                  type="range"
-                  disabled={replayActive}
-                  min={config.min}
-                  max={config.max}
-                  step={config.step}
-                  value={value}
-                  onChange={(event) =>
-                    updateConstants({ [config.key]: Number(event.target.value) })
-                  }
-                  style={{ width: '100%' }}
-                />
-              </label>
-            );
-          })}
-        </div>
+          <div className="control-panel__groups">
+            {GOD_MODE_GROUPS.map((group, index) => (
+              <details className="control-panel__group sim-panel" key={group.id} open={index === 0}>
+                <summary className="control-panel__group-summary">
+                  <span>{group.label}</span>
+                  <span className="control-panel__group-count sim-data">{group.controls.length} controls</span>
+                </summary>
+                <p className="control-panel__help">{group.description}</p>
+                {group.controls.map((config) => <GodModeSlider config={config} disabled={replayActive} key={config.key} />)}
+              </details>
+            ))}
+          </div>
+        </section>
       )}
-    </div>
+    </section>
   );
 }
