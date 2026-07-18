@@ -1,5 +1,6 @@
 import type { Creature } from './creature';
-import type { World } from './world';
+import type { Cell, World } from './world';
+import type { Traits } from '../utils/traits';
 
 export interface EnvironmentalStress {
   temperatureCost: number;
@@ -25,24 +26,23 @@ function hasWaterRelief(world: World, x: number, y: number): boolean {
 }
 
 /** Derive small cumulative survival costs from local seeded conditions. */
-export function getEnvironmentalStress(
-  creature: Pick<Creature, 'x' | 'y' | 'traits'>,
-  world: World
+export function getCellEnvironmentalStress(
+  traits: Traits,
+  cell: Pick<Cell, 'temperature' | 'moisture'>,
+  waterRelief: boolean
 ): EnvironmentalStress {
-  const cell = world.getCell(creature.x, creature.y);
   const coldCost = Math.max(0, 0.28 - cell.temperature) * 0.4;
   const heatCost = Math.max(0, cell.temperature - 0.78) * 0.3;
-  const waterRelief = hasWaterRelief(world, creature.x, creature.y);
-  const thermalTolerance = expressed(creature.traits.thermalTolerance);
-  const waterRetention = expressed(creature.traits.waterRetention);
-  const aquaticAffinity = expressed(creature.traits.aquaticAffinity);
-  const terrainGrip = expressed(creature.traits.terrainGrip);
+  const thermalTolerance = expressed(traits.thermalTolerance);
+  const waterRetention = expressed(traits.waterRetention);
+  const aquaticAffinity = expressed(traits.aquaticAffinity);
+  const terrainGrip = expressed(traits.terrainGrip);
   const thermalProtection = 1 - thermalTolerance * 0.75;
   const retentionProtection = 1 - waterRetention * 0.75;
   const hydrationCost = waterRelief
     ? 0
     : Math.max(0, 0.25 - cell.moisture) * 0.3 * retentionProtection;
-  const sizeScale = Math.max(0.5, Math.min(2, creature.traits.size));
+  const sizeScale = Math.max(0.5, Math.min(2, traits.size));
   const temperatureCost = (coldCost + heatCost) * sizeScale * thermalProtection;
   const adaptationCost = (
     thermalTolerance + waterRetention + aquaticAffinity + terrainGrip
@@ -54,6 +54,18 @@ export function getEnvironmentalStress(
     totalCost: Math.min(0.2, temperatureCost + hydrationCost * sizeScale + adaptationCost),
     waterRelief,
   };
+}
+
+/** Derive small cumulative survival costs from local seeded conditions. */
+export function getEnvironmentalStress(
+  creature: Pick<Creature, 'x' | 'y' | 'traits'>,
+  world: World
+): EnvironmentalStress {
+  return getCellEnvironmentalStress(
+    creature.traits,
+    world.getCell(creature.x, creature.y),
+    hasWaterRelief(world, creature.x, creature.y)
+  );
 }
 
 export function applyEnvironmentalStress(creature: Creature, world: World): EnvironmentalStress {

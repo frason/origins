@@ -3,6 +3,12 @@ import type { CreatureSnapshot } from '../state/store';
 import { DEFAULT_TRAITS } from '../utils/traits';
 import { buildTileLineageSummaries } from '../ui/tileInspectionModel';
 
+const tundra = {
+  energy: 10, nutrients: 10, producerBiomass: 0, toxicity: 0,
+  elevation: 0.5, moisture: 0, temperature: 0,
+  biome: 'tundra' as const, producerArchetype: 'frost-lichen' as const,
+};
+
 function creature(id: string, energy: number, size: number, metabolism: number): CreatureSnapshot {
   return {
     id, speciesId: 'grazer', lineageId: 'grazer-root', parentId: null,
@@ -34,5 +40,16 @@ describe('tile lineage inspection model', () => {
     const [summary] = buildTileLineageSummaries([creature('one', 80, 2, 1)], 3, 0);
     expect(summary.localContext).not.toContain('scavenging');
     expect(summary.localContext).toContain('high energy demand');
+  });
+
+  it('adds lineage-specific habitat pressure to tile observations', () => {
+    const [summary] = buildTileLineageSummaries(
+      [creature('one', 80, 1, 1)],
+      0,
+      0,
+      { cell: tundra, waterRelief: false }
+    );
+    expect(summary.habitat?.rating).toBe('harsh');
+    expect(summary.habitat?.summary).toContain('cold exposure');
   });
 });

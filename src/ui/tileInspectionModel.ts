@@ -1,6 +1,7 @@
 import { lineageDisplayName } from '../simulation/speciesNames';
-import type { CreatureSnapshot } from '../state/store';
+import type { CellSnapshot, CreatureSnapshot } from '../state/store';
 import type { EnergyStrategy } from '../utils/traits';
+import { describeHabitatSuitability, type HabitatSuitability } from './habitatSuitability';
 
 export interface TileLineageSummary {
   speciesId: string;
@@ -12,6 +13,7 @@ export interface TileLineageSummary {
   averageAge: number;
   metabolicLoad: number;
   localContext: string;
+  habitat?: HabitatSuitability;
 }
 
 function contextFor(
@@ -45,7 +47,8 @@ function contextFor(
 export function buildTileLineageSummaries(
   creatures: CreatureSnapshot[],
   corpseCount: number,
-  producerBiomass: number
+  producerBiomass: number,
+  habitat?: { cell: CellSnapshot; waterRelief: boolean }
 ): TileLineageSummary[] {
   const groups = new Map<string, CreatureSnapshot[]>();
   for (const creature of creatures) {
@@ -76,6 +79,9 @@ export function buildTileLineageSummaries(
           corpseCount,
           producerBiomass
         ),
+        habitat: habitat
+          ? describeHabitatSuitability(habitat.cell, representative.traits, habitat.waterRelief)
+          : undefined,
       };
     })
     .sort((a, b) => b.population - a.population || a.name.localeCompare(b.name));

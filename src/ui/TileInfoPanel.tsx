@@ -28,7 +28,18 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
   );
   const living = tileCreatures.filter((creature) => creature.lifecycleState === 'alive');
   const corpses = tileCreatures.filter((creature) => creature.lifecycleState !== 'alive');
-  const lineages = buildTileLineageSummaries(living, corpses.length, cell.producerBiomass);
+  const waterRelief = worldState.cells.some((candidate, index) => {
+    const x = index % worldState.width;
+    const y = Math.floor(index / worldState.width);
+    return Math.max(Math.abs(x - selectedTile.x), Math.abs(y - selectedTile.y)) <= 1
+      && (candidate.biome === 'ocean' || candidate.biome === 'wetland');
+  });
+  const lineages = buildTileLineageSummaries(
+    living,
+    corpses.length,
+    cell.producerBiomass,
+    { cell, waterRelief }
+  );
 
   return (
     <aside
@@ -119,11 +130,18 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
                   <div><dt>Energy load</dt><dd>{lineage.metabolicLoad.toFixed(2)}×</dd></div>
                 </dl>
                 <p className="tile-lineage__context">{lineage.localContext}</p>
+                {lineage.habitat && (
+                  <p className={`tile-lineage__context sim-status--${lineage.habitat.rating === 'favorable' ? 'positive' : 'warning'}`}>
+                    <strong>{lineage.habitat.summary}</strong>{' '}
+                    Climate cost: {lineage.habitat.stressPerTick.toFixed(3)} energy/tick.
+                    {lineage.habitat.adaptations.length > 0 && ` Expressed adaptations: ${lineage.habitat.adaptations.join(', ')}.`}
+                  </p>
+                )}
               </article>
             );
           })}
           <p className="tile-inspector__mechanics-note">
-            Current survival reflects food access, energy use, and movement. Biome-specific creature fitness is planned separately.
+            Habitat ratings combine local temperature, moisture, nearby water, and each lineage's expressed adaptations.
           </p>
         </section>
 

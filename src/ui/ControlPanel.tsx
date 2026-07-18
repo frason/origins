@@ -11,6 +11,7 @@ import {
   MAX_SPECIES_NAME_LENGTH,
   suggestedIntroducedSpeciesName,
 } from '../simulation/speciesNames';
+import { describeFounderSuitability } from './habitatSuitability';
 
 interface ControlPanelProps {
   onReset?: () => void;
@@ -68,6 +69,7 @@ export default function ControlPanel({
   const isRunning = useStore((state) => state.isRunning);
   const speed = useStore((state) => state.speed);
   const constants = useStore((state) => state.constants);
+  const selectedTile = useStore((state) => state.selectedTile);
   const setRunning = useStore((state) => state.setRunning);
   const setSpeed = useStore((state) => state.setSpeed);
   const updateConstants = useStore((state) => state.updateConstants);
@@ -96,6 +98,26 @@ export default function ControlPanel({
     introductionStrategy,
     introductionNumber
   );
+  const selectedCell = world && selectedTile
+    ? world.cells[selectedTile.y * world.width + selectedTile.x]
+    : null;
+  const introductionSuitability = selectedCell && selectedTile && world
+    ? describeFounderSuitability(
+        selectedCell,
+        introductionStrategy,
+        world.creatures.filter((creature) =>
+          creature.lifecycleState === 'alive'
+          && creature.x === selectedTile.x
+          && creature.y === selectedTile.y
+        ).length,
+        world.cells.some((candidate, index) => {
+          const x = index % world.width;
+          const y = Math.floor(index / world.width);
+          return Math.max(Math.abs(x - selectedTile.x), Math.abs(y - selectedTile.y)) <= 1
+            && (candidate.biome === 'ocean' || candidate.biome === 'wetland');
+        })
+      )
+    : null;
 
   useEffect(() => setSeedDraft(String(worldSeed)), [worldSeed]);
   useEffect(() => {
@@ -261,6 +283,11 @@ export default function ControlPanel({
             <section className="control-panel__section" aria-labelledby="introduce-species-title">
               <h4 className="control-panel__section-title" id="introduce-species-title">Introduce species</h4>
               <p className="control-panel__help">Select a habitable tile, then seed three founders nearby.</p>
+              {introductionSuitability && (
+                <p className="control-panel__help sim-status--warning">
+                  Selected tile: {introductionSuitability}
+                </p>
+              )}
               <label className="control-panel__field">
                 <span>Species name</span>
                 <input
