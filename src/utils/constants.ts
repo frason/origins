@@ -193,4 +193,5 @@ export const BALANCED_LONGEVITY_PRESET: Readonly<Partial<SimulationConstants>> =
   reproductionMaturityAgeTicks: 4,
   reproductionCooldownTicks: 3,
   maxCreatureAgeTicks: 2000,
+  defaultMutationRate: 0.2,
 };

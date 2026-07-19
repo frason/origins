@@ -74,8 +74,11 @@ export function feedOnProducer(
 
   // Calculate energy gained with feeding efficiency
   const energyDensity = useArchetypeTraits ? traits.energyDensity : 1;
-  const transferRate = feedingEfficiency * energyDensity;
-  const biomassConsumed = transferRate > 0 ? edibleBiomass : 0;
+  const transferRate = Math.max(0, Math.min(1, feedingEfficiency)) * energyDensity;
+  const energyHeadroom = Math.max(0, getEnergyCapacity(creature) - creature.energy);
+  const biomassConsumed = transferRate > 0
+    ? Math.min(edibleBiomass, energyHeadroom / transferRate)
+    : 0;
   const energyGained = biomassConsumed * transferRate;
 
   // Transfer energy to creature

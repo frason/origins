@@ -7,6 +7,7 @@ import {
   feedOnCreature,
   feedOnCorpse,
   canReproduce,
+  getEnergyCapacity,
   payReproductionCost,
 } from '../simulation/energy';
 import {
@@ -842,7 +843,8 @@ describe('Energy Functions', () => {
 
       // Pay cost
       payReproductionCost(creature);
-      expect(creature.energy).toBe(100 + 300 * FEEDING_EFFICIENCY - REPRODUCTION_ENERGY_COST);
+      expect(creature.energy).toBe(getEnergyCapacity(creature) - REPRODUCTION_ENERGY_COST);
+      expect(world.getCell(0, 0).producerBiomass).toBeGreaterThan(0);
     });
 
     it('should handle creature lifecycle: birth -> growth -> reproduction -> death', () => {
