@@ -7,8 +7,7 @@ import { buildDemoEngine } from './demoWorld';
 import { getEnergyCapacity } from './energy';
 import { tickEngine } from './engine';
 import type { EngineState } from './engine';
-import { getBiomeProductivity } from './producer';
-import { getProducerTraits } from './producerTypes';
+import { calculateProducerGrowth } from './producer';
 import type { World } from './world';
 
 const STRATEGIES: EnergyStrategy[] = ['herbivore', 'carnivore', 'omnivore', 'scavenger'];
@@ -132,12 +131,9 @@ export function estimateProducerRegrowth(
   for (let y = 0; y < world.height; y++) {
     for (let x = 0; x < world.width; x++) {
       const cell = world.getCell(x, y);
-      const carryingCapacity = getProducerTraits(cell.producerArchetype).carryingCapacity;
-      const potentialGrowth = constants.producerGrowthRate * cell.energy
-        * getBiomeProductivity(cell.biome) / (1 + Math.max(0, cell.toxicity));
       regrowth += Math.max(
         0,
-        Math.min(carryingCapacity, cell.producerBiomass + potentialGrowth) - cell.producerBiomass
+        calculateProducerGrowth(cell, 'solar', constants.producerGrowthRate, true).growth
       );
     }
   }

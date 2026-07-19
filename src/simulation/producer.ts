@@ -1,5 +1,4 @@
-import { World } from './world';
-import type { Biome } from './world';
+import { World, type Biome, type Cell } from './world';
 import { getProducerArchetype, getProducerTraits } from './producerTypes';
 
 import { PRODUCER_GROWTH_RATE } from '../utils/constants';
@@ -50,12 +49,46 @@ export function getBiomeProductivity(biome: Biome): number {
 export const MAX_PRODUCER_BIOMASS = 100;
 
 /**
+ * Calculate one cell's bounded growth without mutating it. Producer growth is
+ * fastest after depletion and slows continuously as local biomass approaches
+ * the relevant carrying capacity.
+ */
+export function calculateProducerGrowth(
+  cell: Cell,
+  energyType: EnergyType,
+  growthRate: number = PRODUCER_GROWTH_RATE,
+  useBiomeProductivity: boolean = false
+): { growth: number; carryingCapacity: number; nextBiomass: number } {
+  const energyMultiplier = ENERGY_TYPE_MULTIPLIERS[energyType];
+  const biomeMultiplier = useBiomeProductivity ? getBiomeProductivity(cell.biome) : 1;
+  const toxicityMultiplier = 1 / (1 + Math.max(0, cell.toxicity));
+  const carryingCapacity = useBiomeProductivity
+    ? getProducerTraits(cell.producerArchetype).carryingCapacity
+    : MAX_PRODUCER_BIOMASS;
+  const capacityRemaining = Math.max(
+    0,
+    1 - Math.max(0, cell.producerBiomass) / carryingCapacity
+  );
+  const potentialGrowth = growthRate * cell.energy * energyMultiplier
+    * biomeMultiplier * toxicityMultiplier * capacityRemaining;
+  const nextBiomass = Math.max(
+    0,
+    Math.min(carryingCapacity, cell.producerBiomass + potentialGrowth)
+  );
+  return {
+    growth: nextBiomass - cell.producerBiomass,
+    carryingCapacity,
+    nextBiomass,
+  };
+}
+
+/**
  * Update all cell producer biomass based on available energy and energy type.
  *
  * Per tick, each cell's producer biomass grows by:
- *   growth = PRODUCER_GROWTH_RATE × cell.energy × energyTypeMultiplier
+ *   growth = input × biome × toxicity × (1 - biomass / carryingCapacity)
  *
- * Growth is capped at MAX_PRODUCER_BIOMASS to prevent unbounded growth.
+ * Growth is capped at the global or producer-archetype carrying capacity.
  * If a cell has zero energy, no biomass growth occurs.
  *
  * @param world - World instance to update
@@ -67,24 +100,14 @@ export function growProducers(
   growthRate: number = PRODUCER_GROWTH_RATE,
   useBiomeProductivity: boolean = false
 ): void {
-  const multiplier = ENERGY_TYPE_MULTIPLIERS[energyType];
-
   for (let y = 0; y < world.height; y++) {
     for (let x = 0; x < world.width; x++) {
       const cell = world.getCell(x, y);
 
-      // Calculate growth amount: rate × energy × multiplier
-      const biomeMultiplier = useBiomeProductivity ? getBiomeProductivity(cell.biome) : 1;
-      const toxicityMultiplier = 1 / (1 + Math.max(0, cell.toxicity));
-      const growth = growthRate * cell.energy * multiplier * biomeMultiplier * toxicityMultiplier;
-
-      // Update biomass and cap at maximum
-      const carryingCapacity = useBiomeProductivity
-        ? getProducerTraits(cell.producerArchetype).carryingCapacity
-        : MAX_PRODUCER_BIOMASS;
-      const newBiomass = Math.min(cell.producerBiomass + growth, carryingCapacity);
-
-      world.setCell(x, y, { producerBiomass: newBiomass });
+      const growth = calculateProducerGrowth(
+        cell, energyType, growthRate, useBiomeProductivity
+      );
+      world.setCell(x, y, { producerBiomass: growth.nextBiomass });
     }
   }
 }

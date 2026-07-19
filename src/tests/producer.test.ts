@@ -5,6 +5,7 @@ import {
   ENERGY_TYPE_MULTIPLIERS,
   MAX_PRODUCER_BIOMASS,
   BIOME_PRODUCTIVITY,
+  calculateProducerGrowth,
   getBiomeProductivity,
 } from '../simulation/producer';
 import { PRODUCER_GROWTH_RATE } from '../utils/constants';
@@ -41,6 +42,43 @@ describe('Producer Growth Logic', () => {
         for (const productivity of Object.values(BIOME_PRODUCTIVITY)) {
           expect(productivity).toBeGreaterThan(0);
         }
+      });
+
+      it('slows growth continuously as local biomass approaches capacity', () => {
+        const sparse = new World(1, 1);
+        const dense = new World(1, 1);
+        sparse.setCell(0, 0, { energy: 10, producerBiomass: 10 });
+        dense.setCell(0, 0, { energy: 10, producerBiomass: 90 });
+
+        const sparseGrowth = calculateProducerGrowth(
+          sparse.getCell(0, 0), 'solar', PRODUCER_GROWTH_RATE
+        );
+        const denseGrowth = calculateProducerGrowth(
+          dense.getCell(0, 0), 'solar', PRODUCER_GROWTH_RATE
+        );
+
+        expect(sparseGrowth.growth).toBeCloseTo(0.9, 5);
+        expect(denseGrowth.growth).toBeCloseTo(0.1, 5);
+        expect(sparseGrowth.growth).toBeGreaterThan(denseGrowth.growth);
+      });
+
+      it('reports biome-specific capacity without mutating the cell', () => {
+        const world = new World(1, 1);
+        world.setCell(0, 0, {
+          biome: 'tundra',
+          producerArchetype: 'frost-lichen',
+          energy: 10,
+          producerBiomass: 20,
+        });
+        const before = world.getCell(0, 0);
+
+        const result = calculateProducerGrowth(
+          before, 'solar', PRODUCER_GROWTH_RATE, true
+        );
+
+        expect(result.carryingCapacity).toBe(45);
+        expect(result.nextBiomass).toBeGreaterThan(before.producerBiomass);
+        expect(world.getCell(0, 0)).toEqual(before);
       });
 
       it('makes lush biomes more productive than harsh biomes', () => {
@@ -120,12 +158,12 @@ describe('Producer Growth Logic', () => {
         // Second tick
         growProducers(world, 'solar');
         cell = world.getCell(5, 5);
-        expect(cell.producerBiomass).toBeCloseTo(2.0, 5);
+        expect(cell.producerBiomass).toBeCloseTo(1.99, 5);
 
         // Third tick
         growProducers(world, 'solar');
         cell = world.getCell(5, 5);
-        expect(cell.producerBiomass).toBeCloseTo(3.0, 5);
+        expect(cell.producerBiomass).toBeCloseTo(2.9701, 5);
       });
     });
 
@@ -147,8 +185,8 @@ describe('Producer Growth Logic', () => {
         growProducers(world, 'solar');
 
         const cell = world.getCell(5, 5);
-        // Growth = 0.1 × (-10) × 1.0 = -1.0, so biomass becomes 4.0
-        expect(cell.producerBiomass).toBeCloseTo(4.0, 5);
+        // Negative energy still reduces biomass, moderated by current density.
+        expect(cell.producerBiomass).toBeCloseTo(4.05, 5);
       });
     });
 
@@ -169,14 +207,14 @@ describe('Producer Growth Logic', () => {
         expect(cell.producerBiomass).toBe(MAX_PRODUCER_BIOMASS);
       });
 
-      it('should cap growth when approaching maximum', () => {
+      it('should slow growth rather than snapping biomass to capacity', () => {
         const world = new World(10, 10);
         world.setCell(5, 5, { energy: 10, producerBiomass: MAX_PRODUCER_BIOMASS - 0.5 });
 
         growProducers(world, 'solar');
 
         const cell = world.getCell(5, 5);
-        expect(cell.producerBiomass).toBe(MAX_PRODUCER_BIOMASS);
+        expect(cell.producerBiomass).toBeCloseTo(99.505, 5);
       });
 
       it('should respect cap even with high energy and high multiplier', () => {
@@ -256,7 +294,7 @@ describe('Producer Growth Logic', () => {
         growProducers(world, 'solar');
 
         const cell = world.getCell(5, 5);
-        expect(cell.producerBiomass).toBeCloseTo(3.5, 5);
+        expect(cell.producerBiomass).toBeCloseTo(3.475, 5);
       });
 
       it('should preserve other cell properties during growth', () => {
@@ -273,7 +311,7 @@ describe('Producer Growth Logic', () => {
         const cell = world.getCell(5, 5);
         expect(cell.energy).toBe(10); // Energy unchanged
         expect(cell.nutrients).toBe(25.5); // Nutrients unchanged
-        expect(cell.producerBiomass).toBeCloseTo(5 + 1 / 1.1, 5); // Toxicity suppresses growth
+        expect(cell.producerBiomass).toBeCloseTo(5 + (1 / 1.1) * 0.95, 5);
         expect(cell.toxicity).toBe(0.1); // Toxicity unchanged
       });
 
