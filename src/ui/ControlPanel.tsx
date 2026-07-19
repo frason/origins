@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/store';
 import { BALANCED_LONGEVITY_PRESET } from '../utils/constants';
 import type { EnergyStrategy } from '../utils/traits';
@@ -25,26 +25,103 @@ interface ControlPanelProps {
   onRestoreCheckpoint?: (tick: number) => string | null;
 }
 
-function GodModeSlider({ config, disabled }: { config: GodModeSliderConfig; disabled: boolean }) {
+function GodModeHelp({
+  config,
+  open,
+  onToggle,
+  onClose,
+}: {
+  config: GodModeSliderConfig;
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+}) {
+  const containerRef = useRef<HTMLSpanElement>(null);
+  const popoverId = `god-mode-${config.key}-help`;
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) onClose();
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      onClose();
+      containerRef.current?.querySelector('button')?.focus();
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [onClose, open]);
+
+  return (
+    <span className="control-panel__control-help" ref={containerRef}>
+      <button
+        className="control-panel__help-trigger"
+        type="button"
+        aria-label={`About ${config.label}`}
+        aria-expanded={open}
+        aria-controls={popoverId}
+        onClick={onToggle}
+      >
+        ?
+      </button>
+      {open && (
+        <span
+          className="control-panel__help-popover"
+          id={popoverId}
+          role="dialog"
+          aria-label={`About ${config.label}`}
+        >
+          <strong>{config.label}</strong>
+          <span>{config.description}</span>
+          <button className="control-panel__help-close" type="button" onClick={onClose}>
+            Close
+          </button>
+        </span>
+      )}
+    </span>
+  );
+}
+
+function GodModeSlider({
+  config,
+  disabled,
+  helpOpen,
+  onHelpToggle,
+  onHelpClose,
+}: {
+  config: GodModeSliderConfig;
+  disabled: boolean;
+  helpOpen: boolean;
+  onHelpToggle: () => void;
+  onHelpClose: () => void;
+}) {
   const value = useStore((state) => state.constants[config.key]);
   const updateConstants = useStore((state) => state.updateConstants);
   const displayValue = config.formatter ? config.formatter(value) : Math.round(value * 100) / 100;
   const defaultValue = defaultValueFor(config);
   const listId = `god-mode-${config.key}-defaults`;
 
+  const inputId = `god-mode-${config.key}`;
+
   return (
-    <label className="control-panel__slider">
+    <div className="control-panel__slider">
       <span className="control-panel__slider-heading">
-        <span>{config.label}</span>
-        {config.description && (
-          <details className="control-panel__control-help">
-            <summary aria-label={`About ${config.label}`}>?</summary>
-            <span>{config.description}</span>
-          </details>
-        )}
+        <label htmlFor={inputId}>{config.label}</label>
+        <GodModeHelp
+          config={config}
+          open={helpOpen}
+          onToggle={onHelpToggle}
+          onClose={onHelpClose}
+        />
         <output className="control-panel__slider-value sim-data">{displayValue}</output>
       </span>
       <input
+        id={inputId}
         className="control-panel__range"
         type="range"
         disabled={disabled}
@@ -59,7 +136,7 @@ function GodModeSlider({ config, disabled }: { config: GodModeSliderConfig; disa
         <option value={defaultValue} label={`Default ${defaultValue}`} />
       </datalist>
       <span className="control-panel__default sim-data">Default: {defaultValue}</span>
-    </label>
+    </div>
   );
 }
 
@@ -93,6 +170,7 @@ export default function ControlPanel({
   const [recommendationMessage, setRecommendationMessage] = useState<string | null>(null);
   const [checkpointDraft, setCheckpointDraft] = useState('');
   const [checkpointMessage, setCheckpointMessage] = useState<string | null>(null);
+  const [openHelpKey, setOpenHelpKey] = useState<string | null>(null);
 
   const recommendations = showGodMode
     ? getGodModeRecommendations(
@@ -244,7 +322,10 @@ export default function ControlPanel({
         type="button"
         aria-expanded={showGodMode}
         aria-controls="god-mode-controls"
-        onClick={() => setShowGodMode((visible) => !visible)}
+        onClick={() => {
+          setShowGodMode((visible) => !visible);
+          setOpenHelpKey(null);
+        }}
       >
         {showGodMode ? 'Hide God Mode' : 'Open God Mode'}
       </button>
@@ -362,7 +443,16 @@ export default function ControlPanel({
                   <span className="control-panel__group-count sim-data">{group.controls.length} controls</span>
                 </summary>
                 <p className="control-panel__help">{group.description}</p>
-                {group.controls.map((config) => <GodModeSlider config={config} disabled={replayActive} key={config.key} />)}
+                {group.controls.map((config) => (
+                  <GodModeSlider
+                    config={config}
+                    disabled={replayActive}
+                    helpOpen={openHelpKey === config.key}
+                    key={config.key}
+                    onHelpClose={() => setOpenHelpKey(null)}
+                    onHelpToggle={() => setOpenHelpKey((key) => nextOpenHelpKey(key, config.key))}
+                  />
+                ))}
               </details>
             ))}
           </div>
@@ -370,4 +460,8 @@ export default function ControlPanel({
       )}
     </section>
   );
+}
+
+export function nextOpenHelpKey(currentKey: string | null, requestedKey: string): string | null {
+  return currentKey === requestedKey ? null : requestedKey;
 }

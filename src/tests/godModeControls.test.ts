@@ -28,6 +28,12 @@ describe('grouped God Mode control schema', () => {
     expect(adaptive.every((control) => Boolean(control.description))).toBe(true);
   });
 
+  it('provides a substantive explanation for every adjustable control', () => {
+    for (const control of GOD_MODE_GROUPS.flatMap((group) => group.controls)) {
+      expect(control.description.length, control.label).toBeGreaterThan(60);
+    }
+  });
+
   it('keeps every default tick inside its supported slider range', () => {
     for (const control of GOD_MODE_GROUPS.flatMap((group) => group.controls)) {
       const value = defaultValueFor(control);
