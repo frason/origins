@@ -95,23 +95,33 @@ export function buildStarterCreatures(
   for (const spec of SUPPORT_SPECS) {
     const anchor = herbivorePositions[randInt(rng, 0, herbivorePositions.length)];
     const position = takeNearbyPosition(rng, anchor, habitable, occupied);
+    const strategyTraits = spec.strategy === 'scavenger'
+      ? { ...DEFAULT_TRAITS, energyStrategy: spec.strategy, metabolism: 0.5, visionRange: 8 }
+      : { ...DEFAULT_TRAITS, energyStrategy: spec.strategy, metabolism: 0.75 };
     const founder = new Creature({
         speciesId: spec.speciesId,
         lineageId: spec.speciesId,
         parentId: null,
-        traits: { ...DEFAULT_TRAITS, energyStrategy: spec.strategy },
+        traits: strategyTraits,
         ...position,
         energy: spec.energy,
       });
     creatures.push(founder);
     if (spec.strategy === 'scavenger') {
+      const carrionCandidates = habitable.filter((candidate) => {
+        const distance = Math.max(
+          Math.abs(candidate.x - position.x), Math.abs(candidate.y - position.y)
+        );
+        return distance >= 4 && distance <= 6;
+      });
       for (let index = 0; index < STARTER_CORPSE_COUNT; index++) {
+        const carrionPosition = takeRandomPosition(rng, carrionCandidates, occupied);
         creatures.push(new Creature({
           speciesId: spec.speciesId,
           lineageId: `${spec.speciesId}_starter_carrion`,
           parentId: null,
           traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore' },
-          ...position,
+          ...carrionPosition,
           energy: 120,
           lifecycleState: 'dead',
           corpseDecayTicks: Math.max(1, corpseDecayTicks),

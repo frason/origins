@@ -517,6 +517,58 @@ export function getSearchTarget(creature: Creature, world: World): { x: number; 
   };
 }
 
+/** Follow deterministic distant food cues before falling back to undirected roaming. */
+export function findMigrationFoodTarget(
+  creature: Creature,
+  world: World,
+  allCreatures: Creature[]
+): { x: number; y: number } | null {
+  const strategy = creature.traits.energyStrategy;
+  if (strategy === 'herbivore') return null;
+  const range = Math.max(
+    Math.ceil(creature.traits.visionRange) + 1,
+    Math.min(36, Math.ceil(creature.traits.visionRange * 6))
+  );
+  const reachable = reachableTerrainCells(
+    world, creature.x, creature.y, range, creature.traits
+  );
+  const candidates: Array<{ x: number; y: number; value: number; distance: number }> = [];
+
+  if (strategy === 'omnivore') {
+    for (const coordinate of reachable) {
+      const [x, y] = coordinate.split(',').map(Number);
+      const biomass = world.getCell(x, y).producerBiomass;
+      if (biomass <= 1) continue;
+      candidates.push({
+        x, y, value: biomass,
+        distance: chebyshevDistance(creature.x, creature.y, x, y),
+      });
+    }
+  }
+
+  for (const other of allCreatures) {
+    if (other.id === creature.id || !reachable.has(`${other.x},${other.y}`)) continue;
+    const corpseFood = other.lifecycleState !== 'alive'
+      && (strategy === 'scavenger' || strategy === 'omnivore')
+      && other.corpseDecayTicks > 0;
+    const preyFood = other.lifecycleState === 'alive'
+      && (strategy === 'carnivore' || strategy === 'omnivore')
+      && ['herbivore', 'omnivore', 'scavenger'].includes(other.traits.energyStrategy);
+    if (!corpseFood && !preyFood) continue;
+    candidates.push({
+      x: other.x, y: other.y,
+      value: corpseFood ? Math.max(1, other.energy) : 50,
+      distance: chebyshevDistance(creature.x, creature.y, other.x, other.y),
+    });
+  }
+
+  candidates.sort((a, b) =>
+    (b.value / (b.distance + 1)) - (a.value / (a.distance + 1))
+      || a.distance - b.distance || a.y - b.y || a.x - b.x
+  );
+  return candidates[0] ? { x: candidates[0].x, y: candidates[0].y } : null;
+}
+
 /**
  * Apply movement to a creature based on its decision.
  * Mutates creature's x and y position.
@@ -562,7 +614,8 @@ export function applyMovement(
     ];
     targetLocation = findNearestTarget(creature.x, creature.y, allFoodTargets);
   } else if (decision === 'search') {
-    targetLocation = getSearchTarget(creature, world);
+    targetLocation = findMigrationFoodTarget(creature, world, allCreatures)
+      ?? getSearchTarget(creature, world);
   } else if (decision === 'flee') {
     // Move away from nearest threat
     if (scan.threats.length > 0) {

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { Creature, getSearchTarget } from '../simulation/creature';
+import { Creature, findMigrationFoodTarget, getSearchTarget } from '../simulation/creature';
 import { createEngine, tickEngine } from '../simulation/engine';
 import { DEFAULT_TRAITS } from '../utils/traits';
 
@@ -41,5 +41,17 @@ describe('consumer foraging', () => {
     expect(engine.creatures[0].lifecycleState).toBe('alive');
     expect(engine.world.getCell(target.x, target.y).producerBiomass).toBeLessThan(50);
     expect(engine.creatures[0].energy).toBeGreaterThan(80);
+  });
+
+  it('uses reachable distant food cues before random roaming', () => {
+    const herbivore = new Creature({
+      speciesId: 'grazer', lineageId: 'grazer', parentId: null,
+      traits: { ...DEFAULT_TRAITS, energyStrategy: 'omnivore', visionRange: 3 },
+      x: 10, y: 10, energy: 50,
+    });
+    const engine = createEngine(8, [herbivore], 30, 30);
+    engine.world.setCell(18, 10, { producerBiomass: 80 });
+    expect(findMigrationFoodTarget(herbivore, engine.world, [herbivore]))
+      .toEqual({ x: 18, y: 10 });
   });
 });

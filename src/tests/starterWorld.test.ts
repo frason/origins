@@ -43,7 +43,7 @@ describe('starter world placement', () => {
     }
   });
 
-  it('starts scavengers with deterministic carrion on their tile', () => {
+  it('starts scavengers with deterministic carrion within foraging range', () => {
     const creatures = buildStarterCreatures(12345, 100, 100, 40);
     const scavenger = creatures.find(
       (creature) => creature.lifecycleState === 'alive'
@@ -51,10 +51,25 @@ describe('starter world placement', () => {
     );
     const carrion = creatures.filter(
       (creature) => creature.lifecycleState === 'dead'
-        && creature.x === scavenger?.x && creature.y === scavenger?.y
     );
     expect(carrion).toHaveLength(2);
     expect(carrion.every((corpse) => corpse.corpseDecayTicks === 40)).toBe(true);
+    expect(carrion.every((corpse) => Math.max(
+      Math.abs(corpse.x - (scavenger?.x ?? 0)),
+      Math.abs(corpse.y - (scavenger?.y ?? 0))
+    ) <= 6)).toBe(true);
+  });
+
+  it('gives support strategies differentiated starter energy budgets', () => {
+    const living = buildStarterCreatures(12345, 100, 100)
+      .filter((creature) => creature.lifecycleState === 'alive');
+    const metabolism = (strategy: string) => living.find(
+      (creature) => creature.traits.energyStrategy === strategy
+    )?.traits.metabolism;
+    expect(metabolism('herbivore')).toBe(1);
+    expect(metabolism('omnivore')).toBe(0.75);
+    expect(metabolism('carnivore')).toBe(0.75);
+    expect(metabolism('scavenger')).toBe(0.5);
   });
 
   it('keeps consumers close enough to at least one starter herbivore', () => {
