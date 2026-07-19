@@ -9,7 +9,9 @@ export function buildDemoEngine(seed: number, constants: SimulationConstants): E
   Creature.resetIdCounter();
   const engine = createEngine(
     seed,
-    buildStarterCreatures(seed, constants.worldWidth, constants.worldHeight),
+    buildStarterCreatures(
+      seed, constants.worldWidth, constants.worldHeight, constants.corpseDecayDurationTicks
+    ),
     constants.worldWidth,
     constants.worldHeight,
     constants

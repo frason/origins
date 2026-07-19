@@ -44,6 +44,16 @@ describe('adaptive reproductive timing', () => {
     expect(late.costMultiplier).toBeGreaterThan(1);
   });
 
+  it('provides a weaker low-energy response before death evidence accumulates', () => {
+    const timing = getAdaptiveReproductionTiming(
+      'founder', 20, [], SIMULATION_CONSTANTS, undefined, 0.6
+    );
+    expect(timing.expectedLifespan).toBeNull();
+    expect(timing.urgency).toBeGreaterThan(0);
+    expect(timing.energyThreshold).toBeLessThan(SIMULATION_CONSTANTS.reproductionEnergyThreshold);
+    expect(timing.costMultiplier).toBeGreaterThan(1);
+  });
+
   it('is bounded and replay-identical for extinct history and extreme controls', () => {
     const events: SimEvent[] = [
       ...deaths('extinct', [1, 2, 3, 4, 5]),

@@ -26,15 +26,16 @@ describe('starter world placement', () => {
   it('uses unique habitable land tiles spread across the world', () => {
     const seed = 12345;
     const creatures = buildStarterCreatures(seed, 100, 100);
+    const living = creatures.filter((creature) => creature.lifecycleState === 'alive');
     const terrain = generateTerrain(100, 100, seed);
-    const uniqueTiles = new Set(creatures.map((creature) => `${creature.x},${creature.y}`));
-    const herbivores = creatures.filter(
+    const uniqueTiles = new Set(living.map((creature) => `${creature.x},${creature.y}`));
+    const herbivores = living.filter(
       (creature) => creature.traits.energyStrategy === 'herbivore'
     );
     const xValues = herbivores.map((creature) => creature.x);
     const yValues = herbivores.map((creature) => creature.y);
 
-    expect(uniqueTiles.size).toBe(creatures.length);
+    expect(uniqueTiles.size).toBe(living.length);
     expect(Math.max(...xValues) - Math.min(...xValues)).toBeGreaterThan(50);
     expect(Math.max(...yValues) - Math.min(...yValues)).toBeGreaterThan(50);
     for (const creature of creatures) {
@@ -42,13 +43,29 @@ describe('starter world placement', () => {
     }
   });
 
+  it('starts scavengers with deterministic carrion on their tile', () => {
+    const creatures = buildStarterCreatures(12345, 100, 100, 40);
+    const scavenger = creatures.find(
+      (creature) => creature.lifecycleState === 'alive'
+        && creature.traits.energyStrategy === 'scavenger'
+    );
+    const carrion = creatures.filter(
+      (creature) => creature.lifecycleState === 'dead'
+        && creature.x === scavenger?.x && creature.y === scavenger?.y
+    );
+    expect(carrion).toHaveLength(2);
+    expect(carrion.every((corpse) => corpse.corpseDecayTicks === 40)).toBe(true);
+  });
+
   it('keeps consumers close enough to at least one starter herbivore', () => {
     const creatures = buildStarterCreatures(12345, 100, 100);
     const herbivores = creatures.filter(
-      (creature) => creature.traits.energyStrategy === 'herbivore'
+      (creature) => creature.lifecycleState === 'alive'
+        && creature.traits.energyStrategy === 'herbivore'
     );
     const consumers = creatures.filter(
-      (creature) => creature.traits.energyStrategy !== 'herbivore'
+      (creature) => creature.lifecycleState === 'alive'
+        && creature.traits.energyStrategy !== 'herbivore'
     );
 
     for (const consumer of consumers) {

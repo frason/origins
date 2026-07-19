@@ -15,6 +15,7 @@ interface StarterSpec {
 }
 
 const HERBIVORE_COUNT = 14;
+const STARTER_CORPSE_COUNT = 2;
 const SUPPORT_SPECS: StarterSpec[] = [
   { speciesId: 'omnivore_001', strategy: 'omnivore', energy: 160 },
   { speciesId: 'omnivore_001', strategy: 'omnivore', energy: 160 },
@@ -58,7 +59,8 @@ function takeNearbyPosition(
 export function buildStarterCreatures(
   seed: number,
   width: number,
-  height: number
+  height: number,
+  corpseDecayTicks: number = 30
 ): Creature[] {
   const rng = createRng(seed ^ 0x51a7e2);
   const terrain = generateTerrain(width, height, seed);
@@ -93,16 +95,29 @@ export function buildStarterCreatures(
   for (const spec of SUPPORT_SPECS) {
     const anchor = herbivorePositions[randInt(rng, 0, herbivorePositions.length)];
     const position = takeNearbyPosition(rng, anchor, habitable, occupied);
-    creatures.push(
-      new Creature({
+    const founder = new Creature({
         speciesId: spec.speciesId,
         lineageId: spec.speciesId,
         parentId: null,
         traits: { ...DEFAULT_TRAITS, energyStrategy: spec.strategy },
         ...position,
         energy: spec.energy,
-      })
-    );
+      });
+    creatures.push(founder);
+    if (spec.strategy === 'scavenger') {
+      for (let index = 0; index < STARTER_CORPSE_COUNT; index++) {
+        creatures.push(new Creature({
+          speciesId: spec.speciesId,
+          lineageId: `${spec.speciesId}_starter_carrion`,
+          parentId: null,
+          traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore' },
+          ...position,
+          energy: 120,
+          lifecycleState: 'dead',
+          corpseDecayTicks: Math.max(1, corpseDecayTicks),
+        }));
+      }
+    }
   }
 
   return creatures;

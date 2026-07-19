@@ -11,7 +11,7 @@ describe('grouped God Mode control schema', () => {
       'Biodiversity Pressure',
     ]);
     const keys = GOD_MODE_GROUPS.flatMap((group) => group.controls.map((control) => control.key));
-    expect(keys).toHaveLength(29);
+    expect(keys).toHaveLength(30);
     expect(new Set(keys).size).toBe(keys.length);
   });
 
@@ -20,6 +20,7 @@ describe('grouped God Mode control schema', () => {
       'adaptiveReproductionMinDeaths', 'adaptiveMaturityLifespanShare',
       'reproductiveUrgencyAgeShare', 'reproductiveUrgencyThresholdDiscount',
       'earlyReproductionCostMultiplier',
+      'lowEnergyUrgencyStartShare',
     ]);
     const adaptive = GOD_MODE_GROUPS.flatMap((group) => group.controls)
       .filter((control) => adaptiveKeys.has(control.key));

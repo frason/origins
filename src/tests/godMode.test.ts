@@ -108,6 +108,7 @@ describe('God Mode runtime constants', () => {
       feedingEfficiency: 0,
       reproductionEnergyThreshold: 110,
       reproductionEnergyCost: 25,
+      earlyReproductionCostMultiplier: 1,
     });
 
     expect(next.creatures).toHaveLength(2);

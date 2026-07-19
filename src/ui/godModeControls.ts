@@ -45,6 +45,7 @@ export const GOD_MODE_GROUPS: GodModeControlGroup[] = [
       { label: 'Urgency Start Share', key: 'reproductiveUrgencyAgeShare', min: 0.3, max: 0.9, step: 0.05, formatter: fixed(2), description: 'Point in expected lifespan when late-life breeding urgency begins.' },
       { label: 'Urgency Threshold Discount', key: 'reproductiveUrgencyThresholdDiscount', min: 0, max: 0.75, step: 0.05, formatter: fixed(2), description: 'Maximum reduction to breeding energy requirements near expected death. Larger discounts increase rescue births but risk exhausting parents.' },
       { label: 'Early Breeding Cost', key: 'earlyReproductionCostMultiplier', min: 1, max: 2, step: 0.05, formatter: fixed(2), description: 'Extra parent energy spent when adaptive timing advances reproduction. Higher values make early breeding a stronger survival tradeoff.' },
+      { label: 'Low Energy Urgency Start', key: 'lowEnergyUrgencyStartShare', min: 0.1, max: 1, step: 0.05, formatter: fixed(2), description: 'Energy reserve share where a weak pre-evidence breeding response begins. Higher values help founders react sooner but can spend scarce energy earlier.' },
     ],
   },
   {

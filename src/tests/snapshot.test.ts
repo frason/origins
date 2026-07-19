@@ -41,7 +41,9 @@ function buildInitialCreatures(): Creature[] {
 
 function runSimulation(): EngineState {
   Creature.resetIdCounter();
-  let engine = createEngine(SEED, buildInitialCreatures());
+  let engine = createEngine(SEED, buildInitialCreatures(), 100, 100, {
+    defaultMutationRate: 1,
+  });
   // Seed producer biomass so herbivores can eat from tick 1
   for (let y = 0; y < engine.world.height; y++) {
     for (let x = 0; x < engine.world.width; x++) {

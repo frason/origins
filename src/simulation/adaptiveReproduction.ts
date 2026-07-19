@@ -32,18 +32,27 @@ export function getAdaptiveReproductionTiming(
   age: number,
   events: SimEvent[],
   constants: SimulationConstants,
-  lifespanEvidence: SpeciesLifespanEvidence = buildSpeciesLifespanEvidence(events)
+  lifespanEvidence: SpeciesLifespanEvidence = buildSpeciesLifespanEvidence(events),
+  energyRatio: number = 1
 ): AdaptiveReproductionTiming {
   const ages = lifespanEvidence.get(speciesId) ?? [];
   const minimumEvidence = Math.max(1, Math.round(constants.adaptiveReproductionMinDeaths));
+  const urgencyEnergyStart = Math.max(0.05, Math.min(1, constants.lowEnergyUrgencyStartShare));
+  const energyUrgency = energyRatio >= urgencyEnergyStart
+    ? 0
+    : Math.max(0, Math.min(1, (urgencyEnergyStart - energyRatio) / urgencyEnergyStart));
+  const discount = Math.max(0, Math.min(0.75, constants.reproductiveUrgencyThresholdDiscount));
   if (ages.length < minimumEvidence) {
+    const energyThreshold = constants.reproductionEnergyThreshold * (1 - energyUrgency * discount);
     return {
       evidenceDeaths: ages.length,
       expectedLifespan: null,
       maturityAge: constants.reproductionMaturityAgeTicks,
-      energyThreshold: constants.reproductionEnergyThreshold,
-      costMultiplier: 1,
-      urgency: 0,
+      energyThreshold,
+      costMultiplier: energyUrgency > 0
+        ? Math.max(1, constants.earlyReproductionCostMultiplier)
+        : 1,
+      urgency: energyUrgency,
     };
   }
 
@@ -54,10 +63,10 @@ export function getAdaptiveReproductionTiming(
     Math.max(1, Math.round(expectedLifespan * constants.adaptiveMaturityLifespanShare))
   );
   const urgencyStart = expectedLifespan * constants.reproductiveUrgencyAgeShare;
-  const urgency = age <= urgencyStart
+  const lifespanUrgency = age <= urgencyStart
     ? 0
     : Math.max(0, Math.min(1, (age - urgencyStart) / Math.max(1, expectedLifespan - urgencyStart)));
-  const discount = Math.max(0, Math.min(0.75, constants.reproductiveUrgencyThresholdDiscount));
+  const urgency = Math.max(lifespanUrgency, energyUrgency);
   const energyThreshold = constants.reproductionEnergyThreshold * (1 - urgency * discount);
   const adapted = maturityAge < constants.reproductionMaturityAgeTicks || urgency > 0;
 

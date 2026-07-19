@@ -520,12 +520,18 @@ export function tickEngine(
   let birthSlots = Math.max(0, constants.maxGlobalPopulation - livingBeforeBirths.length);
   for (const creature of creatures) {
     const timing = getAdaptiveReproductionTiming(
-      creature.speciesId, creature.age, state.events, constants, lifespanEvidence
+      creature.speciesId,
+      creature.age,
+      state.events,
+      constants,
+      lifespanEvidence,
+      creature.energy / getEnergyCapacity(creature)
     );
     const dominantReproductionSuppressed =
       birthPressure.isMonopoly &&
       birthPressure.dominantCount >= constants.monocultureReproductionLimit &&
       creature.speciesId === birthPressure.dominantSpecies;
+    const firstBirthUrgency = creature.offspringCount === 0 && timing.urgency > 0;
     if (
       birthSlots > 0 &&
       !dominantReproductionSuppressed &&
@@ -538,7 +544,10 @@ export function tickEngine(
         creature,
         creatures,
         newWorld,
-        timing.energyThreshold + constants.reproductionEnergyCost * 0.25
+        firstBirthUrgency
+          ? Infinity
+          : timing.energyThreshold
+            + constants.reproductionEnergyCost * 0.25 * (1 - timing.urgency)
       )
     ) {
       const energyPaid = payReproductionCost(
