@@ -78,8 +78,13 @@ function GodModeHelp({
         >
           <strong>{config.label}</strong>
           <span>{config.description}</span>
-          <button className="control-panel__help-close" type="button" onClick={onClose}>
-            Close
+          <button
+            aria-label={`Close help for ${config.label}`}
+            className="control-panel__help-close"
+            type="button"
+            onClick={onClose}
+          >
+            ×
           </button>
         </span>
       )}

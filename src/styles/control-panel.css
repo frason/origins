@@ -145,8 +145,8 @@
 
 .control-panel__help-trigger {
   display: inline-grid;
-  width: var(--sim-control-min-size);
-  min-height: var(--sim-control-min-size);
+  width: 1.75rem;
+  min-height: 1.75rem;
   place-items: center;
   padding: 0;
   color: var(--sim-color-ink);
@@ -164,12 +164,13 @@
 .control-panel__help-popover {
   position: absolute;
   z-index: 20;
-  inset-block-start: calc(100% + var(--sim-space-1));
+  inset-block-start: 0;
   inset-inline-end: 0;
   display: grid;
   width: min(18rem, calc(100vw - 3rem));
   gap: var(--sim-space-2);
   padding: var(--sim-space-3);
+  padding-inline-end: calc(1.75rem + var(--sim-space-3) + var(--sim-space-1));
   color: var(--sim-color-ink);
   font-family: var(--sim-font-interface);
   font-size: var(--sim-font-size-xs);
@@ -181,9 +182,14 @@
 }
 
 .control-panel__help-close {
-  justify-self: end;
-  min-height: var(--sim-control-min-size);
-  padding-inline: var(--sim-space-2);
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  display: inline-grid;
+  width: 1.75rem;
+  min-height: 1.75rem;
+  place-items: center;
+  padding: 0;
   color: var(--sim-color-ink);
   font: inherit;
   background: var(--sim-color-panel);
