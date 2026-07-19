@@ -283,6 +283,7 @@ export function createEngine(
         lastReproductionAge: c.lastReproductionAge,
         generation: c.generation,
         incipientSpeciesId: c.incipientSpeciesId,
+        offspringCount: c.offspringCount,
       })
   );
 
@@ -363,6 +364,7 @@ export function tickEngine(
         lastReproductionAge: c.lastReproductionAge,
         generation: c.generation,
         incipientSpeciesId: c.incipientSpeciesId,
+        offspringCount: c.offspringCount,
       })
   );
 
@@ -564,6 +566,7 @@ export function tickEngine(
 
       offspring.push(child);
       creature.lastReproductionAge = creature.age;
+      creature.offspringCount++;
       birthSlots--;
       newEvents.push({
         type: 'birth',
@@ -571,6 +574,7 @@ export function tickEngine(
         creatureId: child.id,
         speciesId: child.speciesId,
         lineageId: child.lineageId,
+        parentCreatureId: creature.id,
       });
       if (child.lineageId !== creature.lineageId) {
         newEvents.push({
@@ -656,6 +660,8 @@ export function tickEngine(
         speciesId: creature.speciesId,
         lineageId: creature.lineageId,
         deathCause: deathCauses.get(creature.id) ?? 'unknown',
+        offspringCountAtDeath: creature.offspringCount,
+        prematureDeath: creature.offspringCount === 0,
       });
     }
   }

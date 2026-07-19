@@ -91,6 +91,7 @@ describe('Creature', () => {
       age: 10,
       lifecycleState: 'alive',
       corpseDecayTicks: 0,
+      offspringCount: 2,
     });
 
     const json = creature.toJSON() as any;
@@ -106,6 +107,7 @@ describe('Creature', () => {
     expect(json.age).toBe(10);
     expect(json.lifecycleState).toBe('alive');
     expect(json.corpseDecayTicks).toBe(0);
+    expect(json.offspringCount).toBe(2);
   });
 
   it('should deserialize from JSON and restore all fields', () => {
@@ -122,6 +124,7 @@ describe('Creature', () => {
       age: 25,
       lifecycleState: 'alive' as LifecycleState,
       corpseDecayTicks: 0,
+      offspringCount: 3,
     };
 
     const creature = Creature.fromJSON(jsonData);
@@ -137,6 +140,7 @@ describe('Creature', () => {
     expect(creature.age).toBe(25);
     expect(creature.lifecycleState).toBe('alive');
     expect(creature.corpseDecayTicks).toBe(0);
+    expect(creature.offspringCount).toBe(3);
   });
 
   it('should perform round-trip serialization without data loss', () => {
@@ -154,6 +158,7 @@ describe('Creature', () => {
       age: 5,
       lifecycleState: 'dead',
       corpseDecayTicks: 3,
+      offspringCount: 1,
     });
 
     const json = original.toJSON();
@@ -170,6 +175,7 @@ describe('Creature', () => {
     expect(restored.age).toBe(original.age);
     expect(restored.lifecycleState).toBe(original.lifecycleState);
     expect(restored.corpseDecayTicks).toBe(original.corpseDecayTicks);
+    expect(restored.offspringCount).toBe(original.offspringCount);
   });
 
   it('should handle different lifecycle states', () => {

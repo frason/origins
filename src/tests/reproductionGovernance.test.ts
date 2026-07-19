@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { Creature } from '../simulation/creature';
 import { buildDemoEngine } from '../simulation/demoWorld';
-import { hasLocalReproductiveResources, tickEngine } from '../simulation/engine';
+import { createEngine, hasLocalReproductiveResources, tickEngine } from '../simulation/engine';
 import { World } from '../simulation/world';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
 import { DEFAULT_TRAITS, type EnergyStrategy } from '../utils/traits';
@@ -49,5 +49,27 @@ describe('reproduction governance', () => {
       });
     };
     expect(run()).toBe(run());
+  });
+
+  it('records durable parent evidence when offspring are produced', () => {
+    const parent = animal('herbivore');
+    parent.energy = 180;
+    const state = createEngine(7, [parent], 5, 5, {
+      baseMetabolism: 0,
+      reproductionEnergyThreshold: 100,
+      reproductionEnergyCost: 10,
+      reproductionMaturityAgeTicks: 0,
+      reproductionCooldownTicks: 0,
+      defaultMutationRate: 0,
+      monocultureMortalityPenalty: 0,
+    });
+    state.world.setCell(2, 2, { producerBiomass: 50 });
+
+    const next = tickEngine(state);
+    const persistedParent = next.creatures.find((creature) => creature.id === state.creatures[0].id);
+    expect(persistedParent?.offspringCount).toBe(1);
+    expect(next.events).toContainEqual(expect.objectContaining({
+      type: 'birth', parentCreatureId: state.creatures[0].id,
+    }));
   });
 });

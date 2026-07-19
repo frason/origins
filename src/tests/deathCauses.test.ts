@@ -28,6 +28,21 @@ describe('structured engine death causes', () => {
     const next = tickEngine(state);
     expect(next.events).toContainEqual(expect.objectContaining({
       type: 'death', speciesId: 'elder', deathCause: 'age',
+      offspringCountAtDeath: 0, prematureDeath: true,
+    }));
+  });
+
+  it('records a prior parent as reproductively successful at death', () => {
+    const parent = creature('parent');
+    parent.offspringCount = 1;
+    const state = createEngine(11, [parent], 4, 4, {
+      baseMetabolism: 0,
+      maxCreatureAgeTicks: 1,
+      monocultureMortalityPenalty: 0,
+    });
+    const death = tickEngine(state).events.find((event) => event.type === 'death');
+    expect(death).toEqual(expect.objectContaining({
+      offspringCountAtDeath: 1, prematureDeath: false,
     }));
   });
 

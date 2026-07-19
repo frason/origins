@@ -18,6 +18,7 @@ import {
 } from './ecosystemTrajectory';
 import { buildEcosystemPoints } from './ecosystemPoints';
 import EcosystemPointsPanel from './EcosystemPointsPanel';
+import { formatPrematureDeathRate, getPrematureDeathMetrics } from './prematureDeathMetrics';
 
 const panelStyle: CSSProperties = {
   backgroundColor: '#222',
@@ -136,6 +137,7 @@ export default function StatsPanel() {
   const dynamics = getEcosystemDynamics(worldState, tick, maxPopulation);
   const trajectories = getEcosystemTrajectories(worldState, tick);
   const points = buildEcosystemPoints(worldState, tick);
+  const prematureDeaths = getPrematureDeathMetrics(worldState?.events ?? []).ecosystem;
 
   return (
     <div style={panelStyle}>
@@ -164,6 +166,7 @@ export default function StatsPanel() {
       <Row label="Births" value={births} />
       <Row label="Mutations" value={mutations} />
       <Row label="Corpses" value={corpses} />
+      <Row label="Premature deaths" value={formatPrematureDeathRate(prematureDeaths)} />
       <Row label="Avg energy" value={alive > 0 ? (totalEnergy / alive).toFixed(1) : '—'} />
       <Row label="Producer biomass" value={Math.round(totalBiomass).toLocaleString()} />
       <EcosystemPressurePanel />

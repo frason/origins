@@ -50,6 +50,7 @@ export interface CreatureSnapshot {
   lastReproductionAge?: number | null;
   generation?: number;
   incipientSpeciesId?: string | null;
+  offspringCount?: number;
 }
 
 export type EventSnapshot = SimEvent;

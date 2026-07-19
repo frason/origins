@@ -4,6 +4,7 @@ import { CSSProperties } from 'react';
 import { useStore } from '../state/store';
 import { shortLineageId, summarizeSpecies } from './speciesModel';
 import { lineageDisplayName, speciesDisplayName } from '../simulation/speciesNames';
+import { formatPrematureDeathRate, getPrematureDeathMetrics } from './prematureDeathMetrics';
 
 const panelStyle: CSSProperties = {
   backgroundColor: '#222',
@@ -32,6 +33,7 @@ export default function SpeciesPanel() {
     .slice(-3)
     .reverse();
   const incipientSpecies = worldState?.incipientSpecies ?? [];
+  const prematureDeaths = getPrematureDeathMetrics(worldState?.events ?? []).species;
 
   return (
     <div style={panelStyle}>
@@ -111,6 +113,19 @@ export default function SpeciesPanel() {
           })}
         </>
       )}
+
+      <div style={{ fontWeight: 600, margin: '0.75rem 0 0.35rem' }}>Premature deaths by species</div>
+      {prematureDeaths.length === 0 ? (
+        <div style={{ color: '#777', fontSize: '0.75rem' }}>Not enough evidence</div>
+      ) : prematureDeaths.map((metric) => (
+        <div
+          key={metric.speciesId}
+          style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', color: '#aaa', fontSize: '0.72rem', padding: '0.15rem 0' }}
+        >
+          <span>{speciesDisplayName(metric.speciesId)}</span>
+          <span>{formatPrematureDeathRate(metric)}</span>
+        </div>
+      ))}
 
       <div style={{ fontWeight: 600, margin: '0.75rem 0 0.35rem' }}>Recent mutations</div>
       {mutations.length === 0 ? (

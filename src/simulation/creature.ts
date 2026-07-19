@@ -32,6 +32,7 @@ export interface CreatureParams {
   lastReproductionAge?: number | null;
   generation?: number;
   incipientSpeciesId?: string | null;
+  offspringCount?: number;
 }
 
 /**
@@ -53,6 +54,7 @@ export class Creature {
   lastReproductionAge: number | null;
   generation: number;
   incipientSpeciesId: string | null;
+  offspringCount: number;
 
   private static creatureCounter: number = 0;
 
@@ -79,6 +81,7 @@ export class Creature {
     this.lastReproductionAge = params.lastReproductionAge ?? null;
     this.generation = params.generation ?? 0;
     this.incipientSpeciesId = params.incipientSpeciesId ?? null;
+    this.offspringCount = params.offspringCount ?? 0;
   }
 
   /**
@@ -103,6 +106,7 @@ export class Creature {
       lastReproductionAge: this.lastReproductionAge,
       generation: this.generation,
       incipientSpeciesId: this.incipientSpeciesId,
+      offspringCount: this.offspringCount,
     };
   }
 
@@ -133,6 +137,7 @@ export class Creature {
       lastReproductionAge,
       generation,
       incipientSpeciesId,
+      offspringCount,
     } = data;
 
     if (
@@ -162,6 +167,7 @@ export class Creature {
       lastReproductionAge,
       generation,
       incipientSpeciesId,
+      offspringCount,
     });
 
     // Restore the original id from serialized data

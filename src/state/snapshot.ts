@@ -31,6 +31,7 @@ export function snapshotEngine(engine: EngineState): WorldSnapshot {
         lastReproductionAge: creature.lastReproductionAge,
         generation: creature.generation,
         incipientSpeciesId: creature.incipientSpeciesId,
+        offspringCount: creature.offspringCount,
       })
     ),
     events: engine.events,

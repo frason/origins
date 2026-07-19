@@ -47,6 +47,9 @@ export interface SimEvent {
   introducedStrategy?: Traits['energyStrategy'];
   founderCount?: number;
   deathCause?: DeathCause;
+  parentCreatureId?: string;
+  offspringCountAtDeath?: number;
+  prematureDeath?: boolean;
   ancestralSpeciesId?: string;
 }
 
