@@ -9,7 +9,7 @@ import { useStore } from './state/store';
 import { introduceSpecies, tickEngine, EngineState } from './simulation/engine';
 import type { EnergyStrategy } from './utils/traits';
 import { buildDemoEngine } from './simulation/demoWorld';
-import { DEFAULT_WORLD_SEED } from './ui/worldSeed';
+import { createFreshWorldSeed, DEFAULT_WORLD_SEED } from './ui/worldSeed';
 import SettingsDrawer from './ui/SettingsDrawer';
 import EventTimeline from './ui/EventTimeline';
 import LineageHistory from './ui/LineageHistory';
@@ -78,7 +78,7 @@ export default function App() {
     publish(engine);
   }, [publish, recordCheckpoint, worldSeed]);
 
-  const newWorld = useCallback((seed: number) => {
+  const startWorld = useCallback((seed: number) => {
     const store = useStore.getState();
     store.setRunning(false);
     store.setSelectedTile(null);
@@ -93,6 +93,10 @@ export default function App() {
     setWorldSeed(seed);
     publish(engine);
   }, [publish, recordCheckpoint]);
+
+  const newWorld = useCallback(() => {
+    startWorld(createFreshWorldSeed(worldSeed));
+  }, [startWorld, worldSeed]);
 
   const addSpecies = useCallback((strategy: EnergyStrategy, name: string): string | null => {
     if (recipeReplayRef.current) return 'Manual interventions are disabled during recipe replay';
@@ -295,7 +299,9 @@ export default function App() {
           <ControlPanel
             onReset={reset}
             onNewWorld={newWorld}
+            onStartSeed={startWorld}
             worldSeed={worldSeed}
+            worldName={worldName}
             onIntroduceSpecies={addSpecies}
             replayActive={replayActive}
             checkpointTicks={checkpointTicks}
@@ -309,7 +315,7 @@ export default function App() {
           <SpeciesPanel />
           <LineageHistory />
       </SettingsDrawer>
-      <ExtinctionSummary onRestart={reset} />
+      <ExtinctionSummary onRestart={newWorld} />
     </div>
   );
 }

@@ -7,6 +7,21 @@ export interface WorldSeedResult {
   message: string | null;
 }
 
+/** Turn browser entropy into a supported seed that always differs from the current world. */
+export function worldSeedFromEntropy(entropy: number, currentSeed: number): number {
+  const candidate = (entropy >>> 0) % (MAX_WORLD_SEED + 1);
+  return candidate === currentSeed
+    ? (candidate + 1) % (MAX_WORLD_SEED + 1)
+    : candidate;
+}
+
+/** Generate a fresh world seed without consuming the simulation's deterministic RNG. */
+export function createFreshWorldSeed(currentSeed: number): number {
+  const entropy = new Uint32Array(1);
+  globalThis.crypto.getRandomValues(entropy);
+  return worldSeedFromEntropy(entropy[0], currentSeed);
+}
+
 /** Convert player input to the stable integer range supported by the seeded RNG. */
 export function parseWorldSeed(raw: string): WorldSeedResult {
   const trimmed = raw.trim();

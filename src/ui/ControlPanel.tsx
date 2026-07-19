@@ -15,8 +15,10 @@ import { describeFounderSuitability } from './habitatSuitability';
 
 interface ControlPanelProps {
   onReset?: () => void;
-  onNewWorld?: (seed: number) => void;
+  onNewWorld?: () => void;
+  onStartSeed?: (seed: number) => void;
   worldSeed?: number;
+  worldName?: string;
   onIntroduceSpecies?: (strategy: EnergyStrategy, name: string) => string | null;
   replayActive?: boolean;
   checkpointTicks?: number[];
@@ -64,7 +66,9 @@ function GodModeSlider({ config, disabled }: { config: GodModeSliderConfig; disa
 export default function ControlPanel({
   onReset,
   onNewWorld,
+  onStartSeed,
   worldSeed = 12345,
+  worldName = 'Living World',
   onIntroduceSpecies,
   replayActive = false,
   checkpointTicks = [],
@@ -135,14 +139,14 @@ export default function ControlPanel({
     setCheckpointDraft(String(checkpointTicks[checkpointTicks.length - 1]));
   }, [checkpointDraft, checkpointTicks]);
 
-  const startNewWorld = () => {
-    if (!onNewWorld) return;
+  const startSeededWorld = () => {
+    if (!onStartSeed) return;
     const result = parseWorldSeed(seedDraft);
     if (result.seed === null) {
       setSeedMessage(result.message);
       return;
     }
-    onNewWorld(result.seed);
+    onStartSeed(result.seed);
     setSeedDraft(String(result.seed));
     setSeedMessage(
       result.message
@@ -163,7 +167,8 @@ export default function ControlPanel({
         >
           {isRunning ? 'Pause' : 'Play'}
         </button>
-        {onReset && <button className="sim-button" type="button" onClick={onReset}>Replay seed</button>}
+        {onReset && <button className="sim-button" type="button" onClick={onReset}>Replay world</button>}
+        {onNewWorld && <button className="sim-button" type="button" onClick={onNewWorld}>New world</button>}
         <output className="control-panel__tick sim-data">Tick {tick.toLocaleString()}</output>
       </div>
 
@@ -172,23 +177,26 @@ export default function ControlPanel({
         <input className="control-panel__range" type="range" min="1" max="20" step="1" value={speed} onChange={(event) => setSpeed(Number(event.target.value))} />
       </label>
 
-      {onNewWorld && (
-        <section className="control-panel__section" aria-labelledby="world-seed-title">
-          <h3 className="control-panel__section-title" id="world-seed-title">World seed</h3>
-          <div className="control-panel__field-row">
-            <input
-              className="control-panel__input sim-data"
-              id="world-seed"
-              aria-label="World seed"
-              inputMode="numeric"
-              value={seedDraft}
-              onChange={(event) => { setSeedDraft(event.target.value); setSeedMessage(null); }}
-            />
-            <button className="sim-button" type="button" onClick={startNewWorld}>New world</button>
-          </div>
-          <div className={`control-panel__status ${seedMessage?.startsWith('Started') ? 'sim-status--positive' : 'sim-status--warning'}`} role="status">
-            {seedMessage ?? `Active seed: ${worldSeed.toLocaleString()}`}
-          </div>
+      {onStartSeed && (
+        <section className="control-panel__section" aria-labelledby="world-name-title">
+          <h3 className="control-panel__section-title" id="world-name-title">{worldName}</h3>
+          <details>
+            <summary>World details</summary>
+            <div className="control-panel__field-row">
+              <input
+                className="control-panel__input sim-data"
+                id="world-seed"
+                aria-label="World seed"
+                inputMode="numeric"
+                value={seedDraft}
+                onChange={(event) => { setSeedDraft(event.target.value); setSeedMessage(null); }}
+              />
+              <button className="sim-button" type="button" onClick={startSeededWorld}>Start seed</button>
+            </div>
+            <div className={`control-panel__status ${seedMessage?.startsWith('Started') ? 'sim-status--positive' : 'sim-status--warning'}`} role="status">
+              {seedMessage ?? `Active seed: ${worldSeed.toLocaleString()}`}
+            </div>
+          </details>
         </section>
       )}
 
