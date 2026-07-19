@@ -50,6 +50,7 @@ export interface SimEvent {
   parentCreatureId?: string;
   offspringCountAtDeath?: number;
   prematureDeath?: boolean;
+  ageAtDeath?: number;
   ancestralSpeciesId?: string;
 }
 

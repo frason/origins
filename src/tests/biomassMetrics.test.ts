@@ -124,7 +124,7 @@ describe('biomass ecology baseline', () => {
           "occupiedTileCount": 4,
           "population": 6,
           "seed": 54321,
-          "totalBiomass": 694631,
+          "totalBiomass": 694616,
         },
         {
           "averageOccupiedTileBiomass": 0.232,

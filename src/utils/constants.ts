@@ -50,6 +50,11 @@ export const REPRODUCTION_MATURITY_AGE_TICKS = 8;
 
 /** Minimum ticks between two births from the same parent */
 export const REPRODUCTION_COOLDOWN_TICKS = 6;
+export const ADAPTIVE_REPRODUCTION_MIN_DEATHS = 5;
+export const ADAPTIVE_MATURITY_LIFESPAN_SHARE = 0.3;
+export const REPRODUCTIVE_URGENCY_AGE_SHARE = 0.6;
+export const REPRODUCTIVE_URGENCY_THRESHOLD_DISCOUNT = 0.25;
+export const EARLY_REPRODUCTION_COST_MULTIPLIER = 1.15;
 
 // ============================================================================
 // Lifecycle Constants
@@ -133,6 +138,11 @@ export interface SimulationConstants {
   reproductionEnergyCost: number;
   reproductionMaturityAgeTicks: number;
   reproductionCooldownTicks: number;
+  adaptiveReproductionMinDeaths: number;
+  adaptiveMaturityLifespanShare: number;
+  reproductiveUrgencyAgeShare: number;
+  reproductiveUrgencyThresholdDiscount: number;
+  earlyReproductionCostMultiplier: number;
   maxCreatureAgeTicks: number;
   corpseDecayRate: number;
   corpseDecayDurationTicks: number;
@@ -166,6 +176,11 @@ export const SIMULATION_CONSTANTS: SimulationConstants = {
   reproductionEnergyCost: REPRODUCTION_ENERGY_COST,
   reproductionMaturityAgeTicks: REPRODUCTION_MATURITY_AGE_TICKS,
   reproductionCooldownTicks: REPRODUCTION_COOLDOWN_TICKS,
+  adaptiveReproductionMinDeaths: ADAPTIVE_REPRODUCTION_MIN_DEATHS,
+  adaptiveMaturityLifespanShare: ADAPTIVE_MATURITY_LIFESPAN_SHARE,
+  reproductiveUrgencyAgeShare: REPRODUCTIVE_URGENCY_AGE_SHARE,
+  reproductiveUrgencyThresholdDiscount: REPRODUCTIVE_URGENCY_THRESHOLD_DISCOUNT,
+  earlyReproductionCostMultiplier: EARLY_REPRODUCTION_COST_MULTIPLIER,
   maxCreatureAgeTicks: MAX_CREATURE_AGE_TICKS,
   corpseDecayRate: CORPSE_DECAY_RATE,
   corpseDecayDurationTicks: CORPSE_DECAY_DURATION_TICKS,
@@ -194,4 +209,5 @@ export const BALANCED_LONGEVITY_PRESET: Readonly<Partial<SimulationConstants>> =
   reproductionCooldownTicks: 3,
   maxCreatureAgeTicks: 2000,
   defaultMutationRate: 0.2,
+  adaptiveReproductionMinDeaths: 500,
 };

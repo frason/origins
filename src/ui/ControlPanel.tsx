@@ -34,6 +34,12 @@ function GodModeSlider({ config, disabled }: { config: GodModeSliderConfig; disa
     <label className="control-panel__slider">
       <span className="control-panel__slider-heading">
         <span>{config.label}</span>
+        {config.description && (
+          <details className="control-panel__control-help">
+            <summary aria-label={`About ${config.label}`}>?</summary>
+            <span>{config.description}</span>
+          </details>
+        )}
         <output className="control-panel__slider-value sim-data">{displayValue}</output>
       </span>
       <input

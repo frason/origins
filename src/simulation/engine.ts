@@ -24,6 +24,10 @@ import {
 } from './ecosystemHistory';
 import { compareConstants, compareTraits, type DeathCause, type SimEvent } from './events';
 import {
+  buildSpeciesLifespanEvidence,
+  getAdaptiveReproductionTiming,
+} from './adaptiveReproduction';
+import {
   decideTick,
   applyMovement,
   DecisionType,
@@ -512,8 +516,12 @@ export function tickEngine(
   const offspring: Creature[] = [];
   const livingBeforeBirths = creatures.filter((creature) => creature.lifecycleState === 'alive');
   const birthPressure = getPopulationPressure(livingBeforeBirths, constants);
+  const lifespanEvidence = buildSpeciesLifespanEvidence(state.events);
   let birthSlots = Math.max(0, constants.maxGlobalPopulation - livingBeforeBirths.length);
   for (const creature of creatures) {
+    const timing = getAdaptiveReproductionTiming(
+      creature.speciesId, creature.age, state.events, constants, lifespanEvidence
+    );
     const dominantReproductionSuppressed =
       birthPressure.isMonopoly &&
       birthPressure.dominantCount >= constants.monocultureReproductionLimit &&
@@ -523,20 +531,21 @@ export function tickEngine(
       !dominantReproductionSuppressed &&
       canReproduce(
         creature,
-        constants.reproductionEnergyThreshold,
-        constants.reproductionMaturityAgeTicks,
+        timing.energyThreshold,
+        timing.maturityAge,
         constants.reproductionCooldownTicks
       ) && hasLocalReproductiveResources(
         creature,
         creatures,
         newWorld,
-        constants.reproductionEnergyThreshold + constants.reproductionEnergyCost * 0.25
+        timing.energyThreshold + constants.reproductionEnergyCost * 0.25
       )
     ) {
-      const offspringEnergy = payReproductionCost(
+      const energyPaid = payReproductionCost(
         creature,
-        constants.reproductionEnergyCost
+        constants.reproductionEnergyCost * timing.costMultiplier
       );
+      const offspringEnergy = Math.min(constants.reproductionEnergyCost, energyPaid);
 
       const child = reproduceCreature(
         creature,
@@ -662,6 +671,7 @@ export function tickEngine(
         deathCause: deathCauses.get(creature.id) ?? 'unknown',
         offspringCountAtDeath: creature.offspringCount,
         prematureDeath: creature.offspringCount === 0,
+        ageAtDeath: creature.age,
       });
     }
   }

@@ -6,6 +6,7 @@ export interface GodModeSliderConfig {
   min: number;
   max: number;
   step: number;
+  description?: string;
   formatter?: (value: number) => string;
 }
 
@@ -39,6 +40,11 @@ export const GOD_MODE_GROUPS: GodModeControlGroup[] = [
       { label: 'Reproduction Energy Cost', key: 'reproductionEnergyCost', min: 25, max: 300, step: 5 },
       { label: 'Maturity Age Ticks', key: 'reproductionMaturityAgeTicks', min: 0, max: 100, step: 1 },
       { label: 'Reproduction Cooldown Ticks', key: 'reproductionCooldownTicks', min: 0, max: 100, step: 1 },
+      { label: 'Adaptive Evidence Deaths', key: 'adaptiveReproductionMinDeaths', min: 1, max: 500, step: 1, description: 'Deaths required before a species can adjust reproductive timing. Higher values make adaptation slower but less sensitive to early outliers.' },
+      { label: 'Maturity Lifespan Share', key: 'adaptiveMaturityLifespanShare', min: 0.1, max: 0.6, step: 0.05, formatter: fixed(2), description: 'Target maturity as a share of observed lifespan. Lower values permit earlier breeding once enough evidence exists.' },
+      { label: 'Urgency Start Share', key: 'reproductiveUrgencyAgeShare', min: 0.3, max: 0.9, step: 0.05, formatter: fixed(2), description: 'Point in expected lifespan when late-life breeding urgency begins.' },
+      { label: 'Urgency Threshold Discount', key: 'reproductiveUrgencyThresholdDiscount', min: 0, max: 0.75, step: 0.05, formatter: fixed(2), description: 'Maximum reduction to breeding energy requirements near expected death. Larger discounts increase rescue births but risk exhausting parents.' },
+      { label: 'Early Breeding Cost', key: 'earlyReproductionCostMultiplier', min: 1, max: 2, step: 0.05, formatter: fixed(2), description: 'Extra parent energy spent when adaptive timing advances reproduction. Higher values make early breeding a stronger survival tradeoff.' },
     ],
   },
   {

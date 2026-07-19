@@ -5,6 +5,8 @@ import { useStore } from '../state/store';
 import { shortLineageId, summarizeSpecies } from './speciesModel';
 import { lineageDisplayName, speciesDisplayName } from '../simulation/speciesNames';
 import { formatPrematureDeathRate, getPrematureDeathMetrics } from './prematureDeathMetrics';
+import { getAdaptiveReproductionTiming } from '../simulation/adaptiveReproduction';
+import { SIMULATION_CONSTANTS } from '../utils/constants';
 
 const panelStyle: CSSProperties = {
   backgroundColor: '#222',
@@ -41,7 +43,14 @@ export default function SpeciesPanel() {
       {species.length === 0 ? (
         <div style={{ color: '#777' }}>No living creatures</div>
       ) : (
-        species.map((item) => (
+        species.map((item) => {
+          const timing = getAdaptiveReproductionTiming(
+            item.speciesId,
+            0,
+            worldState?.events ?? [],
+            worldState?.constants ?? SIMULATION_CONSTANTS
+          );
+          return (
           <div
             key={item.speciesId}
             style={{ borderTop: '1px solid #383838', padding: '0.55rem 0' }}
@@ -56,6 +65,12 @@ export default function SpeciesPanel() {
               {item.strategy} · {item.speciesId} · {item.lineages.length}{' '}
               {item.lineages.length === 1 ? 'lineage' : 'lineages'}
             </div>
+            {timing.expectedLifespan !== null && (
+              <div style={{ color: '#9fbdad', fontSize: '0.7rem', marginBottom: '0.35rem' }}>
+                Adaptive timing · maturity {timing.maturityAge} · expected lifespan{' '}
+                {Math.round(timing.expectedLifespan)} · {timing.evidenceDeaths} deaths observed
+              </div>
+            )}
             {item.lineages.slice(0, 4).map((lineage) => (
               <div
                 key={lineage.lineageId}
@@ -88,7 +103,8 @@ export default function SpeciesPanel() {
               </div>
             )}
           </div>
-        ))
+          );
+        })
       )}
 
       {incipientSpecies.length > 0 && (

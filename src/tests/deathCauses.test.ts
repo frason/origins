@@ -28,7 +28,7 @@ describe('structured engine death causes', () => {
     const next = tickEngine(state);
     expect(next.events).toContainEqual(expect.objectContaining({
       type: 'death', speciesId: 'elder', deathCause: 'age',
-      offspringCountAtDeath: 0, prematureDeath: true,
+      offspringCountAtDeath: 0, prematureDeath: true, ageAtDeath: 1,
     }));
   });
 
