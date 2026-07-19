@@ -12,7 +12,7 @@ describe('premature death metrics', () => {
       ecosystem: { prematureDeaths: 0, recordedDeaths: 0, rate: null },
       species: [],
     });
-    expect(formatPrematureDeathRate(metrics.ecosystem)).toBe('Not enough evidence');
+    expect(formatPrematureDeathRate(metrics.ecosystem)).toBe('-');
   });
 
   it('calculates ecosystem and mixed-species rates from durable death evidence', () => {

@@ -116,7 +116,7 @@ export default function SpeciesPanel() {
 
       <div style={{ fontWeight: 600, margin: '0.75rem 0 0.35rem' }}>Premature deaths by species</div>
       {prematureDeaths.length === 0 ? (
-        <div style={{ color: '#777', fontSize: '0.75rem' }}>Not enough evidence</div>
+        <div style={{ color: '#777', fontSize: '0.75rem' }}>-</div>
       ) : prematureDeaths.map((metric) => (
         <div
           key={metric.speciesId}

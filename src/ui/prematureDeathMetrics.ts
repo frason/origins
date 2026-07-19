@@ -48,6 +48,6 @@ export function getPrematureDeathMetrics(events: EventSnapshot[]): {
 
 export function formatPrematureDeathRate(metric: PrematureDeathRate): string {
   return metric.rate === null
-    ? 'Not enough evidence'
+    ? '-'
     : `${Math.round(metric.rate * 100)}% (${metric.prematureDeaths}/${metric.recordedDeaths} deaths)`;
 }
