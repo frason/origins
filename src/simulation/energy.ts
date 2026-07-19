@@ -145,9 +145,16 @@ export function feedOnCorpse(
  */
 export function canReproduce(
   creature: Creature,
-  threshold: number = REPRODUCTION_ENERGY_THRESHOLD
+  threshold: number = REPRODUCTION_ENERGY_THRESHOLD,
+  maturityAge: number = 0,
+  cooldownTicks: number = 0
 ): boolean {
-  return creature.energy >= threshold && creature.lifecycleState === 'alive';
+  const cooldownComplete = creature.lastReproductionAge === null
+    || creature.age - creature.lastReproductionAge >= cooldownTicks;
+  return creature.energy >= threshold
+    && creature.lifecycleState === 'alive'
+    && creature.age >= maturityAge
+    && cooldownComplete;
 }
 
 /**

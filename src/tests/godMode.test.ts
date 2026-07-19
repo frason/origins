@@ -98,10 +98,14 @@ describe('God Mode runtime constants', () => {
   });
 
   it('applies reproduction threshold and cost overrides', () => {
-    const engine = createEngine(3, [creature('carnivore', 120)]);
+    const parent = creature('herbivore', 120);
+    parent.age = 8;
+    const engine = createEngine(3, [parent]);
+    engine.world.setCell(50, 50, { producerBiomass: 5 });
     const next = tickEngine(engine, {
       ...disablePressure,
       baseMetabolism: 0,
+      feedingEfficiency: 0,
       reproductionEnergyThreshold: 110,
       reproductionEnergyCost: 25,
     });

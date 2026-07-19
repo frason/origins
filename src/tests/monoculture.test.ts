@@ -25,6 +25,8 @@ const pressureOverrides = {
   baseMetabolism: 0,
   reproductionEnergyThreshold: 50,
   reproductionEnergyCost: 10,
+  reproductionMaturityAgeTicks: 0,
+  reproductionCooldownTicks: 0,
   defaultMutationRate: 0,
   maxGlobalPopulation: 50,
   monocultureDominanceThreshold: 0.8,

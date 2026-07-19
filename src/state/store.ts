@@ -46,6 +46,7 @@ export interface CreatureSnapshot {
   age: number;
   lifecycleState: 'alive' | 'dead' | 'corpse';
   corpseDecayTicks: number;
+  lastReproductionAge?: number | null;
 }
 
 export type EventSnapshot = SimEvent;

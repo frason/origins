@@ -25,6 +25,8 @@ describe('energy stability', () => {
       monocultureMortalityPenalty: 0,
       reproductionEnergyThreshold: 150,
       reproductionEnergyCost: 75,
+      reproductionMaturityAgeTicks: 0,
+      reproductionCooldownTicks: 0,
     });
 
     const next = tickEngine(engine);

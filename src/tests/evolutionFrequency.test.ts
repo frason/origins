@@ -25,6 +25,8 @@ function runBreedingCohort() {
     monocultureMortalityPenalty: 0,
     overcrowdingMortalityRate: 0,
     monocultureDominanceThreshold: 1,
+    reproductionMaturityAgeTicks: 0,
+    reproductionCooldownTicks: 0,
   });
   return tickEngine(engine);
 }

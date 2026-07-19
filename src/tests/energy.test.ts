@@ -652,6 +652,28 @@ describe('Energy Functions', () => {
 
       expect(canReproduce(creature)).toBe(true);
     });
+
+    it('requires maturity when a minimum age is configured', () => {
+      const creature = new Creature({
+        speciesId: 'species_1', lineageId: 'lineage_1', parentId: null,
+        traits: { ...DEFAULT_TRAITS }, x: 0, y: 0,
+        energy: REPRODUCTION_ENERGY_THRESHOLD, age: 7,
+      });
+      expect(canReproduce(creature, REPRODUCTION_ENERGY_THRESHOLD, 8, 6)).toBe(false);
+      creature.age = 8;
+      expect(canReproduce(creature, REPRODUCTION_ENERGY_THRESHOLD, 8, 6)).toBe(true);
+    });
+
+    it('requires the individual cooldown after a birth', () => {
+      const creature = new Creature({
+        speciesId: 'species_1', lineageId: 'lineage_1', parentId: null,
+        traits: { ...DEFAULT_TRAITS }, x: 0, y: 0,
+        energy: REPRODUCTION_ENERGY_THRESHOLD, age: 12, lastReproductionAge: 8,
+      });
+      expect(canReproduce(creature, REPRODUCTION_ENERGY_THRESHOLD, 8, 6)).toBe(false);
+      creature.age = 14;
+      expect(canReproduce(creature, REPRODUCTION_ENERGY_THRESHOLD, 8, 6)).toBe(true);
+    });
   });
 
   describe('payReproductionCost', () => {

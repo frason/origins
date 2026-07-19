@@ -316,6 +316,7 @@ describe('Simulation Engine', () => {
         x: 50,
         y: 50,
         energy: 300, // Enough to reproduce
+        age: 8,
       });
 
       const engine = createEngine(12345, [creature]);
@@ -342,11 +343,13 @@ describe('Simulation Engine', () => {
         x: 50,
         y: 50,
         energy: 300,
+        age: 8,
       });
       const engine = createEngine(12345, [creature], 100, 100, {
         defaultMutationRate: 1,
         monocultureMortalityPenalty: 0,
       });
+      engine.world.setCell(50, 50, { producerBiomass: 100 });
       const next = tickEngine(engine);
       const mutation = next.events.find((event) => event.type === 'mutation');
 

@@ -37,6 +37,8 @@ export const GOD_MODE_GROUPS: GodModeControlGroup[] = [
       { label: 'Feeding Efficiency', key: 'feedingEfficiency', min: 0.1, max: 1, step: 0.05, formatter: fixed(2) },
       { label: 'Reproduction Energy Threshold', key: 'reproductionEnergyThreshold', min: 50, max: 500, step: 10 },
       { label: 'Reproduction Energy Cost', key: 'reproductionEnergyCost', min: 25, max: 300, step: 5 },
+      { label: 'Maturity Age Ticks', key: 'reproductionMaturityAgeTicks', min: 0, max: 100, step: 1 },
+      { label: 'Reproduction Cooldown Ticks', key: 'reproductionCooldownTicks', min: 0, max: 100, step: 1 },
     ],
   },
   {

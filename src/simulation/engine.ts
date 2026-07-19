@@ -70,6 +70,35 @@ function ecosystemCheckpoint(world: World, creatures: Creature[]) {
   };
 }
 
+/** Require a nearby food source before converting stored energy into offspring. */
+export function hasLocalReproductiveResources(
+  creature: Creature,
+  creatures: Creature[],
+  world: World,
+  supportedEnergy: number = Infinity
+): boolean {
+  const strategy = creature.traits.energyStrategy;
+  const cellHasProducers = world.getCell(creature.x, creature.y).producerBiomass >= 5;
+  const nearby = creatures.filter((other) =>
+    other.id !== creature.id
+    && Math.max(Math.abs(other.x - creature.x), Math.abs(other.y - creature.y)) <= 1
+  );
+  const hasPrey = nearby.some((other) =>
+    other.lifecycleState === 'alive'
+    && (other.traits.energyStrategy === 'herbivore'
+      || other.traits.energyStrategy === 'omnivore'
+      || other.traits.energyStrategy === 'scavenger')
+  );
+  const hasCorpse = nearby.some((other) =>
+    other.lifecycleState === 'dead' || other.lifecycleState === 'corpse'
+  );
+  const recentlyFed = creature.energy >= supportedEnergy;
+  if (strategy === 'herbivore') return cellHasProducers || recentlyFed;
+  if (strategy === 'carnivore') return hasPrey || recentlyFed;
+  if (strategy === 'scavenger') return hasCorpse || recentlyFed;
+  return cellHasProducers || hasPrey || hasCorpse || recentlyFed;
+}
+
 /**
  * Complete engine state snapshot
  * Contains world, creatures, tick counter, seed, and event log
@@ -234,6 +263,7 @@ export function createEngine(
         age: c.age ?? 0,
         lifecycleState: c.lifecycleState ?? 'alive',
         corpseDecayTicks: c.corpseDecayTicks ?? 0,
+        lastReproductionAge: c.lastReproductionAge,
       })
   );
 
@@ -298,6 +328,7 @@ export function tickEngine(
         age: c.age,
         lifecycleState: c.lifecycleState,
         corpseDecayTicks: c.corpseDecayTicks,
+        lastReproductionAge: c.lastReproductionAge,
       })
   );
 
@@ -446,7 +477,17 @@ export function tickEngine(
     if (
       birthSlots > 0 &&
       !dominantReproductionSuppressed &&
-      canReproduce(creature, constants.reproductionEnergyThreshold)
+      canReproduce(
+        creature,
+        constants.reproductionEnergyThreshold,
+        constants.reproductionMaturityAgeTicks,
+        constants.reproductionCooldownTicks
+      ) && hasLocalReproductiveResources(
+        creature,
+        creatures,
+        newWorld,
+        constants.reproductionEnergyThreshold + constants.reproductionEnergyCost * 0.25
+      )
     ) {
       const offspringEnergy = payReproductionCost(
         creature,
@@ -462,6 +503,7 @@ export function tickEngine(
       );
 
       offspring.push(child);
+      creature.lastReproductionAge = creature.age;
       birthSlots--;
       newEvents.push({
         type: 'birth',

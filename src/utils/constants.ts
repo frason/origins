@@ -45,6 +45,12 @@ export const REPRODUCTION_ENERGY_THRESHOLD = 150;
 /** Energy cost to produce one offspring */
 export const REPRODUCTION_ENERGY_COST = 75;
 
+/** Minimum age before an individual can reproduce */
+export const REPRODUCTION_MATURITY_AGE_TICKS = 8;
+
+/** Minimum ticks between two births from the same parent */
+export const REPRODUCTION_COOLDOWN_TICKS = 6;
+
 // ============================================================================
 // Lifecycle Constants
 // ============================================================================
@@ -125,6 +131,8 @@ export interface SimulationConstants {
   feedingEfficiency: number;
   reproductionEnergyThreshold: number;
   reproductionEnergyCost: number;
+  reproductionMaturityAgeTicks: number;
+  reproductionCooldownTicks: number;
   maxCreatureAgeTicks: number;
   corpseDecayRate: number;
   corpseDecayDurationTicks: number;
@@ -156,6 +164,8 @@ export const SIMULATION_CONSTANTS: SimulationConstants = {
   feedingEfficiency: FEEDING_EFFICIENCY,
   reproductionEnergyThreshold: REPRODUCTION_ENERGY_THRESHOLD,
   reproductionEnergyCost: REPRODUCTION_ENERGY_COST,
+  reproductionMaturityAgeTicks: REPRODUCTION_MATURITY_AGE_TICKS,
+  reproductionCooldownTicks: REPRODUCTION_COOLDOWN_TICKS,
   maxCreatureAgeTicks: MAX_CREATURE_AGE_TICKS,
   corpseDecayRate: CORPSE_DECAY_RATE,
   corpseDecayDurationTicks: CORPSE_DECAY_DURATION_TICKS,
@@ -180,5 +190,7 @@ export const BALANCED_LONGEVITY_PRESET: Readonly<Partial<SimulationConstants>> =
   feedingEfficiency: 0.9,
   reproductionEnergyThreshold: 120,
   reproductionEnergyCost: 60,
+  reproductionMaturityAgeTicks: 4,
+  reproductionCooldownTicks: 3,
   maxCreatureAgeTicks: 2000,
 };
