@@ -1,7 +1,7 @@
 import type { Traits } from '../utils/traits';
 import type { SimulationConstants } from '../utils/constants';
 
-export type SimEventType = 'birth' | 'death' | 'mutation' | 'extinction' | 'intervention';
+export type SimEventType = 'birth' | 'death' | 'mutation' | 'speciation' | 'extinction' | 'intervention';
 export type DeathCause =
   | 'predation'
   | 'starvation'
@@ -47,6 +47,7 @@ export interface SimEvent {
   introducedStrategy?: Traits['energyStrategy'];
   founderCount?: number;
   deathCause?: DeathCause;
+  ancestralSpeciesId?: string;
 }
 
 /** Capture live setting changes in stable constant-key order. */

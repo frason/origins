@@ -12,6 +12,7 @@ const EPITHETS = [
 
 export const MAX_SPECIES_NAME_LENGTH = 40;
 const CUSTOM_NAME_SEPARATOR = '~';
+const EVOLVED_PREFIX = 'evolved:';
 
 /** Stable FNV-1a hash. Naming never consumes the simulation's seeded RNG stream. */
 function hash(value: string): number {
@@ -25,6 +26,29 @@ function hash(value: string): number {
 
 function genusFor(speciesId: string): string {
   return GENERA[hash(`genus:${speciesId}`) % GENERA.length];
+}
+
+export function ancestralSpeciesId(speciesId: string): string | null {
+  if (!speciesId.startsWith(EVOLVED_PREFIX)) return null;
+  const separator = speciesId.indexOf(':', EVOLVED_PREFIX.length);
+  if (separator < 0) return null;
+  try {
+    return decodeURIComponent(speciesId.slice(EVOLVED_PREFIX.length, separator));
+  } catch {
+    return null;
+  }
+}
+
+function rootSpeciesId(speciesId: string): string {
+  let current = speciesId;
+  const visited = new Set<string>();
+  while (!visited.has(current)) {
+    visited.add(current);
+    const ancestor = ancestralSpeciesId(current);
+    if (!ancestor) break;
+    current = ancestor;
+  }
+  return current;
 }
 
 function founderEpithetFor(speciesId: string): string {
@@ -80,7 +104,12 @@ export function introducedSpeciesId(
 export function speciesDisplayName(speciesId: string): string {
   const customName = customSpeciesName(speciesId);
   if (customName) return customName;
-  return `${genusFor(speciesId)} ${founderEpithetFor(speciesId)}`;
+  const rootId = rootSpeciesId(speciesId);
+  const rootCustomName = customSpeciesName(rootId);
+  const epithet = founderEpithetFor(speciesId);
+  return rootCustomName
+    ? `${rootCustomName} — ${epithet}`
+    : `${genusFor(rootId)} ${epithet}`;
 }
 
 /** Mutated lineages keep their founder's genus but receive a distinct epithet. */
@@ -93,5 +122,5 @@ export function lineageDisplayName(speciesId: string, lineageId: string): string
   const customName = customSpeciesName(speciesId);
   return customName
     ? `${customName} — ${EPITHETS[index]}`
-    : `${genusFor(speciesId)} ${EPITHETS[index]}`;
+    : `${genusFor(rootSpeciesId(speciesId))} ${EPITHETS[index]}`;
 }

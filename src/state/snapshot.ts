@@ -28,6 +28,9 @@ export function snapshotEngine(engine: EngineState): WorldSnapshot {
         age: creature.age,
         lifecycleState: creature.lifecycleState,
         corpseDecayTicks: creature.corpseDecayTicks,
+        lastReproductionAge: creature.lastReproductionAge,
+        generation: creature.generation,
+        incipientSpeciesId: creature.incipientSpeciesId,
       })
     ),
     events: engine.events,
@@ -35,5 +38,7 @@ export function snapshotEngine(engine: EngineState): WorldSnapshot {
     tick: engine.tick,
     constants: { ...engine.constants },
     history: engine.history,
+    speciesProfiles: engine.speciesProfiles,
+    incipientSpecies: engine.incipientSpecies,
   };
 }

@@ -36,6 +36,7 @@ function eventText(event: ReturnType<typeof buildSessionSummary>['finalEvents'][
   if (event.type === 'birth') return `${subject} was born`;
   if (event.type === 'death') return `${subject} died`;
   if (event.type === 'mutation') return event.detail ?? `${subject} formed a new lineage`;
+  if (event.type === 'speciation') return event.detail ?? `${subject} became a new species`;
   if (event.type === 'intervention') return event.detail ?? 'God Mode reshaped the world';
   return `${subject} went extinct`;
 }

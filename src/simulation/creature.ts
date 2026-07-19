@@ -30,6 +30,8 @@ export interface CreatureParams {
   lifecycleState?: LifecycleState;
   corpseDecayTicks?: number;
   lastReproductionAge?: number | null;
+  generation?: number;
+  incipientSpeciesId?: string | null;
 }
 
 /**
@@ -49,6 +51,8 @@ export class Creature {
   lifecycleState: LifecycleState;
   corpseDecayTicks: number;
   lastReproductionAge: number | null;
+  generation: number;
+  incipientSpeciesId: string | null;
 
   private static creatureCounter: number = 0;
 
@@ -73,6 +77,8 @@ export class Creature {
     this.lifecycleState = params.lifecycleState ?? 'alive';
     this.corpseDecayTicks = params.corpseDecayTicks ?? 0;
     this.lastReproductionAge = params.lastReproductionAge ?? null;
+    this.generation = params.generation ?? 0;
+    this.incipientSpeciesId = params.incipientSpeciesId ?? null;
   }
 
   /**
@@ -95,6 +101,8 @@ export class Creature {
       lifecycleState: this.lifecycleState,
       corpseDecayTicks: this.corpseDecayTicks,
       lastReproductionAge: this.lastReproductionAge,
+      generation: this.generation,
+      incipientSpeciesId: this.incipientSpeciesId,
     };
   }
 
@@ -123,6 +131,8 @@ export class Creature {
       lifecycleState,
       corpseDecayTicks,
       lastReproductionAge,
+      generation,
+      incipientSpeciesId,
     } = data;
 
     if (
@@ -150,6 +160,8 @@ export class Creature {
       lifecycleState,
       corpseDecayTicks,
       lastReproductionAge,
+      generation,
+      incipientSpeciesId,
     });
 
     // Restore the original id from serialized data

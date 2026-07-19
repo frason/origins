@@ -1,10 +1,13 @@
 import type { CreatureSnapshot } from '../state/store';
 import type { EnergyStrategy, Traits } from '../utils/traits';
+import type { SpeciesProfile } from '../simulation/speciation';
+import { traitDivergence } from '../simulation/speciation';
 
 export interface LineageSummary {
   lineageId: string;
   population: number;
   representativeTraits: Traits;
+  divergence: number;
 }
 
 export interface SpeciesDisplaySummary {
@@ -15,7 +18,10 @@ export interface SpeciesDisplaySummary {
 }
 
 /** Build stable, display-ready species and lineage counts from a world snapshot. */
-export function summarizeSpecies(creatures: CreatureSnapshot[]): SpeciesDisplaySummary[] {
+export function summarizeSpecies(
+  creatures: CreatureSnapshot[],
+  profiles: SpeciesProfile[] = []
+): SpeciesDisplaySummary[] {
   const species = new Map<string, Map<string, LineageSummary>>();
 
   for (const creature of creatures) {
@@ -35,6 +41,11 @@ export function summarizeSpecies(creatures: CreatureSnapshot[]): SpeciesDisplayS
         lineageId: creature.lineageId,
         population: 1,
         representativeTraits: { ...creature.traits },
+        divergence: traitDivergence(
+          creature.traits,
+          profiles.find((profile) => profile.id === creature.speciesId)?.founderTraits
+            ?? creature.traits
+        ),
       });
     }
   }

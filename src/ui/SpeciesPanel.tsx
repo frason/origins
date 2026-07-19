@@ -23,11 +23,15 @@ const strategyColors: Record<string, string> = {
 
 export default function SpeciesPanel() {
   const worldState = useStore((state) => state.worldState);
-  const species = summarizeSpecies(worldState?.creatures ?? []);
+  const species = summarizeSpecies(
+    worldState?.creatures ?? [],
+    worldState?.speciesProfiles ?? []
+  );
   const mutations = (worldState?.events ?? [])
     .filter((event) => event.type === 'mutation')
     .slice(-3)
     .reverse();
+  const incipientSpecies = worldState?.incipientSpecies ?? [];
 
   return (
     <div style={panelStyle}>
@@ -71,6 +75,7 @@ export default function SpeciesPanel() {
                   {' '}· <span style={{ color: strategyColors[lineage.representativeTraits.energyStrategy] ?? '#aaa' }}>
                     {lineage.representativeTraits.energyStrategy}
                   </span>
+                  {lineage.divergence > 0 && ` · diverging ${(lineage.divergence * 100).toFixed(0)}%`}
                 </span>
                 <span>{lineage.population}</span>
               </div>
@@ -82,6 +87,29 @@ export default function SpeciesPanel() {
             )}
           </div>
         ))
+      )}
+
+      {incipientSpecies.length > 0 && (
+        <>
+          <div style={{ fontWeight: 600, margin: '0.75rem 0 0.35rem' }}>Diverging lineages</div>
+          {incipientSpecies.map((candidate) => {
+            const members = (worldState?.creatures ?? []).filter(
+              (creature) => creature.lifecycleState === 'alive'
+                && creature.incipientSpeciesId === candidate.id
+            );
+            const generations = members.length === 0
+              ? 0
+              : Math.max(...members.map((creature) => creature.generation ?? 0))
+                - candidate.founderGeneration;
+            return (
+              <div key={candidate.id} style={{ color: '#c4a96d', fontSize: '0.72rem', padding: '0.15rem 0' }}>
+                {lineageDisplayName(candidate.ancestorSpeciesId, candidate.founderLineageId)} · incipient ·{' '}
+                {members.length}/3 living · {generations}/2 generations ·{' '}
+                {(candidate.divergence * 100).toFixed(0)}% divergent
+              </div>
+            );
+          })}
+        </>
       )}
 
       <div style={{ fontWeight: 600, margin: '0.75rem 0 0.35rem' }}>Recent mutations</div>

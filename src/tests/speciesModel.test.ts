@@ -54,6 +54,16 @@ describe('species display model', () => {
     expect(summaries.map((item) => item.speciesId)).toEqual(['alpha', 'zeta']);
   });
 
+  it('shows founder-relative divergence before speciation', () => {
+    const branch = creature('1', 'alpha', 'lineage_branch');
+    branch.traits = { ...branch.traits, speed: 1.5 };
+    const [summary] = summarizeSpecies([branch], [{
+      id: 'alpha', ancestorSpeciesId: null,
+      founderTraits: { ...DEFAULT_TRAITS }, establishedTick: 0,
+    }]);
+    expect(summary.lineages[0].divergence).toBeGreaterThan(0);
+  });
+
   it('shortens generated lineage IDs without changing root IDs', () => {
     expect(shortLineageId('lineage_12345678_abcdef')).toBe('12345678');
     expect(shortLineageId('herbivore_001')).toBe('herbivore_001');

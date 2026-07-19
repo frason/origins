@@ -88,6 +88,8 @@ describe('God Mode sustainability matrix', () => {
       .toBeGreaterThan(1);
     expect(longevity.some((result) => result.allSpeciesSurvivalTicks < LONG_RUN_HORIZON))
       .toBe(true);
-    expect(longevity.some((result) => result.lineageDominanceChangeCount > 0)).toBe(true);
+    // Persistent speciation is stronger evidence of evolutionary turnover than a
+    // brief change in whichever founding lineage happens to be most populous.
+    expect(longevity.some((result) => result.speciationCount > 0)).toBe(true);
   }, 120_000);
 });

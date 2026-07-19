@@ -19,6 +19,7 @@ export interface SustainabilityResult {
   finalPopulation: number;
   mutationCount: number;
   strategyShiftCount: number;
+  speciationCount: number;
   activeLineageCount: number;
   activeNicheCount: number;
   minimumDominantShare: number;
@@ -176,6 +177,7 @@ export function evaluateSustainability(
     strategyShiftCount: mutationEvents.filter((event) =>
       event.traitChanges?.some((change) => change.trait === 'energyStrategy')
     ).length,
+    speciationCount: state.events.filter((event) => event.type === 'speciation').length,
     activeLineageCount: activeLineages.size,
     activeNicheCount: activeNiches.size,
     minimumDominantShare: ecosystemSurvivalTicks > 0 ? minimumDominantShare : 0,

@@ -19,6 +19,7 @@ import type { Biome } from '../simulation/world';
 import type { ProducerArchetype } from '../simulation/producerTypes';
 import type { SimEvent } from '../simulation/events';
 import type { EcosystemHistorySample } from '../simulation/ecosystemHistory';
+import type { IncipientSpecies, SpeciesProfile } from '../simulation/speciation';
 
 // Cell interface for world state
 export interface CellSnapshot {
@@ -47,6 +48,8 @@ export interface CreatureSnapshot {
   lifecycleState: 'alive' | 'dead' | 'corpse';
   corpseDecayTicks: number;
   lastReproductionAge?: number | null;
+  generation?: number;
+  incipientSpeciesId?: string | null;
 }
 
 export type EventSnapshot = SimEvent;
@@ -75,6 +78,8 @@ export interface WorldSnapshot {
   tick?: number;
   constants?: SimulationConstants;
   history?: EcosystemHistorySample[];
+  speciesProfiles?: SpeciesProfile[];
+  incipientSpecies?: IncipientSpecies[];
 
   // Allow additional fields for forward compatibility
   [key: string]: unknown;

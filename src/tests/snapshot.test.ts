@@ -61,6 +61,8 @@ function serialize(state: EngineState): string {
     events: state.events,
     history: state.history,
     historyInterval: state.historyInterval,
+    speciesProfiles: state.speciesProfiles,
+    incipientSpecies: state.incipientSpecies,
   });
 }
 

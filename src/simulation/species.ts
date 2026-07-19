@@ -169,6 +169,8 @@ export function reproduceCreature(
     age: 0,
     lifecycleState: 'alive',
     corpseDecayTicks: 0,
+    generation: parent.generation + 1,
+    incipientSpeciesId: parent.incipientSpeciesId,
   });
 }
 

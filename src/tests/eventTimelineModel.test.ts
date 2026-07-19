@@ -66,6 +66,19 @@ describe('ecosystem event storytelling', () => {
     expect(stories[1].title).toBe('A new lineage emerged');
   });
 
+  it('announces establishment of a genuinely new species', () => {
+    const evolvedId = 'evolved:grazer:lineage_branch';
+    const [story] = buildEventStories([{
+      type: 'speciation', tick: 40, speciesId: evolvedId,
+      ancestralSpeciesId: 'grazer', lineageId: 'lineage_branch',
+    }]);
+    expect(story).toMatchObject({
+      tone: 'evolution',
+      title: `${speciesDisplayName(evolvedId)} became a new species`,
+      detail: expect.stringContaining(speciesDisplayName('grazer')),
+    });
+  });
+
   it('detects recovery when growth follows a declining period', () => {
     const events: EventSnapshot[] = [
       ...Array.from({ length: 5 }, (_, index) => ({ type: 'death' as const, tick: 55 + index })),

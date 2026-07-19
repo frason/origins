@@ -51,6 +51,7 @@ export function buildEventStories(
     if (cutoffTick !== null && event.tick < cutoffTick) break;
     const unique =
       event.type === 'mutation' ||
+      event.type === 'speciation' ||
       event.type === 'extinction' ||
       event.type === 'intervention';
     const key = unique
@@ -112,6 +113,16 @@ export function buildEventStories(
           tone: 'evolution',
           title: 'A new lineage emerged',
           detail: event.detail ?? `${species} developed a new variation`,
+        };
+      }
+      if (event.type === 'speciation') {
+        const ancestor = displaySpecies(event.ancestralSpeciesId);
+        return {
+          id: `${event.tick}-speciation-${event.speciesId ?? sequence}`,
+          tick: event.tick,
+          tone: 'evolution',
+          title: `${species} became a new species`,
+          detail: event.detail ?? `A persistent lineage diverged from ${ancestor}`,
         };
       }
       if (event.type === 'intervention') {

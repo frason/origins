@@ -44,6 +44,13 @@ import {
   dissipateToxicity,
 } from './decomposition';
 import { applyEnvironmentalStress } from './biomeStress';
+import {
+  establishableCandidates,
+  createIncipientSpecies,
+  livingCandidateIds,
+  type IncipientSpecies,
+  type SpeciesProfile,
+} from './speciation';
 
 export type {
   ConstantChange,
@@ -112,6 +119,8 @@ export interface EngineState {
   constants: SimulationConstants;
   history: EcosystemHistorySample[];
   historyInterval: number;
+  speciesProfiles: SpeciesProfile[];
+  incipientSpecies: IncipientSpecies[];
 }
 
 export interface SpeciesIntroduction {
@@ -203,6 +212,14 @@ export function introduceSpecies(
     ...state,
     creatures: [...state.creatures, ...founders],
     events: [...state.events, event],
+    speciesProfiles: state.speciesProfiles.some((profile) => profile.id === speciesId)
+      ? state.speciesProfiles
+      : [...state.speciesProfiles, {
+          id: speciesId,
+          ancestorSpeciesId: null,
+          founderTraits: { ...founders[0].traits },
+          establishedTick: state.tick,
+        }],
     history:
       state.history[state.history.length - 1]?.tick === state.tick
         ? [
@@ -264,8 +281,21 @@ export function createEngine(
         lifecycleState: c.lifecycleState ?? 'alive',
         corpseDecayTicks: c.corpseDecayTicks ?? 0,
         lastReproductionAge: c.lastReproductionAge,
+        generation: c.generation,
+        incipientSpeciesId: c.incipientSpeciesId,
       })
   );
+
+  const speciesProfiles: SpeciesProfile[] = [];
+  for (const creature of creatures) {
+    if (speciesProfiles.some((profile) => profile.id === creature.speciesId)) continue;
+    speciesProfiles.push({
+      id: creature.speciesId,
+      ancestorSpeciesId: null,
+      founderTraits: { ...creature.traits },
+      establishedTick: 0,
+    });
+  }
 
   return {
     world,
@@ -276,6 +306,8 @@ export function createEngine(
     constants,
     history: [createEcosystemHistorySample(0, creatures, [])],
     historyInterval: BASE_HISTORY_INTERVAL,
+    speciesProfiles,
+    incipientSpecies: [],
   };
 }
 
@@ -329,6 +361,8 @@ export function tickEngine(
         lifecycleState: c.lifecycleState,
         corpseDecayTicks: c.corpseDecayTicks,
         lastReproductionAge: c.lastReproductionAge,
+        generation: c.generation,
+        incipientSpeciesId: c.incipientSpeciesId,
       })
   );
 
@@ -338,6 +372,14 @@ export function tickEngine(
   }
 
   const newEvents: SimEvent[] = [];
+  const speciesProfiles = state.speciesProfiles.map((profile) => ({
+    ...profile,
+    founderTraits: { ...profile.founderTraits },
+  }));
+  let incipientSpecies = state.incipientSpecies.map((candidate) => ({
+    ...candidate,
+    founderTraits: { ...candidate.founderTraits },
+  }));
   const constantChanges = compareConstants(state.constants, constants);
   if (constantChanges.length > 0) {
     newEvents.push({
@@ -502,6 +544,24 @@ export function tickEngine(
         offspringEnergy
       );
 
+      if (child.lineageId !== creature.lineageId && !child.incipientSpeciesId) {
+        const profile = speciesProfiles.find((item) => item.id === creature.speciesId);
+        if (profile) {
+          const candidate = createIncipientSpecies(
+            creature.speciesId,
+            child.lineageId,
+            child.traits,
+            profile.founderTraits,
+            child.generation,
+            state.tick
+          );
+          if (candidate) {
+            child.incipientSpeciesId = candidate.id;
+            incipientSpecies.push(candidate);
+          }
+        }
+      }
+
       offspring.push(child);
       creature.lastReproductionAge = creature.age;
       birthSlots--;
@@ -551,6 +611,34 @@ export function tickEngine(
   for (const [creatureId, cause] of applyBiodiversityPressure(creatures, rng, constants)) {
     deathCauses.set(creatureId, cause);
   }
+
+  const established = establishableCandidates(creatures, incipientSpecies);
+  const establishedIds = new Set(established.map((candidate) => candidate.id));
+  for (const candidate of established) {
+    for (const creature of creatures) {
+      if (creature.incipientSpeciesId !== candidate.id) continue;
+      creature.speciesId = candidate.id;
+      creature.incipientSpeciesId = null;
+    }
+    speciesProfiles.push({
+      id: candidate.id,
+      ancestorSpeciesId: candidate.ancestorSpeciesId,
+      founderTraits: { ...candidate.founderTraits },
+      establishedTick: state.tick,
+    });
+    newEvents.push({
+      type: 'speciation',
+      tick: state.tick,
+      speciesId: candidate.id,
+      ancestralSpeciesId: candidate.ancestorSpeciesId,
+      lineageId: candidate.founderLineageId,
+      detail: `${speciesDisplayName(candidate.id)} emerged from ${speciesDisplayName(candidate.ancestorSpeciesId)}`,
+    });
+  }
+  const livingCandidates = livingCandidateIds(creatures);
+  incipientSpecies = incipientSpecies.filter((candidate) =>
+    !establishedIds.has(candidate.id) && livingCandidates.has(candidate.id)
+  );
 
   // Log death events for creatures that just died
   for (const creature of creatures) {
@@ -643,6 +731,8 @@ export function tickEngine(
     constants,
     history: historyResult.history,
     historyInterval: historyResult.interval,
+    speciesProfiles,
+    incipientSpecies,
   };
 }
 
