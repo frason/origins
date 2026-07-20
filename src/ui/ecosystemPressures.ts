@@ -98,7 +98,7 @@ export function getEcosystemPressures(
     });
   }
 
-  const toxicCells = world.cells.filter((cell) => cell.toxicity >= 0.5).length;
+  const toxicCells = world.cells.filter((cell) => cell.toxicity >= 1).length;
   const toxicShare = world.cells.length > 0 ? toxicCells / world.cells.length : 0;
   if (toxicCells > 0 && (toxicShare >= 0.02 || toxicCells >= 10)) {
     candidates.push({

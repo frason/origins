@@ -10,6 +10,7 @@ import {
 } from './worldViewport';
 import TurningPointNotice from './TurningPointNotice';
 import { createDrawScheduler, type DrawScheduler } from './drawScheduler';
+import { getToxicityHazard } from '../simulation/toxicity';
 
 /**
  * Rendering constants for the canvas grid
@@ -294,8 +295,8 @@ const WorldView: React.FC = () => {
           }
 
           // Decaying corpses leave a visible, fading violet ecological scar.
-          if (cell.toxicity > 0) {
-            const toxicityOpacity = Math.min(0.72, cell.toxicity / 8);
+          const toxicityOpacity = getToxicityHazard(cell.toxicity).overlayOpacity;
+          if (toxicityOpacity > 0) {
             ctx.fillStyle = `rgba(105, 45, 120, ${toxicityOpacity})`;
             ctx.fillRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
           }

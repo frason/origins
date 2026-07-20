@@ -1,6 +1,7 @@
 import type { Creature } from './creature';
 import type { Cell, World } from './world';
 import type { Traits } from '../utils/traits';
+import { getToxicityHazard } from './toxicity';
 
 export interface EnvironmentalStress {
   temperatureCost: number;
@@ -8,6 +9,7 @@ export interface EnvironmentalStress {
   totalCost: number;
   waterRelief: boolean;
   adaptationCost: number;
+  toxicityCost: number;
 }
 
 const expressed = (value: number) => Math.max(0, (value - 0.5) / 0.5);
@@ -28,7 +30,7 @@ function hasWaterRelief(world: World, x: number, y: number): boolean {
 /** Derive small cumulative survival costs from local seeded conditions. */
 export function getCellEnvironmentalStress(
   traits: Traits,
-  cell: Pick<Cell, 'temperature' | 'moisture'>,
+  cell: Pick<Cell, 'temperature' | 'moisture' | 'toxicity'>,
   waterRelief: boolean
 ): EnvironmentalStress {
   const coldCost = Math.max(0, 0.28 - cell.temperature) * 0.4;
@@ -47,11 +49,16 @@ export function getCellEnvironmentalStress(
   const adaptationCost = (
     thermalTolerance + waterRetention + aquaticAffinity + terrainGrip
   ) * 0.01;
+  const toxicityCost = getToxicityHazard(cell.toxicity).creatureEnergyCost;
   return {
     temperatureCost,
     hydrationCost: hydrationCost * sizeScale,
     adaptationCost,
-    totalCost: Math.min(0.2, temperatureCost + hydrationCost * sizeScale + adaptationCost),
+    toxicityCost,
+    totalCost: Math.min(
+      0.6,
+      temperatureCost + hydrationCost * sizeScale + adaptationCost + toxicityCost
+    ),
     waterRelief,
   };
 }

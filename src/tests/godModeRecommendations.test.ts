@@ -59,7 +59,7 @@ describe('pressure-aware God Mode recommendations', () => {
     });
     expect(recommendations[2].changes).toEqual([
       { constant: 'corpseToxicityPerTick', label: 'Corpse toxicity', before: 1, after: 0.8 },
-      { constant: 'toxicityRetention', label: 'Toxicity retention', before: 0.9, after: 0.85 },
+      { constant: 'toxicityRetention', label: 'Toxicity retention', before: 0.2, after: 0.15 },
     ]);
   });
 

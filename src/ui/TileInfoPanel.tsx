@@ -3,6 +3,7 @@ import { useStore } from '../state/store';
 import { getProducerTraits } from '../simulation/producerTypes';
 import { buildTileLineageSummaries } from './tileInspectionModel';
 import { buildTileBiomassContext } from './biomassObservability';
+import { getToxicityHazard } from '../simulation/toxicity';
 
 interface TileInfoPanelProps {
   onOpenLineages?: () => void;
@@ -43,6 +44,7 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
     { cell, waterRelief }
   );
   const biomass = buildTileBiomassContext(cell, living, constants);
+  const toxicity = getToxicityHazard(cell.toxicity);
 
   return (
     <aside
@@ -90,7 +92,7 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
             <div><dt>Energy</dt><dd>{cell.energy.toFixed(2)}</dd></div>
             <div><dt>Nutrients</dt><dd>{cell.nutrients.toFixed(2)}</dd></div>
             <div><dt>Biomass / capacity</dt><dd>{cell.producerBiomass.toFixed(1)} / {biomass.capacity}</dd></div>
-            <div><dt>Toxicity</dt><dd>{cell.toxicity.toFixed(2)}</dd></div>
+            <div><dt>Toxicity</dt><dd>{toxicity.label} ({cell.toxicity.toFixed(2)})</dd></div>
             <div><dt>Producer</dt><dd>{cell.producerArchetype.replace(/-/g, ' ')}</dd></div>
             <div><dt>Capacity used</dt><dd>{Math.round(biomass.biomassShare * 100)}%</dd></div>
             <div><dt>Grazing pressure</dt><dd>{biomass.grazingLabel} ({biomass.grazingCapacity.toFixed(0)} max)</dd></div>
@@ -99,6 +101,10 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
           </dl>
           <p className="tile-inspector__mechanics-note">
             Grazing estimates the food these animals could remove this tick. Recovery predicts the next producer-growth step from sunlight, nutrients, toxicity, and biome limits.
+          </p>
+          <p className="tile-inspector__mechanics-note">
+            Toxicity currently allows {Math.round(toxicity.producerGrowthMultiplier * 100)}% producer growth
+            and costs exposed animals {toxicity.creatureEnergyCost.toFixed(2)} energy per tick.
           </p>
         </section>
 

@@ -2,6 +2,7 @@ import { World, type Biome, type Cell } from './world';
 import { getProducerArchetype, getProducerTraits } from './producerTypes';
 
 import { PRODUCER_GROWTH_RATE } from '../utils/constants';
+import { getToxicityHazard } from './toxicity';
 
 /**
  * Enumeration of energy types available in the world.
@@ -78,7 +79,7 @@ export function calculateProducerGrowth(
 } {
   const energyMultiplier = ENERGY_TYPE_MULTIPLIERS[energyType];
   const biomeMultiplier = useBiomeProductivity ? getBiomeProductivity(cell.biome) : 1;
-  const toxicityMultiplier = 1 / (1 + Math.max(0, cell.toxicity));
+  const toxicityMultiplier = getToxicityHazard(cell.toxicity).producerGrowthMultiplier;
   const carryingCapacity = useBiomeProductivity
     ? getProducerTraits(cell.producerArchetype).carryingCapacity
     : MAX_PRODUCER_BIOMASS;

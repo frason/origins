@@ -77,7 +77,7 @@ export const CORPSE_TOXICITY_PER_TICK = 1;
 export const CORPSE_TOXICITY_RADIUS = 3;
 
 /** Fraction of existing cell toxicity retained each tick */
-export const TOXICITY_RETENTION = 0.9;
+export const TOXICITY_RETENTION = 0.2;
 
 /** Fraction of corpse energy consumed in one scavenging action */
 export const SCAVENGING_RATE = 0.25;

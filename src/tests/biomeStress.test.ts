@@ -63,6 +63,17 @@ describe('deterministic biome survival pressure', () => {
     expect(animal.lifecycleState).toBe('alive');
   });
 
+  it('charges animals for severe visible toxicity exposure', () => {
+    const world = dryWorld();
+    const animal = creature(10);
+    world.setCell(2, 2, { toxicity: 4 });
+
+    const stress = applyEnvironmentalStress(animal, world);
+
+    expect(stress.toxicityCost).toBeGreaterThan(0.2);
+    expect(animal.energy).toBeCloseTo(10 - stress.totalCost);
+  });
+
   it('records environmental stress when it depletes the final energy', () => {
     const animal = creature(0.05);
     const state = createEngine(5, [animal], 5, 5, {
