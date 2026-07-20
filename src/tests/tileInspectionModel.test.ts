@@ -35,6 +35,8 @@ describe('tile lineage inspection model', () => {
       strategy: 'herbivore',
     });
     expect(summaries[0].averageToxinExposure).toBeCloseTo(0.3);
+    expect(summaries[0].averageResourcePressure).toBe(0);
+    expect(summaries[0].averageReproductionMultiplier).toBe(1);
     expect(summaries[0].localContext).toContain('producer biomass offers food');
     expect(summaries[0].localContext).toContain('below-baseline energy use');
   });

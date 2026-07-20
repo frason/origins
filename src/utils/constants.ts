@@ -57,6 +57,15 @@ export const REPRODUCTIVE_URGENCY_THRESHOLD_DISCOUNT = 0.25;
 export const EARLY_REPRODUCTION_COST_MULTIPLIER = 1.15;
 export const LOW_ENERGY_URGENCY_START_SHARE = 0.9;
 
+/** Radius used to compare nearby consumers with strategy-appropriate food. */
+export const LOCAL_RESOURCE_PRESSURE_RADIUS = 5;
+
+/** Local pressure below this level does not restrain reproduction. */
+export const REPRODUCTION_PRESSURE_START = 0.75;
+
+/** Maximum energy-threshold multiplier under extreme local scarcity. */
+export const REPRODUCTION_PRESSURE_MAX_MULTIPLIER = 1.25;
+
 // ============================================================================
 // Lifecycle Constants
 // ============================================================================
@@ -145,6 +154,9 @@ export interface SimulationConstants {
   reproductiveUrgencyThresholdDiscount: number;
   earlyReproductionCostMultiplier: number;
   lowEnergyUrgencyStartShare: number;
+  localResourcePressureRadius: number;
+  reproductionPressureStart: number;
+  reproductionPressureMaxMultiplier: number;
   maxCreatureAgeTicks: number;
   corpseDecayRate: number;
   corpseDecayDurationTicks: number;
@@ -184,6 +196,9 @@ export const SIMULATION_CONSTANTS: SimulationConstants = {
   reproductiveUrgencyThresholdDiscount: REPRODUCTIVE_URGENCY_THRESHOLD_DISCOUNT,
   earlyReproductionCostMultiplier: EARLY_REPRODUCTION_COST_MULTIPLIER,
   lowEnergyUrgencyStartShare: LOW_ENERGY_URGENCY_START_SHARE,
+  localResourcePressureRadius: LOCAL_RESOURCE_PRESSURE_RADIUS,
+  reproductionPressureStart: REPRODUCTION_PRESSURE_START,
+  reproductionPressureMaxMultiplier: REPRODUCTION_PRESSURE_MAX_MULTIPLIER,
   maxCreatureAgeTicks: MAX_CREATURE_AGE_TICKS,
   corpseDecayRate: CORPSE_DECAY_RATE,
   corpseDecayDurationTicks: CORPSE_DECAY_DURATION_TICKS,

@@ -34,6 +34,8 @@ export interface CreatureParams {
   incipientSpeciesId?: string | null;
   offspringCount?: number;
   toxinExposure?: number;
+  localResourcePressure?: number;
+  reproductionPressureMultiplier?: number;
 }
 
 /**
@@ -57,6 +59,8 @@ export class Creature {
   incipientSpeciesId: string | null;
   offspringCount: number;
   toxinExposure: number;
+  localResourcePressure: number;
+  reproductionPressureMultiplier: number;
 
   private static creatureCounter: number = 0;
 
@@ -85,6 +89,8 @@ export class Creature {
     this.incipientSpeciesId = params.incipientSpeciesId ?? null;
     this.offspringCount = params.offspringCount ?? 0;
     this.toxinExposure = params.toxinExposure ?? 0;
+    this.localResourcePressure = params.localResourcePressure ?? 0;
+    this.reproductionPressureMultiplier = params.reproductionPressureMultiplier ?? 1;
   }
 
   /**
@@ -111,6 +117,8 @@ export class Creature {
       incipientSpeciesId: this.incipientSpeciesId,
       offspringCount: this.offspringCount,
       toxinExposure: this.toxinExposure,
+      localResourcePressure: this.localResourcePressure,
+      reproductionPressureMultiplier: this.reproductionPressureMultiplier,
     };
   }
 
@@ -143,6 +151,8 @@ export class Creature {
       incipientSpeciesId,
       offspringCount,
       toxinExposure,
+      localResourcePressure,
+      reproductionPressureMultiplier,
     } = data;
 
     if (
@@ -174,6 +184,8 @@ export class Creature {
       incipientSpeciesId,
       offspringCount,
       toxinExposure,
+      localResourcePressure,
+      reproductionPressureMultiplier,
     });
 
     // Restore the original id from serialized data

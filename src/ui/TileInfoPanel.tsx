@@ -145,6 +145,8 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
                   <div><dt>Energy load</dt><dd>{lineage.metabolicLoad.toFixed(2)}×</dd></div>
                   <div><dt>Avg. toxin exposure</dt><dd>{lineage.averageToxinExposure.toFixed(2)}</dd></div>
                   <div><dt>Avg. toxin resistance</dt><dd>{Math.round(lineage.averageToxinResistance * 100)}%</dd></div>
+                  <div><dt>Resource pressure</dt><dd>{Math.round(lineage.averageResourcePressure * 100)}%</dd></div>
+                  <div><dt>Breeding requirement</dt><dd>{lineage.averageReproductionMultiplier.toFixed(2)}×</dd></div>
                 </dl>
                 <p className="tile-lineage__context">{lineage.localContext}</p>
                 {lineage.habitat && (
@@ -158,6 +160,12 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
                   Resistance reduces toxin harm but consumes energy even in clean habitat;
                   accumulated exposure raises the energy needed to reproduce.
                 </p>
+                {lineage.averageReproductionMultiplier > 1 && (
+                  <p className="tile-lineage__context sim-status--warning">
+                    Local consumers currently outweigh accessible food, so this lineage needs
+                    more stored energy before breeding. No resources or creatures are changed directly.
+                  </p>
+                )}
               </article>
             );
           })}

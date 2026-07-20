@@ -148,10 +148,11 @@ export class LocalResourcePressureCache {
     readonly tick: number,
     creatures: Creature[],
     world: World,
-    radius: number = DEFAULT_LOCAL_PRESSURE_RADIUS
+    radius: number = DEFAULT_LOCAL_PRESSURE_RADIUS,
+    spatialIndex?: CreatureSpatialIndex
   ) {
     const normalizedRadius = boundedRadius(radius);
-    const index = new CreatureSpatialIndex(creatures);
+    const index = spatialIndex ?? new CreatureSpatialIndex(creatures);
     this.byCreatureId = new Map();
     for (const creature of creatures) {
       if (creature.lifecycleState !== 'alive') continue;
@@ -179,7 +180,8 @@ export function buildLocalResourcePressureCache(
   tick: number,
   creatures: Creature[],
   world: World,
-  radius: number = DEFAULT_LOCAL_PRESSURE_RADIUS
+  radius: number = DEFAULT_LOCAL_PRESSURE_RADIUS,
+  spatialIndex?: CreatureSpatialIndex
 ): LocalResourcePressureCache {
-  return new LocalResourcePressureCache(tick, creatures, world, radius);
+  return new LocalResourcePressureCache(tick, creatures, world, radius, spatialIndex);
 }

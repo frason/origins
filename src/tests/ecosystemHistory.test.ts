@@ -53,6 +53,22 @@ describe('bounded ecosystem history', () => {
     expect(appendEcosystemHistory(appended.history, 10, ten).history).toEqual(appended.history);
   });
 
+  it('records aggregate reproduction pressure without emitting per-creature events', () => {
+    const sample = createEcosystemHistorySample(
+      10,
+      [alive('grazer', 'root')] as Creature[],
+      [],
+      undefined,
+      { restrainedCandidates: 2, averagePressure: 0.8, maximumPressure: 0.95 }
+    );
+    expect(sample.reproductionPressure).toEqual({
+      restrainedCandidates: 2,
+      averagePressure: 0.8,
+      maximumPressure: 0.95,
+    });
+    expect(sample.births).toBe(0);
+  });
+
   it('compacts deterministically while retaining full-span coverage', () => {
     const run = () => {
       let history = [createEcosystemHistorySample(0, [], [])];

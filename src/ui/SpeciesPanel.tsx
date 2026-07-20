@@ -44,6 +44,16 @@ export default function SpeciesPanel() {
         <div style={{ color: '#777' }}>No living creatures</div>
       ) : (
         species.map((item) => {
+          const livingMembers = (worldState?.creatures ?? []).filter(
+            (creature) => creature.lifecycleState === 'alive' && creature.speciesId === item.speciesId
+          );
+          const restrainedMembers = livingMembers.filter(
+            (creature) => (creature.reproductionPressureMultiplier ?? 1) > 1
+          );
+          const averagePressure = livingMembers.length > 0
+            ? livingMembers.reduce((sum, creature) => sum + (creature.localResourcePressure ?? 0), 0)
+              / livingMembers.length
+            : 0;
           const timing = getAdaptiveReproductionTiming(
             item.speciesId,
             0,
@@ -69,6 +79,12 @@ export default function SpeciesPanel() {
               <div style={{ color: '#9fbdad', fontSize: '0.7rem', marginBottom: '0.35rem' }}>
                 Adaptive timing · maturity {timing.maturityAge} · expected lifespan{' '}
                 {Math.round(timing.expectedLifespan)} · {timing.evidenceDeaths} deaths observed
+              </div>
+            )}
+            {restrainedMembers.length > 0 && (
+              <div style={{ color: '#c4a96d', fontSize: '0.7rem', marginBottom: '0.35rem' }}>
+                Local scarcity raises breeding requirements for {restrainedMembers.length}/{livingMembers.length} members
+                {' '}· average pressure {Math.round(averagePressure * 100)}%
               </div>
             )}
             {item.lineages.slice(0, 4).map((lineage) => (

@@ -14,6 +14,8 @@ export interface TileLineageSummary {
   metabolicLoad: number;
   averageToxinExposure: number;
   averageToxinResistance: number;
+  averageResourcePressure: number;
+  averageReproductionMultiplier: number;
   localContext: string;
   habitat?: HabitatSuitability;
 }
@@ -76,6 +78,10 @@ export function buildTileLineageSummaries(
         metabolicLoad,
         averageToxinExposure: average(group.map((creature) => creature.toxinExposure ?? 0)),
         averageToxinResistance: average(group.map((creature) => creature.traits.toxinResistance)),
+        averageResourcePressure: average(group.map((creature) => creature.localResourcePressure ?? 0)),
+        averageReproductionMultiplier: average(group.map(
+          (creature) => creature.reproductionPressureMultiplier ?? 1
+        )),
         localContext: contextFor(
           representative.traits.energyStrategy,
           metabolicLoad,

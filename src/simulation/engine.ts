@@ -49,6 +49,11 @@ import {
   dissipateToxicity,
 } from './decomposition';
 import { applyEnvironmentalStress } from './biomeStress';
+import { buildLocalResourcePressureCache } from './localResourcePressure';
+import {
+  applyReproductionPressure,
+  getReproductionPressureMultiplier,
+} from './reproductionPressure';
 import {
   establishableCandidates,
   createIncipientSpecies,
@@ -290,6 +295,9 @@ export function createEngine(
         generation: c.generation,
         incipientSpeciesId: c.incipientSpeciesId,
         offspringCount: c.offspringCount,
+        toxinExposure: c.toxinExposure,
+        localResourcePressure: c.localResourcePressure,
+        reproductionPressureMultiplier: c.reproductionPressureMultiplier,
       })
   );
 
@@ -371,6 +379,9 @@ export function tickEngine(
         generation: c.generation,
         incipientSpeciesId: c.incipientSpeciesId,
         offspringCount: c.offspringCount,
+        toxinExposure: c.toxinExposure,
+        localResourcePressure: c.localResourcePressure,
+        reproductionPressureMultiplier: c.reproductionPressureMultiplier,
       })
   );
 
@@ -518,9 +529,32 @@ export function tickEngine(
   const offspring: Creature[] = [];
   const livingBeforeBirths = creatures.filter((creature) => creature.lifecycleState === 'alive');
   const birthPressure = getPopulationPressure(livingBeforeBirths, constants);
+  const localPressure = buildLocalResourcePressureCache(
+    state.tick,
+    creatures,
+    newWorld,
+    constants.localResourcePressureRadius,
+    creatureIndex
+  );
   const lifespanEvidence = buildSpeciesLifespanEvidence(state.events);
   let birthSlots = Math.max(0, constants.maxGlobalPopulation - livingBeforeBirths.length);
+  let restrainedCandidates = 0;
+  let pressureTotal = 0;
+  let pressureCount = 0;
+  let maximumPressure = 0;
   for (const creature of creatures) {
+    if (creature.lifecycleState !== 'alive') continue;
+    const pressure = localPressure.get(creature.id)?.pressure ?? 0;
+    const pressurePolicy = {
+      pressureStart: constants.reproductionPressureStart,
+      maximumMultiplier: constants.reproductionPressureMaxMultiplier,
+    };
+    const pressureMultiplier = getReproductionPressureMultiplier(pressure, pressurePolicy);
+    creature.localResourcePressure = pressure;
+    creature.reproductionPressureMultiplier = pressureMultiplier;
+    pressureTotal += pressure;
+    pressureCount++;
+    maximumPressure = Math.max(maximumPressure, pressure);
     const timing = getAdaptiveReproductionTiming(
       creature.speciesId,
       creature.age,
@@ -534,23 +568,46 @@ export function tickEngine(
       birthPressure.dominantCount >= constants.monocultureReproductionLimit &&
       creature.speciesId === birthPressure.dominantSpecies;
     const firstBirthUrgency = creature.offspringCount === 0 && timing.urgency > 0;
+    const baseThreshold = getToxinAdjustedReproductionThreshold(
+      timing.energyThreshold,
+      creature.toxinExposure
+    );
+    const adjustedThreshold = applyReproductionPressure(
+      baseThreshold,
+      pressure,
+      pressurePolicy
+    );
+    const resourceThreshold = firstBirthUrgency
+      ? Infinity
+      : timing.energyThreshold
+        + constants.reproductionEnergyCost * 0.25 * (1 - timing.urgency);
+    const hasResources = hasLocalReproductiveResources(
+      creature,
+      creatures,
+      newWorld,
+      resourceThreshold
+    );
+    const baseEligible = canReproduce(
+      creature,
+      baseThreshold,
+      timing.maturityAge,
+      constants.reproductionCooldownTicks
+    );
+    if (
+      !dominantReproductionSuppressed &&
+      baseEligible &&
+      hasResources &&
+      creature.energy < adjustedThreshold
+    ) restrainedCandidates++;
     if (
       birthSlots > 0 &&
       !dominantReproductionSuppressed &&
       canReproduce(
         creature,
-        getToxinAdjustedReproductionThreshold(timing.energyThreshold, creature.toxinExposure),
+        adjustedThreshold,
         timing.maturityAge,
         constants.reproductionCooldownTicks
-      ) && hasLocalReproductiveResources(
-        creature,
-        creatures,
-        newWorld,
-        firstBirthUrgency
-          ? Infinity
-          : timing.energyThreshold
-            + constants.reproductionEnergyCost * 0.25 * (1 - timing.urgency)
-      )
+      ) && hasResources
     ) {
       const energyPaid = payReproductionCost(
         creature,
@@ -742,12 +799,21 @@ export function tickEngine(
 
   const completeEvents = state.events.concat(newEvents);
   const nextTick = state.tick + 1;
+  const reproductionPressure = {
+    restrainedCandidates,
+    averagePressure: pressureCount > 0 ? pressureTotal / pressureCount : 0,
+    maximumPressure,
+  };
   const historyResult = nextTick % state.historyInterval === 0
     ? appendEcosystemHistory(
         state.history,
         state.historyInterval,
         createEcosystemHistorySample(
-          nextTick, creaturesAfterDecomposition, completeEvents, newWorld
+          nextTick,
+          creaturesAfterDecomposition,
+          completeEvents,
+          newWorld,
+          reproductionPressure
         )
       )
     : { history: state.history, interval: state.historyInterval };
