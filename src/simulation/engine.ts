@@ -23,6 +23,7 @@ import {
   type EcosystemHistorySample,
 } from './ecosystemHistory';
 import { compareConstants, compareTraits, type DeathCause, type SimEvent } from './events';
+import { getToxinAdjustedReproductionThreshold } from './toxicity';
 import {
   buildSpeciesLifespanEvidence,
   getAdaptiveReproductionTiming,
@@ -538,7 +539,7 @@ export function tickEngine(
       !dominantReproductionSuppressed &&
       canReproduce(
         creature,
-        timing.energyThreshold,
+        getToxinAdjustedReproductionThreshold(timing.energyThreshold, creature.toxinExposure),
         timing.maturityAge,
         constants.reproductionCooldownTicks
       ) && hasLocalReproductiveResources(
@@ -695,7 +696,8 @@ export function tickEngine(
         newWorld,
         constants.corpseDecayRate,
         constants.corpseToxicityPerTick,
-        constants.corpseToxicityRadius
+        constants.corpseToxicityRadius,
+        constants.corpseDecayDurationTicks
       );
     }
   }

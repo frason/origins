@@ -9,6 +9,7 @@ import {
   TOXICITY_RETENTION,
 } from '../utils/constants';
 import { getNutrientCapacity } from './producer';
+import { getCorpseDecayStage } from './toxicity';
 
 /**
  * Check if a creature should die from age or starvation.
@@ -46,7 +47,8 @@ export function decayCorpse(
   world: World,
   decayRate: number = CORPSE_DECAY_RATE,
   toxicityPerTick: number = CORPSE_TOXICITY_PER_TICK,
-  toxicityRadius: number = CORPSE_TOXICITY_RADIUS
+  toxicityRadius: number = CORPSE_TOXICITY_RADIUS,
+  decayDuration: number = CORPSE_DECAY_DURATION_TICKS
 ): void {
   // Decrement decay ticks
   creature.corpseDecayTicks--;
@@ -60,13 +62,18 @@ export function decayCorpse(
   });
 
   const radius = Math.max(0, Math.floor(toxicityRadius));
+  const stageMultiplier = getCorpseDecayStage(
+    creature.corpseDecayTicks, decayDuration
+  ).hazardMultiplier;
   for (let y = Math.max(0, creature.y - radius); y <= Math.min(world.height - 1, creature.y + radius); y++) {
     for (let x = Math.max(0, creature.x - radius); x <= Math.min(world.width - 1, creature.x + radius); x++) {
       const distance = Math.hypot(x - creature.x, y - creature.y);
       if (distance > radius) continue;
       const falloff = radius === 0 ? 1 : 1 - distance / (radius + 1);
       const affectedCell = world.getCell(x, y);
-      world.setCell(x, y, { toxicity: affectedCell.toxicity + toxicityPerTick * falloff });
+      world.setCell(x, y, {
+        toxicity: affectedCell.toxicity + toxicityPerTick * stageMultiplier * falloff,
+      });
     }
   }
 }

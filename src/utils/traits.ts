@@ -36,6 +36,7 @@ export interface Traits {
   waterRetention: number;
   aquaticAffinity: number;
   terrainGrip: number;
+  toxinResistance: number;
 
   // Ecological trait
   energyStrategy: EnergyStrategy; // herbivore, carnivore, omnivore, or scavenger
@@ -68,6 +69,7 @@ export const DEFAULT_TRAITS: Traits = {
   waterRetention: 0,
   aquaticAffinity: 0,
   terrainGrip: 0,
+  toxinResistance: 0,
 
   // Ecological
   energyStrategy: 'omnivore',
@@ -98,6 +100,7 @@ export const TRAIT_MUTATION_RATES: Record<
   waterRetention: 0.05,
   aquaticAffinity: 0.05,
   terrainGrip: 0.05,
+  toxinResistance: 0.05,
 };
 
 /**
@@ -121,6 +124,7 @@ export const TRAIT_MIN: Partial<Traits> = {
   waterRetention: 0,
   aquaticAffinity: 0,
   terrainGrip: 0,
+  toxinResistance: 0,
 };
 
 /**
@@ -144,4 +148,5 @@ export const TRAIT_MAX: Partial<Traits> = {
   waterRetention: 1,
   aquaticAffinity: 1,
   terrainGrip: 1,
+  toxinResistance: 1,
 };

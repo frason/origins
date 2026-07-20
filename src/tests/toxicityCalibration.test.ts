@@ -14,7 +14,7 @@ function corpse(id: number): Creature {
   const creature = new Creature({
     speciesId: 'grazer', lineageId: 'grazer', parentId: null,
     traits: { ...DEFAULT_TRAITS }, x: 1, y: 1, energy: 100,
-    lifecycleState: 'dead', corpseDecayTicks: 10,
+    lifecycleState: 'dead', corpseDecayTicks: 20,
   });
   creature.id = `corpse-${id}`;
   return creature;

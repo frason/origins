@@ -34,6 +34,7 @@ describe('Species - Mutations and Lineage Tracking', () => {
       expect(typeof mutated.consciousnessLevel).toBe('number');
       expect(typeof mutated.communication).toBe('number');
       expect(typeof mutated.collectiveConnection).toBe('number');
+      expect(typeof mutated.toxinResistance).toBe('number');
       expect(['herbivore', 'carnivore', 'omnivore', 'scavenger']).toContain(
         mutated.energyStrategy
       );
@@ -141,6 +142,14 @@ describe('Species - Mutations and Lineage Tracking', () => {
       mutateTraits(original, rng);
 
       expect(original).toEqual(DEFAULT_TRAITS);
+    });
+
+    it('lets armor mutations co-evolve toxin resistance without extra randomness', () => {
+      const draws = [0, 0.33, 0.9];
+      const mutated = mutateTraits(DEFAULT_TRAITS, () => draws.shift() ?? 0, 0.1, 1);
+
+      expect(mutated.armor).toBeGreaterThan(DEFAULT_TRAITS.armor);
+      expect(mutated.toxinResistance).toBeGreaterThan(0);
     });
   });
 

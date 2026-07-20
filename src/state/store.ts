@@ -51,6 +51,7 @@ export interface CreatureSnapshot {
   generation?: number;
   incipientSpeciesId?: string | null;
   offspringCount?: number;
+  toxinExposure?: number;
 }
 
 export type EventSnapshot = SimEvent;

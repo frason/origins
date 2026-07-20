@@ -3,7 +3,7 @@ import { useStore } from '../state/store';
 import { getProducerTraits } from '../simulation/producerTypes';
 import { buildTileLineageSummaries } from './tileInspectionModel';
 import { buildTileBiomassContext } from './biomassObservability';
-import { getToxicityHazard } from '../simulation/toxicity';
+import { getCorpseDecayStage, getToxicityHazard } from '../simulation/toxicity';
 
 interface TileInfoPanelProps {
   onOpenLineages?: () => void;
@@ -143,6 +143,8 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
                   <div><dt>Avg. energy</dt><dd>{lineage.averageEnergy.toFixed(1)}</dd></div>
                   <div><dt>Avg. age</dt><dd>{lineage.averageAge.toFixed(1)}</dd></div>
                   <div><dt>Energy load</dt><dd>{lineage.metabolicLoad.toFixed(2)}×</dd></div>
+                  <div><dt>Avg. toxin exposure</dt><dd>{lineage.averageToxinExposure.toFixed(2)}</dd></div>
+                  <div><dt>Avg. toxin resistance</dt><dd>{Math.round(lineage.averageToxinResistance * 100)}%</dd></div>
                 </dl>
                 <p className="tile-lineage__context">{lineage.localContext}</p>
                 {lineage.habitat && (
@@ -152,6 +154,10 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
                     {lineage.habitat.adaptations.length > 0 && ` Expressed adaptations: ${lineage.habitat.adaptations.join(', ')}.`}
                   </p>
                 )}
+                <p className="tile-lineage__context">
+                  Resistance reduces toxin harm but consumes energy even in clean habitat;
+                  accumulated exposure raises the energy needed to reproduce.
+                </p>
               </article>
             );
           })}
@@ -165,7 +171,10 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
             <h3 className="sim-panel__heading" id="tile-corpses-title">Corpses ({corpses.length})</h3>
             <ul className="tile-inspector__corpse-list">
               {corpses.map((corpse) => (
-                <li key={corpse.id}>Decay remaining: <span className="sim-data">{corpse.corpseDecayTicks} ticks</span></li>
+                <li key={corpse.id}>
+                  {getCorpseDecayStage(corpse.corpseDecayTicks, constants.corpseDecayDurationTicks).label}
+                  {' · '}remaining: <span className="sim-data">{corpse.corpseDecayTicks} ticks</span>
+                </li>
               ))}
             </ul>
           </section>

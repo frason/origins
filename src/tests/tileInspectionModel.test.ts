@@ -9,18 +9,19 @@ const tundra = {
   biome: 'tundra' as const, producerArchetype: 'frost-lichen' as const,
 };
 
-function creature(id: string, energy: number, size: number, metabolism: number): CreatureSnapshot {
+function creature(id: string, energy: number, size: number, metabolism: number, toxinExposure = 0): CreatureSnapshot {
   return {
     id, speciesId: 'grazer', lineageId: 'grazer-root', parentId: null,
     traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore', size, metabolism },
     x: 2, y: 3, energy, age: 10, lifecycleState: 'alive', corpseDecayTicks: 0,
+    toxinExposure,
   };
 }
 
 describe('tile lineage inspection model', () => {
   it('groups occupants and explains observed food and energy context', () => {
     const summaries = buildTileLineageSummaries(
-      [creature('one', 80, 0.5, 1), creature('two', 120, 0.5, 1)],
+      [creature('one', 80, 0.5, 1, 0.2), creature('two', 120, 0.5, 1, 0.4)],
       0,
       40
     );
@@ -30,8 +31,10 @@ describe('tile lineage inspection model', () => {
       averageEnergy: 100,
       averageAge: 10,
       metabolicLoad: 0.5,
+      averageToxinResistance: 0,
       strategy: 'herbivore',
     });
+    expect(summaries[0].averageToxinExposure).toBeCloseTo(0.3);
     expect(summaries[0].localContext).toContain('producer biomass offers food');
     expect(summaries[0].localContext).toContain('below-baseline energy use');
   });

@@ -312,10 +312,27 @@ describe('Decomposition Functions', () => {
 
       decayCorpse(creature, world, CORPSE_DECAY_RATE, 4, 3);
 
-      expect(world.getCell(5, 5).toxicity).toBe(4);
+      expect(world.getCell(5, 5).toxicity).toBeCloseTo(2.4);
       expect(world.getCell(6, 5).toxicity).toBeGreaterThan(world.getCell(7, 5).toxicity);
       expect(world.getCell(7, 5).toxicity).toBeGreaterThan(world.getCell(8, 5).toxicity);
       expect(world.getCell(9, 5).toxicity).toBe(0);
+    });
+
+    it('creates a deterministic peak-miasma stage during decay', () => {
+      const stageToxicity = (remainingTicks: number) => {
+        const world = new World(3, 3);
+        const corpse = new Creature({
+          speciesId: 'species_1', lineageId: 'lineage_1', parentId: null,
+          traits: { ...DEFAULT_TRAITS }, x: 1, y: 1, energy: 10,
+          lifecycleState: 'dead', corpseDecayTicks: remainingTicks,
+        });
+        decayCorpse(corpse, world, 0, 1, 0, 30);
+        return world.getCell(1, 1).toxicity;
+      };
+
+      expect(stageToxicity(30)).toBeCloseTo(0.4);
+      expect(stageToxicity(20)).toBeCloseTo(1.5);
+      expect(stageToxicity(10)).toBeCloseTo(0.6);
     });
 
     it('should dissipate existing toxicity deterministically', () => {

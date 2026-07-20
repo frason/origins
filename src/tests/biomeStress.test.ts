@@ -71,7 +71,37 @@ describe('deterministic biome survival pressure', () => {
     const stress = applyEnvironmentalStress(animal, world);
 
     expect(stress.toxicityCost).toBeGreaterThan(0.2);
+    expect(animal.toxinExposure).toBeCloseTo(stress.toxicityCost);
     expect(animal.energy).toBeCloseTo(10 - stress.totalCost);
+  });
+
+  it('lets resistance reduce toxin harm while retaining an energy tradeoff', () => {
+    const world = dryWorld();
+    world.setCell(2, 2, { toxicity: 4 });
+    const susceptible = creature(10);
+    const resistant = creature(10);
+    resistant.traits = { ...resistant.traits, toxinResistance: 1 };
+
+    const susceptibleStress = applyEnvironmentalStress(susceptible, world);
+    const resistantStress = applyEnvironmentalStress(resistant, world);
+
+    expect(resistantStress.toxicityCost).toBeLessThan(susceptibleStress.toxicityCost);
+    expect(resistantStress.resistanceCost).toBeGreaterThan(0);
+    expect(resistant.toxinExposure).toBeLessThan(susceptible.toxinExposure);
+  });
+
+  it('charges resistance in clean habitat and lets prior exposure fade', () => {
+    const world = dryWorld();
+    const animal = creature(10);
+    animal.traits = { ...animal.traits, toxinResistance: 1 };
+    animal.toxinExposure = 1;
+
+    const stress = applyEnvironmentalStress(animal, world);
+
+    expect(stress.toxicityCost).toBe(0);
+    expect(stress.resistanceCost).toBeCloseTo(0.03);
+    expect(stress.totalCost).toBeCloseTo(0.03);
+    expect(animal.toxinExposure).toBeCloseTo(0.9);
   });
 
   it('records environmental stress when it depletes the final energy', () => {

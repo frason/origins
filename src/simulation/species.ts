@@ -109,6 +109,14 @@ export function mutateTraits(
       const currentAdaptation = traits[adaptation];
       const adaptationDrift = mutationDrift * (currentAdaptation === 0 ? 0.1 : currentAdaptation);
       mutated[adaptation] = Math.max(0, Math.min(1, currentAdaptation + (currentAdaptation === 0 ? 1 : sign) * adaptationDrift));
+      if (target === 'armor') {
+        const resistance = traits.toxinResistance;
+        const resistanceDrift = mutationDrift * (resistance === 0 ? 0.1 : resistance);
+        mutated.toxinResistance = Math.max(
+          0,
+          Math.min(1, resistance + (resistance === 0 ? 1 : sign) * resistanceDrift)
+        );
+      }
     }
   }
 
@@ -171,6 +179,7 @@ export function reproduceCreature(
     corpseDecayTicks: 0,
     generation: parent.generation + 1,
     incipientSpeciesId: parent.incipientSpeciesId,
+    toxinExposure: Math.max(0, parent.toxinExposure * 0.1),
   });
 }
 

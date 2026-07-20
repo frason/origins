@@ -10,6 +10,7 @@ export interface EnvironmentalStress {
   waterRelief: boolean;
   adaptationCost: number;
   toxicityCost: number;
+  resistanceCost: number;
 }
 
 const expressed = (value: number) => Math.max(0, (value - 0.5) / 0.5);
@@ -50,14 +51,19 @@ export function getCellEnvironmentalStress(
     thermalTolerance + waterRetention + aquaticAffinity + terrainGrip
   ) * 0.01;
   const toxicityCost = getToxicityHazard(cell.toxicity).creatureEnergyCost;
+  const toxinResistance = Math.max(0, Math.min(1, traits.toxinResistance));
+  const resistedToxicityCost = toxicityCost * (1 - toxinResistance * 0.8);
+  const resistanceCost = toxinResistance * 0.03;
   return {
     temperatureCost,
     hydrationCost: hydrationCost * sizeScale,
     adaptationCost,
-    toxicityCost,
+    toxicityCost: resistedToxicityCost,
+    resistanceCost,
     totalCost: Math.min(
       0.6,
-      temperatureCost + hydrationCost * sizeScale + adaptationCost + toxicityCost
+      temperatureCost + hydrationCost * sizeScale + adaptationCost
+        + resistedToxicityCost + resistanceCost
     ),
     waterRelief,
   };
@@ -77,6 +83,10 @@ export function getEnvironmentalStress(
 
 export function applyEnvironmentalStress(creature: Creature, world: World): EnvironmentalStress {
   const stress = getEnvironmentalStress(creature, world);
+  creature.toxinExposure = Math.max(
+    0,
+    creature.toxinExposure * 0.9 + stress.toxicityCost
+  );
   creature.energy = Math.max(0, creature.energy - stress.totalCost);
   if (creature.energy === 0) creature.lifecycleState = 'dead';
   return stress;
