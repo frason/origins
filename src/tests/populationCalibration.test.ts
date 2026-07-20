@@ -14,6 +14,7 @@ function outcome(overrides: Partial<PopulationCalibrationOutcome> = {}): Populat
     candidateId: 'candidate', seed: 42, ticksRequested: 10, ticksProcessed: 10,
     populationSeries: [10, 12, 9], speciesSeries: [4, 4, 3], lineageSeries: [4, 5, 5],
     maximumPopulation: 12, extinctionTick: null, mutationCount: 2, speciationCount: 0,
+    overcrowdingDeathCount: 0,
     meanDepletedOccupiedTileShare: 0.25, meanTickTimeMs: null,
     ...overrides,
   };
@@ -62,6 +63,36 @@ describe('population calibration', () => {
         minimumEvolutionaryActivity: 0.01, maximumEvolutionaryActivity: 1,
       }
     )).toEqual(['population-ceiling', 'evolutionary-stagnation']);
+  });
+
+  it('rejects stagnant and identical trajectories across seeds', () => {
+    const outcomes = [
+      outcome({ seed: 42, populationSeries: [10, 10, 10] }),
+      outcome({ seed: 99, populationSeries: [10, 10, 10] }),
+    ];
+    const objectives = scorePopulationCalibration(outcomes, 500);
+    expect(evaluatePopulationCalibrationGates(outcomes, objectives, {
+      minimumSurvivalShare: 1,
+      maximumPopulation: 500,
+      minimumEvolutionaryActivity: 0,
+      maximumEvolutionaryActivity: 1,
+      minimumTrajectoryVariation: 0.001,
+      minimumDistinctTrajectoryShare: 1,
+    })).toEqual(['trajectory-stagnation', 'cross-seed-uniformity']);
+  });
+
+  it('reports observable hard-cap interventions', () => {
+    const objectives = scorePopulationCalibration([
+      outcome({ maximumPopulation: 10, overcrowdingDeathCount: 3 }),
+    ], 10);
+    expect(evaluatePopulationCalibrationGates([
+      outcome({ maximumPopulation: 10, overcrowdingDeathCount: 3 }),
+    ], objectives, {
+      minimumSurvivalShare: 1,
+      maximumPopulation: 10,
+      minimumEvolutionaryActivity: 0,
+      maximumEvolutionaryActivity: 1,
+    })).not.toContain('population-ceiling');
   });
 
   it('produces a byte-identical report for identical inputs', () => {

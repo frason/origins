@@ -42,6 +42,7 @@ export interface PopulationCalibrationOutcome {
   extinctionTick: number | null;
   mutationCount: number;
   speciationCount: number;
+  overcrowdingDeathCount: number;
   meanDepletedOccupiedTileShare: number;
   meanTickTimeMs: number | null;
 }
@@ -77,6 +78,8 @@ export interface PopulationCalibrationGates {
   maximumPopulation: number;
   minimumEvolutionaryActivity: number;
   maximumEvolutionaryActivity: number;
+  minimumTrajectoryVariation?: number;
+  minimumDistinctTrajectoryShare?: number;
   maximumMeanTickTimeMs?: number;
 }
 
@@ -85,6 +88,8 @@ const DEFAULT_GATES: PopulationCalibrationGates = {
   maximumPopulation: SIMULATION_CONSTANTS.maxGlobalPopulation,
   minimumEvolutionaryActivity: 0.001,
   maximumEvolutionaryActivity: 1,
+  minimumTrajectoryVariation: 0.001,
+  minimumDistinctTrajectoryShare: 0.5,
 };
 
 function finite(value: number, fallback = 0): number {
@@ -202,6 +207,9 @@ export function runPopulationCalibrationOutcome(
     extinctionTick,
     mutationCount: state.events.filter((event) => event.type === 'mutation').length,
     speciationCount: state.events.filter((event) => event.type === 'speciation').length,
+    overcrowdingDeathCount: state.events.filter((event) =>
+      event.type === 'death' && event.deathCause === 'overcrowding'
+    ).length,
     meanDepletedOccupiedTileShare: round(
       depletedSampleCount > 0 ? depletedShareTotal / depletedSampleCount : 0
     ),
@@ -272,6 +280,18 @@ export function evaluatePopulationCalibrationGates(
   }
   if (objectives.evolutionaryActivity > gates.maximumEvolutionaryActivity) {
     failures.push('evolutionary-runaway');
+  }
+  if (
+    gates.minimumTrajectoryVariation !== undefined &&
+    objectives.trajectoryVariation < gates.minimumTrajectoryVariation
+  ) failures.push('trajectory-stagnation');
+  if (gates.minimumDistinctTrajectoryShare !== undefined && outcomes.length > 1) {
+    const distinctTrajectories = new Set(outcomes.map((outcome) =>
+      JSON.stringify(outcome.populationSeries)
+    )).size;
+    if (distinctTrajectories / outcomes.length < gates.minimumDistinctTrajectoryShare) {
+      failures.push('cross-seed-uniformity');
+    }
   }
   if (
     gates.maximumMeanTickTimeMs !== undefined &&
