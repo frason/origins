@@ -30,7 +30,15 @@ export interface BiomassDiagnosticSample {
   biomass: BiomassMetrics;
   cumulativeProducerRegrowth: number;
   cumulativeGrazingConsumption: number;
+  recentGrazing: GrazingPressureMetrics;
   foodAccess: FoodAccessByStrategy;
+}
+
+export interface GrazingPressureMetrics {
+  consumedBiomass: number;
+  grazedTileCount: number;
+  averageConsumptionPerGrazedTile: number;
+  maximumTileConsumption: number;
 }
 
 export interface BiomassDiagnosticReport {
@@ -140,18 +148,52 @@ export function estimateProducerRegrowth(
   return regrowth;
 }
 
-function totalBiomass(world: World): number {
-  let total = 0;
+function predictProducerBiomass(
+  world: World,
+  constants: Pick<SimulationConstants, 'producerGrowthRate'>
+): { regrowth: number; biomass: Float64Array } {
+  const biomass = new Float64Array(world.width * world.height);
+  let regrowth = 0;
   for (let y = 0; y < world.height; y++) {
-    for (let x = 0; x < world.width; x++) total += world.getCell(x, y).producerBiomass;
+    for (let x = 0; x < world.width; x++) {
+      const cell = world.getCell(x, y);
+      const prediction = calculateProducerGrowth(
+        cell, 'solar', constants.producerGrowthRate, true
+      );
+      biomass[y * world.width + x] = prediction.nextBiomass;
+      regrowth += Math.max(0, prediction.growth);
+    }
   }
-  return total;
+  return { regrowth, biomass };
+}
+
+export function summarizeGrazingPressure(
+  grazingByTile: ReadonlyMap<number, number>
+): GrazingPressureMetrics {
+  let consumedBiomass = 0;
+  let grazedTileCount = 0;
+  let maximumTileConsumption = 0;
+  for (const consumption of grazingByTile.values()) {
+    if (consumption <= 1e-9) continue;
+    consumedBiomass += consumption;
+    grazedTileCount++;
+    maximumTileConsumption = Math.max(maximumTileConsumption, consumption);
+  }
+  return {
+    consumedBiomass,
+    grazedTileCount,
+    averageConsumptionPerGrazedTile: grazedTileCount > 0
+      ? consumedBiomass / grazedTileCount
+      : 0,
+    maximumTileConsumption,
+  };
 }
 
 function sample(
   state: EngineState,
   producerRegrowth: number,
   grazingConsumption: number,
+  recentGrazing: ReadonlyMap<number, number>,
   starvationDeaths: Partial<Record<EnergyStrategy, number>>,
   firstStarvationTicks: Partial<Record<EnergyStrategy, number | null>>
 ): BiomassDiagnosticSample {
@@ -162,6 +204,7 @@ function sample(
     biomass: measureBiomass(state.world, state.creatures),
     cumulativeProducerRegrowth: producerRegrowth,
     cumulativeGrazingConsumption: grazingConsumption,
+    recentGrazing: summarizeGrazingPressure(recentGrazing),
     foodAccess: measureFoodAccess(
       state.world, state.creatures, starvationDeaths, firstStarvationTicks
     ),
@@ -185,23 +228,33 @@ export function runBiomassDiagnostic(
   let state = buildDemoEngine(seed, { ...constants });
   let cumulativeProducerRegrowth = 0;
   let cumulativeGrazingConsumption = 0;
+  let recentGrazing = new Map<number, number>();
   const starvationDeaths: Partial<Record<EnergyStrategy, number>> = {};
   const firstStarvationTicks: Partial<Record<EnergyStrategy, number | null>> = {};
   const samples: BiomassDiagnosticSample[] = [];
   if (checkpoints.has(0)) {
-    samples.push(sample(state, 0, 0, starvationDeaths, firstStarvationTicks));
+    samples.push(sample(state, 0, 0, recentGrazing, starvationDeaths, firstStarvationTicks));
   }
 
   for (let tick = 1; tick <= boundedHorizon; tick++) {
-    const beforeBiomass = totalBiomass(state.world);
-    const grossRegrowth = estimateProducerRegrowth(state.world, state.constants);
+    const predicted = predictProducerBiomass(state.world, state.constants);
     const previousEventCount = state.events.length;
     state = tickEngine(state);
-    cumulativeProducerRegrowth += grossRegrowth;
-    cumulativeGrazingConsumption += Math.max(
-      0,
-      beforeBiomass + grossRegrowth - totalBiomass(state.world)
-    );
+    cumulativeProducerRegrowth += predicted.regrowth;
+    let tickConsumption = 0;
+    for (let y = 0; y < state.world.height; y++) {
+      for (let x = 0; x < state.world.width; x++) {
+        const index = y * state.world.width + x;
+        const consumed = Math.max(
+          0,
+          predicted.biomass[index] - state.world.getCell(x, y).producerBiomass
+        );
+        if (consumed <= 1e-9) continue;
+        tickConsumption += consumed;
+        recentGrazing.set(index, (recentGrazing.get(index) ?? 0) + consumed);
+      }
+    }
+    cumulativeGrazingConsumption += tickConsumption;
 
     for (const event of state.events.slice(previousEventCount)) {
       if (event.type !== 'death' || event.deathCause !== 'starvation' || !event.creatureId) continue;
@@ -216,9 +269,11 @@ export function runBiomassDiagnostic(
         state,
         cumulativeProducerRegrowth,
         cumulativeGrazingConsumption,
+        recentGrazing,
         starvationDeaths,
         firstStarvationTicks
       ));
+      recentGrazing = new Map<number, number>();
     }
   }
 

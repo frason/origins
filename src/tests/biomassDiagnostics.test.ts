@@ -4,6 +4,7 @@ import {
   estimateProducerRegrowth,
   measureFoodAccess,
   runBiomassDiagnostic,
+  summarizeGrazingPressure,
 } from '../simulation/biomassDiagnostics';
 import { World } from '../simulation/world';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
@@ -56,6 +57,15 @@ describe('headless biomass diagnostics', () => {
     expect(world.getCell(0, 0).producerBiomass).toBe(before);
   });
 
+  it('summarizes local grazing concentration by tile', () => {
+    expect(summarizeGrazingPressure(new Map([[1, 4], [2, 10], [3, 0]]))).toEqual({
+      consumedBiomass: 14,
+      grazedTileCount: 2,
+      averageConsumptionPerGrazedTile: 7,
+      maximumTileConsumption: 10,
+    });
+  });
+
   it('produces an exact fixed-seed report through tick 150', () => {
     const report = runBiomassDiagnostic(12345);
     const finalSample = report.samples[report.samples.length - 1];
@@ -64,6 +74,8 @@ describe('headless biomass diagnostics', () => {
     expect(report.samples.map((sample) => sample.tick)).toEqual([0, 10, 30, 60, 100, 150]);
     expect(finalSample.cumulativeProducerRegrowth).toBeGreaterThan(0);
     expect(finalSample.cumulativeGrazingConsumption).toBeGreaterThan(0);
+    expect(finalSample.recentGrazing.consumedBiomass).toBeGreaterThan(0);
+    expect(finalSample.recentGrazing.grazedTileCount).toBeGreaterThan(0);
     expect(finalSample.foodAccess.herbivore.firstStarvationTick).not.toBeNull();
   }, 30_000);
 

@@ -15,6 +15,13 @@ export function getEnergyCapacity(creature: Creature): number {
   return Math.max(200, creature.traits.size * MAX_ENERGY_MULTIPLIER);
 }
 
+/** Physical producer biomass a creature can harvest in one tick. */
+export function getProducerBiteCapacity(creature: Creature): number {
+  const size = Math.max(0.1, creature.traits.size);
+  const speed = Math.max(0.1, creature.traits.speed);
+  return Math.max(1, Math.min(100, size * (16 + speed * 4)));
+}
+
 /**
  * Apply metabolism cost to a creature.
  * Deducts energy based on: BASE_METABOLISM × size × metabolism multiplier
@@ -42,7 +49,8 @@ export function applyMetabolism(
 /**
  * Herbivore/omnivore feeds on producer biomass in a cell.
  * Transfers biomass from cell to creature, applying feeding efficiency.
- * The creature can consume up to all available biomass in the cell.
+ * Consumption is limited by available edible biomass, energy headroom, and
+ * the creature's size/speed-derived harvesting capacity.
  *
  * @param creature - the creature consuming producer biomass
  * @param cell - the cell to consume from (for read-only reference)
@@ -77,7 +85,11 @@ export function feedOnProducer(
   const transferRate = Math.max(0, Math.min(1, feedingEfficiency)) * energyDensity;
   const energyHeadroom = Math.max(0, getEnergyCapacity(creature) - creature.energy);
   const biomassConsumed = transferRate > 0
-    ? Math.min(edibleBiomass, energyHeadroom / transferRate)
+    ? Math.min(
+        edibleBiomass,
+        energyHeadroom / transferRate,
+        getProducerBiteCapacity(creature)
+      )
     : 0;
   const energyGained = biomassConsumed * transferRate;
 

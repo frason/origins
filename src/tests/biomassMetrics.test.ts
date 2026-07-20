@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { measureBiomass } from '../simulation/biomassMetrics';
 import { Creature } from '../simulation/creature';
 import { buildDemoEngine } from '../simulation/demoWorld';
-import { feedOnProducer, getEnergyCapacity } from '../simulation/energy';
+import {
+  feedOnProducer,
+  getEnergyCapacity,
+  getProducerBiteCapacity,
+} from '../simulation/energy';
 import { tickEngine } from '../simulation/engine';
 import { World } from '../simulation/world';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
@@ -56,11 +60,51 @@ describe('biomass ecology baseline', () => {
     expect(world.getCell(0, 0).producerBiomass).toBe(0);
   });
 
+  it('limits a hungry grazer to one physical bite per tick', () => {
+    const world = new World(1, 1);
+    world.setCell(0, 0, { producerBiomass: 100 });
+    const animal = grazer(0, 0, 0);
+    const biteCapacity = getProducerBiteCapacity(animal);
+
+    const gained = feedOnProducer(animal, world.getCell(0, 0), world, 0, 0, 0.8);
+
+    expect(biteCapacity).toBe(20);
+    expect(gained).toBeCloseTo(16, 8);
+    expect(world.getCell(0, 0).producerBiomass).toBeCloseTo(80, 8);
+  });
+
+  it('lets size increase harvesting capacity without exceeding the hard ceiling', () => {
+    const small = grazer();
+    const large = grazer();
+    large.traits.size = 4;
+    large.traits.speed = 3;
+
+    expect(getProducerBiteCapacity(large)).toBeGreaterThan(getProducerBiteCapacity(small));
+    expect(getProducerBiteCapacity(large)).toBeLessThanOrEqual(100);
+  });
+
+  it('makes concentrated grazers deplete a tile faster than a sparse grazer', () => {
+    const denseWorld = new World(1, 1);
+    const sparseWorld = new World(1, 1);
+    denseWorld.setCell(0, 0, { producerBiomass: 100 });
+    sparseWorld.setCell(0, 0, { producerBiomass: 100 });
+
+    for (let index = 0; index < 3; index++) {
+      feedOnProducer(grazer(0, 0, 0), denseWorld.getCell(0, 0), denseWorld, 0, 0, 0.8);
+    }
+    feedOnProducer(grazer(0, 0, 0), sparseWorld.getCell(0, 0), sparseWorld, 0, 0, 0.8);
+
+    expect(denseWorld.getCell(0, 0).producerBiomass).toBe(40);
+    expect(sparseWorld.getCell(0, 0).producerBiomass).toBe(80);
+    expect(sparseWorld.getCell(0, 0).producerBiomass).toBeGreaterThan(0);
+  });
+
   it('distinguishes abundant world biomass from depleted occupied habitat', () => {
     const world = new World(2, 2);
     for (let y = 0; y < 2; y++) {
       for (let x = 0; x < 2; x++) world.setCell(x, y, { producerBiomass: 100 });
     }
+    world.setCell(0, 0, { producerBiomass: 20 });
     const colony = [grazer(0, 0, 0), grazer(0, 0, 0), grazer(0, 0, 0)];
     const before = measureBiomass(world, colony);
     for (const animal of colony) {
@@ -111,28 +155,28 @@ describe('biomass ecology baseline', () => {
     expect(first).toMatchInlineSnapshot(`
       [
         {
-          "averageOccupiedTileBiomass": 1.404,
-          "depletedOccupiedTileShare": 0.929,
-          "occupiedTileCount": 14,
-          "population": 29,
-          "seed": 12345,
-          "totalBiomass": 434617,
-        },
-        {
-          "averageOccupiedTileBiomass": 0.516,
-          "depletedOccupiedTileShare": 1,
+          "averageOccupiedTileBiomass": 2.707,
+          "depletedOccupiedTileShare": 0.933,
           "occupiedTileCount": 15,
-          "population": 32,
-          "seed": 54321,
-          "totalBiomass": 485134,
+          "population": 27,
+          "seed": 12345,
+          "totalBiomass": 435023,
         },
         {
-          "averageOccupiedTileBiomass": 3.933,
-          "depletedOccupiedTileShare": 0.941,
-          "occupiedTileCount": 17,
+          "averageOccupiedTileBiomass": 0.368,
+          "depletedOccupiedTileShare": 1,
+          "occupiedTileCount": 11,
+          "population": 27,
+          "seed": 54321,
+          "totalBiomass": 485301,
+        },
+        {
+          "averageOccupiedTileBiomass": 7.045,
+          "depletedOccupiedTileShare": 0.895,
+          "occupiedTileCount": 19,
           "population": 30,
           "seed": 99999,
-          "totalBiomass": 524324,
+          "totalBiomass": 524596,
         },
       ]
     `);

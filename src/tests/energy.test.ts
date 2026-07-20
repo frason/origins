@@ -8,6 +8,7 @@ import {
   feedOnCorpse,
   canReproduce,
   getEnergyCapacity,
+  getProducerBiteCapacity,
   payReproductionCost,
 } from '../simulation/energy';
 import {
@@ -224,8 +225,9 @@ describe('Energy Functions', () => {
 
       const energyGained = feedOnProducer(creature, world.getCell(0, 0), world, 0, 0);
 
-      expect(energyGained).toBeCloseTo(biomass * FEEDING_EFFICIENCY, 5);
-      expect(creature.energy).toBeCloseTo(100 + biomass * FEEDING_EFFICIENCY, 5);
+      const bite = getProducerBiteCapacity(creature);
+      expect(energyGained).toBeCloseTo(bite * FEEDING_EFFICIENCY, 5);
+      expect(creature.energy).toBeCloseTo(100 + bite * FEEDING_EFFICIENCY, 5);
     });
 
     it('should return zero when cell has no biomass', () => {
@@ -836,14 +838,17 @@ describe('Energy Functions', () => {
       expect(canReproduce(creature)).toBe(false);
 
       // Feed enough to reach threshold
-      feedOnProducer(creature, world.getCell(0, 0), world, 0, 0);
+      while (!canReproduce(creature)) {
+        feedOnProducer(creature, world.getCell(0, 0), world, 0, 0);
+      }
 
       // Now can reproduce
       expect(canReproduce(creature)).toBe(true);
 
       // Pay cost
+      const energyBeforeReproduction = creature.energy;
       payReproductionCost(creature);
-      expect(creature.energy).toBe(getEnergyCapacity(creature) - REPRODUCTION_ENERGY_COST);
+      expect(creature.energy).toBe(energyBeforeReproduction - REPRODUCTION_ENERGY_COST);
       expect(world.getCell(0, 0).producerBiomass).toBeGreaterThan(0);
     });
 
