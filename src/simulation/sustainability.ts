@@ -32,7 +32,7 @@ export interface SustainabilityResult {
 }
 
 /** Build the same seeded, biomass-supported ecosystem used by the playable app. */
-function buildEvaluationWorld(
+export function buildEvaluationWorld(
   seed: number,
   constants: Partial<SimulationConstants>
 ): EngineState {

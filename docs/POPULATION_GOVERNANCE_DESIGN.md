@@ -54,6 +54,11 @@ without rendering. Grid search and seeded random search share the same runner an
 report format. A later optimizer can generate candidates without changing how
 they are evaluated.
 
+Run the baseline suite with `npm run calibrate:population`. This emits stable JSON
+without wall-clock measurements. Use `npm run calibrate:population --
+--measure-runtime` when profiling; measured tick time is intentionally diagnostic
+and therefore excluded from byte-equivalence expectations.
+
 ```ts
 interface CalibrationCandidate {
   id: string;
