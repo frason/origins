@@ -2,7 +2,7 @@
  * StatsPanel — headline ecosystem metrics from the current snapshot.
  */
 
-import { CSSProperties } from 'react';
+import { CSSProperties, useMemo } from 'react';
 import { useStore } from '../state/store';
 import {
   getBiodiversityState,
@@ -19,6 +19,7 @@ import {
 import { buildEcosystemPoints } from './ecosystemPoints';
 import EcosystemPointsPanel from './EcosystemPointsPanel';
 import { formatPrematureDeathRate, getPrematureDeathMetrics } from './prematureDeathMetrics';
+import { buildLocalBiomassSummary } from './biomassObservability';
 
 const panelStyle: CSSProperties = {
   backgroundColor: '#222',
@@ -59,6 +60,15 @@ function Row({ label, value }: { label: string; value: string | number }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.15rem 0' }}>
       <span style={{ color: '#bbb' }}>{label}</span>
+      <span>{value}</span>
+    </div>
+  );
+}
+
+function HelpRow({ label, value, help }: { label: string; value: string | number; help: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', padding: '0.15rem 0' }}>
+      <span style={{ color: '#bbb' }} title={help}>{label} <span aria-hidden="true">?</span></span>
       <span>{value}</span>
     </div>
   );
@@ -110,10 +120,13 @@ export default function StatsPanel() {
   let alive = 0;
   let corpses = 0;
   let totalEnergy = 0;
-  let totalBiomass = 0;
   let births = 0;
   let mutations = 0;
   const species = new Set<string>();
+  const biomass = useMemo(
+    () => worldState ? buildLocalBiomassSummary(worldState) : null,
+    [worldState]
+  );
 
   if (worldState) {
     for (const c of worldState.creatures) {
@@ -124,9 +137,6 @@ export default function StatsPanel() {
       } else {
         corpses++;
       }
-    }
-    for (const cell of worldState.cells) {
-      totalBiomass += cell.producerBiomass;
     }
     const totals = getLiveEventTotals(worldState.history, worldState.events);
     births = totals.births;
@@ -168,7 +178,30 @@ export default function StatsPanel() {
       <Row label="Corpses" value={corpses} />
       <Row label="Premature deaths" value={formatPrematureDeathRate(prematureDeaths)} />
       <Row label="Avg energy" value={alive > 0 ? (totalEnergy / alive).toFixed(1) : '—'} />
-      <Row label="Producer biomass" value={Math.round(totalBiomass).toLocaleString()} />
+      <HelpRow
+        label="Global biomass"
+        value={Math.round(biomass?.totalBiomass ?? 0).toLocaleString()}
+        help="All producer food in the world. A high total can hide shortages where creatures live."
+      />
+      <HelpRow
+        label="Local food / tile"
+        value={biomass && biomass.occupiedTileCount > 0
+          ? biomass.averageOccupiedTileBiomass.toFixed(1)
+          : '—'}
+        help="Average producer biomass on tiles occupied by living creatures."
+      />
+      <HelpRow
+        label="Depleted habitat"
+        value={biomass && biomass.occupiedTileCount > 0
+          ? `${Math.round(biomass.depletedOccupiedTileShare * 100)}%`
+          : '—'}
+        help="Share of occupied tiles below 25% of their biome's carrying capacity."
+      />
+      <HelpRow
+        label="Local food trend"
+        value={biomass?.recoveryLabel ?? '—'}
+        help="Change in occupied-habitat food between bounded history samples."
+      />
       <EcosystemPressurePanel />
     </div>
   );

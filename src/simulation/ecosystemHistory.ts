@@ -1,5 +1,7 @@
 import type { Creature } from './creature';
 import type { SimEvent } from './events';
+import type { World } from './world';
+import { measureBiomass, type BiomassMetrics } from './biomassMetrics';
 
 export interface SpeciesPopulationSample {
   speciesId: string;
@@ -21,6 +23,7 @@ export interface EcosystemHistorySample {
   births: number;
   deaths: number;
   mutations: number;
+  biomass?: BiomassMetrics;
 }
 
 export const BASE_HISTORY_INTERVAL = 10;
@@ -28,8 +31,9 @@ export const MAX_HISTORY_SAMPLES = 600;
 
 export function createEcosystemHistorySample(
   tick: number,
-  creatures: Pick<Creature, 'speciesId' | 'lineageId' | 'lifecycleState'>[],
-  events: SimEvent[]
+  creatures: Pick<Creature, 'speciesId' | 'lineageId' | 'lifecycleState' | 'x' | 'y'>[],
+  events: SimEvent[],
+  world?: World
 ): EcosystemHistorySample {
   const species = new Map<string, number>();
   const lineages = new Set<string>();
@@ -62,6 +66,7 @@ export function createEcosystemHistorySample(
     births: events.filter((event) => event.type === 'birth').length,
     deaths: events.filter((event) => event.type === 'death').length,
     mutations: events.filter((event) => event.type === 'mutation').length,
+    ...(world ? { biomass: measureBiomass(world, creatures) } : {}),
   };
 }
 

@@ -3,6 +3,7 @@ import { createEngine, type EngineState } from './engine';
 import { getBiomeProductivity, getNutrientCapacity } from './producer';
 import { buildStarterCreatures } from './starterWorld';
 import type { SimulationConstants } from '../utils/constants';
+import { createEcosystemHistorySample } from './ecosystemHistory';
 
 /** Build the playable demo world from an explicit seed so players can replay it exactly. */
 export function buildDemoEngine(seed: number, constants: SimulationConstants): EngineState {
@@ -25,5 +26,6 @@ export function buildDemoEngine(seed: number, constants: SimulationConstants): E
       });
     }
   }
+  engine.history[0] = createEcosystemHistorySample(0, engine.creatures, [], engine.world);
   return engine;
 }

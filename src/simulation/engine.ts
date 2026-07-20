@@ -231,7 +231,8 @@ export function introduceSpecies(
             createEcosystemHistorySample(
               state.tick,
               [...state.creatures, ...founders],
-              [...state.events, event]
+              [...state.events, event],
+              state.world
             ),
           ]
         : state.history,
@@ -309,7 +310,7 @@ export function createEngine(
     seed,
     events: [],
     constants,
-    history: [createEcosystemHistorySample(0, creatures, [])],
+    history: [createEcosystemHistorySample(0, creatures, [], world)],
     historyInterval: BASE_HISTORY_INTERVAL,
     speciesProfiles,
     incipientSpecies: [],
@@ -743,7 +744,9 @@ export function tickEngine(
     ? appendEcosystemHistory(
         state.history,
         state.historyInterval,
-        createEcosystemHistorySample(nextTick, creaturesAfterDecomposition, completeEvents)
+        createEcosystemHistorySample(
+          nextTick, creaturesAfterDecomposition, completeEvents, newWorld
+        )
       )
     : { history: state.history, interval: state.historyInterval };
 

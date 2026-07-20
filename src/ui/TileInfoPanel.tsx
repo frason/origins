@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useStore } from '../state/store';
 import { getProducerTraits } from '../simulation/producerTypes';
 import { buildTileLineageSummaries } from './tileInspectionModel';
+import { buildTileBiomassContext } from './biomassObservability';
 
 interface TileInfoPanelProps {
   onOpenLineages?: () => void;
@@ -13,6 +14,7 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
   const followedLineages = useStore((state) => state.followedLineages);
   const setSelectedTile = useStore((state) => state.setSelectedTile);
   const toggleFollowedLineage = useStore((state) => state.toggleFollowedLineage);
+  const constants = useStore((state) => state.constants);
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => setExpanded(false), [selectedTile?.x, selectedTile?.y]);
@@ -40,6 +42,7 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
     cell.producerBiomass,
     { cell, waterRelief }
   );
+  const biomass = buildTileBiomassContext(cell, living, constants);
 
   return (
     <aside
@@ -86,11 +89,17 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
           <dl className="tile-inspector__data-grid">
             <div><dt>Energy</dt><dd>{cell.energy.toFixed(2)}</dd></div>
             <div><dt>Nutrients</dt><dd>{cell.nutrients.toFixed(2)}</dd></div>
-            <div><dt>Biomass</dt><dd>{cell.producerBiomass.toFixed(2)}</dd></div>
+            <div><dt>Biomass / capacity</dt><dd>{cell.producerBiomass.toFixed(1)} / {biomass.capacity}</dd></div>
             <div><dt>Toxicity</dt><dd>{cell.toxicity.toFixed(2)}</dd></div>
             <div><dt>Producer</dt><dd>{cell.producerArchetype.replace(/-/g, ' ')}</dd></div>
-            <div><dt>Growth / capacity</dt><dd>{producerTraits.growthMultiplier.toFixed(2)}× / {producerTraits.carryingCapacity}</dd></div>
+            <div><dt>Capacity used</dt><dd>{Math.round(biomass.biomassShare * 100)}%</dd></div>
+            <div><dt>Grazing pressure</dt><dd>{biomass.grazingLabel} ({biomass.grazingCapacity.toFixed(0)} max)</dd></div>
+            <div><dt>Recovery</dt><dd>{biomass.recoveryLabel} ({biomass.recoveryPerTick >= 0 ? '+' : ''}{biomass.recoveryPerTick.toFixed(2)}/tick)</dd></div>
+            <div><dt>Growth rate</dt><dd>{producerTraits.growthMultiplier.toFixed(2)}×</dd></div>
           </dl>
+          <p className="tile-inspector__mechanics-note">
+            Grazing estimates the food these animals could remove this tick. Recovery predicts the next producer-growth step from sunlight, nutrients, toxicity, and biome limits.
+          </p>
         </section>
 
         <section className="tile-inspector__section tile-inspector__section--life" aria-labelledby="tile-life-title">

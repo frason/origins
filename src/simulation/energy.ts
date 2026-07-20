@@ -16,7 +16,7 @@ export function getEnergyCapacity(creature: Creature): number {
 }
 
 /** Physical producer biomass a creature can harvest in one tick. */
-export function getProducerBiteCapacity(creature: Creature): number {
+export function getProducerBiteCapacity(creature: Pick<Creature, 'traits'>): number {
   const size = Math.max(0.1, creature.traits.size);
   const speed = Math.max(0.1, creature.traits.speed);
   return Math.max(1, Math.min(100, size * (16 + speed * 4)));
