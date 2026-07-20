@@ -54,6 +54,10 @@ export interface CreatureSnapshot {
   toxinExposure?: number;
   localResourcePressure?: number;
   reproductionPressureMultiplier?: number;
+  dispersalTargetX?: number | null;
+  dispersalTargetY?: number | null;
+  lastDispersalTick?: number | null;
+  dispersalMoves?: number;
 }
 
 export type EventSnapshot = SimEvent;

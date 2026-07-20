@@ -13,7 +13,7 @@ export type LifecycleState = 'alive' | 'dead' | 'corpse';
 /**
  * Decision types for per-tick creature behavior
  */
-export type DecisionType = 'move-to-food' | 'flee' | 'search' | 'idle' | 'eat' | 'reproduce';
+export type DecisionType = 'move-to-food' | 'flee' | 'search' | 'disperse' | 'idle' | 'eat' | 'reproduce';
 
 /**
  * Parameters for Creature construction (all fields except auto-generated id)
@@ -36,6 +36,10 @@ export interface CreatureParams {
   toxinExposure?: number;
   localResourcePressure?: number;
   reproductionPressureMultiplier?: number;
+  dispersalTargetX?: number | null;
+  dispersalTargetY?: number | null;
+  lastDispersalTick?: number | null;
+  dispersalMoves?: number;
 }
 
 /**
@@ -61,6 +65,10 @@ export class Creature {
   toxinExposure: number;
   localResourcePressure: number;
   reproductionPressureMultiplier: number;
+  dispersalTargetX: number | null;
+  dispersalTargetY: number | null;
+  lastDispersalTick: number | null;
+  dispersalMoves: number;
 
   private static creatureCounter: number = 0;
 
@@ -91,6 +99,10 @@ export class Creature {
     this.toxinExposure = params.toxinExposure ?? 0;
     this.localResourcePressure = params.localResourcePressure ?? 0;
     this.reproductionPressureMultiplier = params.reproductionPressureMultiplier ?? 1;
+    this.dispersalTargetX = params.dispersalTargetX ?? null;
+    this.dispersalTargetY = params.dispersalTargetY ?? null;
+    this.lastDispersalTick = params.lastDispersalTick ?? null;
+    this.dispersalMoves = params.dispersalMoves ?? 0;
   }
 
   /**
@@ -119,6 +131,10 @@ export class Creature {
       toxinExposure: this.toxinExposure,
       localResourcePressure: this.localResourcePressure,
       reproductionPressureMultiplier: this.reproductionPressureMultiplier,
+      dispersalTargetX: this.dispersalTargetX,
+      dispersalTargetY: this.dispersalTargetY,
+      lastDispersalTick: this.lastDispersalTick,
+      dispersalMoves: this.dispersalMoves,
     };
   }
 
@@ -153,6 +169,10 @@ export class Creature {
       toxinExposure,
       localResourcePressure,
       reproductionPressureMultiplier,
+      dispersalTargetX,
+      dispersalTargetY,
+      lastDispersalTick,
+      dispersalMoves,
     } = data;
 
     if (
@@ -186,6 +206,10 @@ export class Creature {
       toxinExposure,
       localResourcePressure,
       reproductionPressureMultiplier,
+      dispersalTargetX,
+      dispersalTargetY,
+      lastDispersalTick,
+      dispersalMoves,
     });
 
     // Restore the original id from serialized data
@@ -613,7 +637,8 @@ export function applyMovement(
   world: World,
   allCreatures: Creature[],
   rng: RngFn,
-  spatialIndex?: CreatureSpatialIndex
+  spatialIndex?: CreatureSpatialIndex,
+  explicitTarget?: { x: number; y: number }
 ): void {
   if (decision === 'idle' || decision === 'eat' || decision === 'reproduce') {
     // No movement
@@ -624,7 +649,9 @@ export function applyMovement(
 
   let targetLocation: { x: number; y: number } | null = null;
 
-  if (decision === 'move-to-food') {
+  if (decision === 'disperse') {
+    targetLocation = explicitTarget ?? null;
+  } else if (decision === 'move-to-food') {
     // Combine all food targets
     const allFoodTargets = [
       ...scan.foodLocations,

@@ -54,6 +54,9 @@ export default function SpeciesPanel() {
             ? livingMembers.reduce((sum, creature) => sum + (creature.localResourcePressure ?? 0), 0)
               / livingMembers.length
             : 0;
+          const dispersingMembers = livingMembers.filter(
+            (creature) => creature.dispersalTargetX != null && creature.dispersalTargetY != null
+          );
           const timing = getAdaptiveReproductionTiming(
             item.speciesId,
             0,
@@ -85,6 +88,11 @@ export default function SpeciesPanel() {
               <div style={{ color: '#c4a96d', fontSize: '0.7rem', marginBottom: '0.35rem' }}>
                 Local scarcity raises breeding requirements for {restrainedMembers.length}/{livingMembers.length} members
                 {' '}· average pressure {Math.round(averagePressure * 100)}%
+              </div>
+            )}
+            {dispersingMembers.length > 0 && (
+              <div style={{ color: '#9fbdad', fontSize: '0.7rem', marginBottom: '0.35rem' }}>
+                {dispersingMembers.length}/{livingMembers.length} members dispersing toward lower-pressure habitat
               </div>
             )}
             {item.lineages.slice(0, 4).map((lineage) => (

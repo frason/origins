@@ -16,6 +16,8 @@ export interface TileLineageSummary {
   averageToxinResistance: number;
   averageResourcePressure: number;
   averageReproductionMultiplier: number;
+  activeDispersers: number;
+  averageDispersalMoves: number;
   localContext: string;
   habitat?: HabitatSuitability;
 }
@@ -82,6 +84,10 @@ export function buildTileLineageSummaries(
         averageReproductionMultiplier: average(group.map(
           (creature) => creature.reproductionPressureMultiplier ?? 1
         )),
+        activeDispersers: group.filter(
+          (creature) => creature.dispersalTargetX != null && creature.dispersalTargetY != null
+        ).length,
+        averageDispersalMoves: average(group.map((creature) => creature.dispersalMoves ?? 0)),
         localContext: contextFor(
           representative.traits.energyStrategy,
           metabolicLoad,

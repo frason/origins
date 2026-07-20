@@ -147,6 +147,8 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
                   <div><dt>Avg. toxin resistance</dt><dd>{Math.round(lineage.averageToxinResistance * 100)}%</dd></div>
                   <div><dt>Resource pressure</dt><dd>{Math.round(lineage.averageResourcePressure * 100)}%</dd></div>
                   <div><dt>Breeding requirement</dt><dd>{lineage.averageReproductionMultiplier.toFixed(2)}×</dd></div>
+                  <div><dt>Dispersing</dt><dd>{lineage.activeDispersers}/{lineage.population}</dd></div>
+                  <div><dt>Avg. dispersal moves</dt><dd>{lineage.averageDispersalMoves.toFixed(1)}</dd></div>
                 </dl>
                 <p className="tile-lineage__context">{lineage.localContext}</p>
                 {lineage.habitat && (
@@ -164,6 +166,12 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
                   <p className="tile-lineage__context sim-status--warning">
                     Local consumers currently outweigh accessible food, so this lineage needs
                     more stored energy before breeding. No resources or creatures are changed directly.
+                  </p>
+                )}
+                {lineage.activeDispersers > 0 && (
+                  <p className="tile-lineage__context sim-status--warning">
+                    Some members are paying travel energy to seek lower-pressure suitable habitat.
+                    Immediate threats still take priority over dispersal.
                   </p>
                 )}
               </article>

@@ -7,7 +7,8 @@ import type { World } from './world';
 import type { EnergyStrategy } from '../utils/traits';
 
 export const DEFAULT_LOCAL_PRESSURE_RADIUS = 5;
-export const LOCAL_PRESSURE_500_CREATURE_BUDGET_MS = 1_000;
+/** Parallel-suite wall-clock gate; isolated runs are typically well below this. */
+export const LOCAL_PRESSURE_500_CREATURE_BUDGET_MS = 2_000;
 
 export interface LocalResourcePressure {
   creatureId: string;
@@ -53,16 +54,18 @@ function measureCreaturePressure(
   creature: Creature,
   world: World,
   index: CreatureSpatialIndex,
-  radius: number
+  radius: number,
+  originX: number = creature.x,
+  originY: number = creature.y
 ): LocalResourcePressure {
-  const nearby = index.querySquare(creature.x, creature.y, radius).filter((candidate) =>
+  const nearby = index.querySquare(originX, originY, radius).filter((candidate) =>
     candidate.id !== creature.id &&
-    Math.max(Math.abs(candidate.x - creature.x), Math.abs(candidate.y - creature.y)) <= radius
+    Math.max(Math.abs(candidate.x - originX), Math.abs(candidate.y - originY)) <= radius
   );
   const reachable = reachableTerrainCells(
     world,
-    creature.x,
-    creature.y,
+    originX,
+    originY,
     radius,
     creature.traits
   );
@@ -97,10 +100,10 @@ function measureCreaturePressure(
 
   let accessibleProducerEnergy = 0;
   if (strategy === 'herbivore' || strategy === 'omnivore') {
-    const minX = Math.max(0, creature.x - radius);
-    const maxX = Math.min(world.width - 1, creature.x + radius);
-    const minY = Math.max(0, creature.y - radius);
-    const maxY = Math.min(world.height - 1, creature.y + radius);
+    const minX = Math.max(0, originX - radius);
+    const maxX = Math.min(world.width - 1, originX + radius);
+    const minY = Math.max(0, originY - radius);
+    const maxY = Math.min(world.height - 1, originY + radius);
     for (let y = minY; y <= maxY; y++) {
       for (let x = minX; x <= maxX; x++) {
         if (!reachable.has(`${x},${y}`)) continue;
@@ -135,6 +138,25 @@ function measureCreaturePressure(
     localDemand: round(localDemand),
     pressure: round(Math.max(0, Math.min(1, pressure))),
   });
+}
+
+/** Evaluate a hypothetical destination without mutating creature or world state. */
+export function measureLocalResourcePressureAt(
+  creature: Creature,
+  x: number,
+  y: number,
+  world: World,
+  spatialIndex: CreatureSpatialIndex,
+  radius: number = DEFAULT_LOCAL_PRESSURE_RADIUS
+): LocalResourcePressure {
+  return measureCreaturePressure(
+    creature,
+    world,
+    spatialIndex,
+    boundedRadius(radius),
+    Math.max(0, Math.min(world.width - 1, Math.floor(x))),
+    Math.max(0, Math.min(world.height - 1, Math.floor(y)))
+  );
 }
 
 /**

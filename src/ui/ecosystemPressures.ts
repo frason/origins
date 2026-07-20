@@ -19,6 +19,7 @@ const causePresentation: Record<DeathCause, { title: string; tone: PressureTone;
   'monoculture-pressure': { title: 'Monoculture pressure is correcting dominance', tone: 'warning', priority: 75 },
   overcrowding: { title: 'Overcrowding is forcing mortality', tone: 'critical', priority: 95 },
   'environmental-stress': { title: 'Local climate is costing lives', tone: 'warning', priority: 78 },
+  'dispersal-exhaustion': { title: 'Costly migration is exhausting travelers', tone: 'warning', priority: 76 },
   unknown: { title: 'Unclassified mortality occurred', tone: 'watch', priority: 20 },
 };
 

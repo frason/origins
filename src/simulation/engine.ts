@@ -54,6 +54,7 @@ import {
   applyReproductionPressure,
   getReproductionPressureMultiplier,
 } from './reproductionPressure';
+import { findDispersalTarget, shouldEvaluateDispersal } from './dispersal';
 import {
   establishableCandidates,
   createIncipientSpecies,
@@ -298,6 +299,10 @@ export function createEngine(
         toxinExposure: c.toxinExposure,
         localResourcePressure: c.localResourcePressure,
         reproductionPressureMultiplier: c.reproductionPressureMultiplier,
+        dispersalTargetX: c.dispersalTargetX,
+        dispersalTargetY: c.dispersalTargetY,
+        lastDispersalTick: c.lastDispersalTick,
+        dispersalMoves: c.dispersalMoves,
       })
   );
 
@@ -382,6 +387,10 @@ export function tickEngine(
         toxinExposure: c.toxinExposure,
         localResourcePressure: c.localResourcePressure,
         reproductionPressureMultiplier: c.reproductionPressureMultiplier,
+        dispersalTargetX: c.dispersalTargetX,
+        dispersalTargetY: c.dispersalTargetY,
+        lastDispersalTick: c.lastDispersalTick,
+        dispersalMoves: c.dispersalMoves,
       })
   );
 
@@ -427,11 +436,90 @@ export function tickEngine(
   // Step 3 & 4: Creature Decisions and Movement
   const decisions = new Map<string, DecisionType>();
   const creatureIndex = new CreatureSpatialIndex(creatures);
+  const localPressure = buildLocalResourcePressureCache(
+    state.tick,
+    creatures,
+    newWorld,
+    constants.localResourcePressureRadius,
+    creatureIndex
+  );
+  const dispersalPolicy = {
+    pressureStart: constants.dispersalPressureStart,
+    evaluationIntervalTicks: constants.dispersalEvaluationIntervalTicks,
+    range: constants.dispersalRange,
+    pressureRadius: constants.localResourcePressureRadius,
+    minimumPressureImprovement: constants.dispersalMinimumPressureImprovement,
+  };
+  let dispersalMoves = 0;
+  let dispersalEnergySpent = 0;
+  let dispersalBiomeTransitions = 0;
   for (const creature of creatures) {
     if (creature.lifecycleState === 'alive') {
-      const decision = decideTick(creature, newWorld, creatures, rng, creatureIndex);
+      const pressure = localPressure.get(creature.id);
+      creature.localResourcePressure = pressure?.pressure ?? 0;
+      if (
+        pressure &&
+        shouldEvaluateDispersal(creature, state.tick, pressure.pressure, dispersalPolicy)
+      ) {
+        const target = findDispersalTarget(
+          creature,
+          newWorld,
+          creatureIndex,
+          pressure,
+          dispersalPolicy
+        );
+        if (target) {
+          creature.dispersalTargetX = target.x;
+          creature.dispersalTargetY = target.y;
+          creature.lastDispersalTick = state.tick;
+        }
+      }
+      let decision = decideTick(creature, newWorld, creatures, rng, creatureIndex);
+      const hasDispersalTarget =
+        creature.dispersalTargetX !== null && creature.dispersalTargetY !== null;
+      if (hasDispersalTarget && decision !== 'flee') decision = 'disperse';
       decisions.set(creature.id, decision);
-      applyMovement(creature, decision, newWorld, creatures, rng, creatureIndex);
+      const previousX = creature.x;
+      const previousY = creature.y;
+      const previousBiome = newWorld.getCell(previousX, previousY).biome;
+      applyMovement(
+        creature,
+        decision,
+        newWorld,
+        creatures,
+        rng,
+        creatureIndex,
+        hasDispersalTarget
+          ? { x: creature.dispersalTargetX!, y: creature.dispersalTargetY! }
+          : undefined
+      );
+      if (decision === 'disperse') {
+        const distance = Math.max(
+          Math.abs(creature.x - previousX),
+          Math.abs(creature.y - previousY)
+        );
+        const energyCost = distance * Math.max(0, constants.dispersalEnergyCostPerCell);
+        creature.energy = Math.max(0, creature.energy - energyCost);
+        dispersalEnergySpent += energyCost;
+        if (distance > 0) {
+          creature.dispersalMoves++;
+          dispersalMoves++;
+          if (newWorld.getCell(creature.x, creature.y).biome !== previousBiome) {
+            dispersalBiomeTransitions++;
+          }
+        }
+        if (
+          creature.x === creature.dispersalTargetX &&
+          creature.y === creature.dispersalTargetY
+        ) {
+          creature.dispersalTargetX = null;
+          creature.dispersalTargetY = null;
+        }
+        if (creature.energy <= 0) {
+          creature.lifecycleState = 'dead';
+          deathCauses.set(creature.id, 'dispersal-exhaustion');
+        }
+      }
     }
   }
 
@@ -529,13 +617,6 @@ export function tickEngine(
   const offspring: Creature[] = [];
   const livingBeforeBirths = creatures.filter((creature) => creature.lifecycleState === 'alive');
   const birthPressure = getPopulationPressure(livingBeforeBirths, constants);
-  const localPressure = buildLocalResourcePressureCache(
-    state.tick,
-    creatures,
-    newWorld,
-    constants.localResourcePressureRadius,
-    creatureIndex
-  );
   const lifespanEvidence = buildSpeciesLifespanEvidence(state.events);
   let birthSlots = Math.max(0, constants.maxGlobalPopulation - livingBeforeBirths.length);
   let restrainedCandidates = 0;
@@ -804,6 +885,16 @@ export function tickEngine(
     averagePressure: pressureCount > 0 ? pressureTotal / pressureCount : 0,
     maximumPressure,
   };
+  const dispersal = {
+    activeCreatures: creaturesAfterDecomposition.filter((creature) =>
+      creature.lifecycleState === 'alive'
+      && creature.dispersalTargetX !== null
+      && creature.dispersalTargetY !== null
+    ).length,
+    moves: dispersalMoves,
+    energySpent: dispersalEnergySpent,
+    biomeTransitions: dispersalBiomeTransitions,
+  };
   const historyResult = nextTick % state.historyInterval === 0
     ? appendEcosystemHistory(
         state.history,
@@ -813,7 +904,8 @@ export function tickEngine(
           creaturesAfterDecomposition,
           completeEvents,
           newWorld,
-          reproductionPressure
+          reproductionPressure,
+          dispersal
         )
       )
     : { history: state.history, interval: state.historyInterval };

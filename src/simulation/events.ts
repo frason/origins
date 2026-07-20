@@ -9,6 +9,7 @@ export type DeathCause =
   | 'monoculture-pressure'
   | 'overcrowding'
   | 'environmental-stress'
+  | 'dispersal-exhaustion'
   | 'unknown';
 
 export interface TraitChange {

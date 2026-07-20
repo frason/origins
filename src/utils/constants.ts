@@ -66,6 +66,13 @@ export const REPRODUCTION_PRESSURE_START = 0.75;
 /** Maximum energy-threshold multiplier under extreme local scarcity. */
 export const REPRODUCTION_PRESSURE_MAX_MULTIPLIER = 1.25;
 
+/** Pressure required before a creature considers leaving its local habitat. */
+export const DISPERSAL_PRESSURE_START = 0.85;
+export const DISPERSAL_EVALUATION_INTERVAL_TICKS = 10;
+export const DISPERSAL_RANGE = 12;
+export const DISPERSAL_MINIMUM_PRESSURE_IMPROVEMENT = 0.15;
+export const DISPERSAL_ENERGY_COST_PER_CELL = 0.5;
+
 // ============================================================================
 // Lifecycle Constants
 // ============================================================================
@@ -157,6 +164,11 @@ export interface SimulationConstants {
   localResourcePressureRadius: number;
   reproductionPressureStart: number;
   reproductionPressureMaxMultiplier: number;
+  dispersalPressureStart: number;
+  dispersalEvaluationIntervalTicks: number;
+  dispersalRange: number;
+  dispersalMinimumPressureImprovement: number;
+  dispersalEnergyCostPerCell: number;
   maxCreatureAgeTicks: number;
   corpseDecayRate: number;
   corpseDecayDurationTicks: number;
@@ -199,6 +211,11 @@ export const SIMULATION_CONSTANTS: SimulationConstants = {
   localResourcePressureRadius: LOCAL_RESOURCE_PRESSURE_RADIUS,
   reproductionPressureStart: REPRODUCTION_PRESSURE_START,
   reproductionPressureMaxMultiplier: REPRODUCTION_PRESSURE_MAX_MULTIPLIER,
+  dispersalPressureStart: DISPERSAL_PRESSURE_START,
+  dispersalEvaluationIntervalTicks: DISPERSAL_EVALUATION_INTERVAL_TICKS,
+  dispersalRange: DISPERSAL_RANGE,
+  dispersalMinimumPressureImprovement: DISPERSAL_MINIMUM_PRESSURE_IMPROVEMENT,
+  dispersalEnergyCostPerCell: DISPERSAL_ENERGY_COST_PER_CELL,
   maxCreatureAgeTicks: MAX_CREATURE_AGE_TICKS,
   corpseDecayRate: CORPSE_DECAY_RATE,
   corpseDecayDurationTicks: CORPSE_DECAY_DURATION_TICKS,

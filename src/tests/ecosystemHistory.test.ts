@@ -69,6 +69,20 @@ describe('bounded ecosystem history', () => {
     expect(sample.births).toBe(0);
   });
 
+  it('records bounded dispersal movement and habitat-transition evidence', () => {
+    const sample = createEcosystemHistorySample(
+      20,
+      [alive('grazer', 'root')] as Creature[],
+      [],
+      undefined,
+      undefined,
+      { activeCreatures: 3, moves: 2, energySpent: 1.5, biomeTransitions: 1 }
+    );
+    expect(sample.dispersal).toEqual({
+      activeCreatures: 3, moves: 2, energySpent: 1.5, biomeTransitions: 1,
+    });
+  });
+
   it('compacts deterministically while retaining full-span coverage', () => {
     const run = () => {
       let history = [createEcosystemHistorySample(0, [], [])];

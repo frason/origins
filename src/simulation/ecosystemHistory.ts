@@ -25,12 +25,20 @@ export interface EcosystemHistorySample {
   mutations: number;
   biomass?: BiomassMetrics;
   reproductionPressure?: ReproductionPressureHistory;
+  dispersal?: DispersalHistory;
 }
 
 export interface ReproductionPressureHistory {
   restrainedCandidates: number;
   averagePressure: number;
   maximumPressure: number;
+}
+
+export interface DispersalHistory {
+  activeCreatures: number;
+  moves: number;
+  energySpent: number;
+  biomeTransitions: number;
 }
 
 export const BASE_HISTORY_INTERVAL = 10;
@@ -41,7 +49,8 @@ export function createEcosystemHistorySample(
   creatures: Pick<Creature, 'speciesId' | 'lineageId' | 'lifecycleState' | 'x' | 'y'>[],
   events: SimEvent[],
   world?: World,
-  reproductionPressure?: ReproductionPressureHistory
+  reproductionPressure?: ReproductionPressureHistory,
+  dispersal?: DispersalHistory
 ): EcosystemHistorySample {
   const species = new Map<string, number>();
   const lineages = new Set<string>();
@@ -76,6 +85,7 @@ export function createEcosystemHistorySample(
     mutations: events.filter((event) => event.type === 'mutation').length,
     ...(world ? { biomass: measureBiomass(world, creatures) } : {}),
     ...(reproductionPressure ? { reproductionPressure } : {}),
+    ...(dispersal ? { dispersal } : {}),
   };
 }
 
