@@ -141,7 +141,7 @@ export function estimateProducerRegrowth(
       const cell = world.getCell(x, y);
       regrowth += Math.max(
         0,
-        calculateProducerGrowth(cell, 'solar', constants.producerGrowthRate, true).growth
+        calculateProducerGrowth(cell, 'solar', constants.producerGrowthRate, true, true).growth
       );
     }
   }
@@ -158,7 +158,7 @@ function predictProducerBiomass(
     for (let x = 0; x < world.width; x++) {
       const cell = world.getCell(x, y);
       const prediction = calculateProducerGrowth(
-        cell, 'solar', constants.producerGrowthRate, true
+        cell, 'solar', constants.producerGrowthRate, true, true
       );
       biomass[y * world.width + x] = prediction.nextBiomass;
       regrowth += Math.max(0, prediction.growth);

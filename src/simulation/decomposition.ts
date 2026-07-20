@@ -8,6 +8,7 @@ import {
   CORPSE_TOXICITY_RADIUS,
   TOXICITY_RETENTION,
 } from '../utils/constants';
+import { getNutrientCapacity } from './producer';
 
 /**
  * Check if a creature should die from age or starvation.
@@ -55,7 +56,7 @@ export function decayCorpse(
   creature.energy -= nutrientsToAdd;
   const cell = world.getCell(creature.x, creature.y);
   world.setCell(creature.x, creature.y, {
-    nutrients: cell.nutrients + nutrientsToAdd,
+    nutrients: Math.min(getNutrientCapacity(cell), cell.nutrients + nutrientsToAdd),
   });
 
   const radius = Math.max(0, Math.floor(toxicityRadius));
@@ -87,12 +88,9 @@ export function dissipateToxicity(
 }
 
 /**
- * Recycle nutrients back into cell energy across the entire world.
- * For each cell:
- * - Convert nutrients to energy at a 0.5 ratio (nutrients × 0.5 → energy)
- * - Remove the converted nutrients from the cell
- *
- * This closes the energy loop: corpses → nutrients → energy for producers
+ * Keep recycled nutrients within each habitat's bounded soil stock. Solar
+ * energy remains a renewable flux; producers consume this nutrient stock
+ * directly during growth and maintenance.
  *
  * @param world - the world to process nutrient recycling for
  */
@@ -101,14 +99,13 @@ export function recycleNutrients(world: World): void {
     for (let x = 0; x < world.width; x++) {
       const cell = world.getCell(x, y);
 
-      if (cell.nutrients > 0) {
-        // Convert nutrients to energy at 0.5 ratio
-        const energyFromNutrients = cell.nutrients * 0.5;
-
-        // Update cell: add energy, remove converted nutrients
+      const boundedNutrients = Math.max(
+        0,
+        Math.min(getNutrientCapacity(cell), cell.nutrients)
+      );
+      if (boundedNutrients !== cell.nutrients) {
         world.setCell(x, y, {
-          energy: cell.energy + energyFromNutrients,
-          nutrients: cell.nutrients - cell.nutrients * 0.5,
+          nutrients: boundedNutrients,
         });
       }
     }

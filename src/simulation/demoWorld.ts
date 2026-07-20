@@ -1,6 +1,6 @@
 import { Creature } from './creature';
 import { createEngine, type EngineState } from './engine';
-import { getBiomeProductivity } from './producer';
+import { getBiomeProductivity, getNutrientCapacity } from './producer';
 import { buildStarterCreatures } from './starterWorld';
 import type { SimulationConstants } from '../utils/constants';
 
@@ -21,6 +21,7 @@ export function buildDemoEngine(seed: number, constants: SimulationConstants): E
       const cell = engine.world.getCell(x, y);
       engine.world.setCell(x, y, {
         producerBiomass: cell.energy * 2 * getBiomeProductivity(cell.biome),
+        nutrients: getNutrientCapacity(cell),
       });
     }
   }

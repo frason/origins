@@ -48,6 +48,16 @@ export function getBiomeProductivity(biome: Biome): number {
  */
 export const MAX_PRODUCER_BIOMASS = 100;
 
+/** Minimal bounded soil stock used by the Phase 4 nutrient cycle. */
+export const NUTRIENT_CAPACITY_SHARE = 0.5;
+export const NATURAL_NUTRIENT_RECOVERY_RATE = 0.003;
+export const NUTRIENT_COST_PER_BIOMASS = 0.01;
+export const PRODUCER_MAINTENANCE_RATE = 0.0006;
+
+export function getNutrientCapacity(cell: Cell): number {
+  return getProducerTraits(cell.producerArchetype).carryingCapacity * NUTRIENT_CAPACITY_SHARE;
+}
+
 /**
  * Calculate one cell's bounded growth without mutating it. Producer growth is
  * fastest after depletion and slows continuously as local biomass approaches
@@ -57,8 +67,15 @@ export function calculateProducerGrowth(
   cell: Cell,
   energyType: EnergyType,
   growthRate: number = PRODUCER_GROWTH_RATE,
-  useBiomeProductivity: boolean = false
-): { growth: number; carryingCapacity: number; nextBiomass: number } {
+  useBiomeProductivity: boolean = false,
+  useNutrientCycle: boolean = false
+): {
+  growth: number;
+  carryingCapacity: number;
+  nextBiomass: number;
+  nextNutrients: number;
+  maintenanceLoss: number;
+} {
   const energyMultiplier = ENERGY_TYPE_MULTIPLIERS[energyType];
   const biomeMultiplier = useBiomeProductivity ? getBiomeProductivity(cell.biome) : 1;
   const toxicityMultiplier = 1 / (1 + Math.max(0, cell.toxicity));
@@ -69,16 +86,41 @@ export function calculateProducerGrowth(
     0,
     1 - Math.max(0, cell.producerBiomass) / carryingCapacity
   );
-  const potentialGrowth = growthRate * cell.energy * energyMultiplier
+  let potentialGrowth = growthRate * cell.energy * energyMultiplier
     * biomeMultiplier * toxicityMultiplier * capacityRemaining;
+  let nextNutrients = Math.max(0, cell.nutrients);
+  let maintenanceLoss = 0;
+  if (useNutrientCycle) {
+    const nutrientCapacity = getNutrientCapacity(cell);
+    nextNutrients = Math.min(
+      nutrientCapacity,
+      nextNutrients
+        + nutrientCapacity * NATURAL_NUTRIENT_RECOVERY_RATE * toxicityMultiplier
+    );
+    const fertilityMultiplier = nutrientCapacity > 0
+      ? 1 + nextNutrients / nutrientCapacity
+      : 1;
+    potentialGrowth *= fertilityMultiplier;
+    const maintenanceNeed = Math.max(0, cell.producerBiomass) * PRODUCER_MAINTENANCE_RATE;
+    const maintenancePaid = Math.min(nextNutrients, maintenanceNeed);
+    nextNutrients -= maintenancePaid;
+    maintenanceLoss = maintenanceNeed - maintenancePaid;
+    potentialGrowth = Math.min(
+      potentialGrowth,
+      nextNutrients / NUTRIENT_COST_PER_BIOMASS
+    );
+    nextNutrients -= potentialGrowth * NUTRIENT_COST_PER_BIOMASS;
+  }
   const nextBiomass = Math.max(
     0,
-    Math.min(carryingCapacity, cell.producerBiomass + potentialGrowth)
+    Math.min(carryingCapacity, cell.producerBiomass - maintenanceLoss + potentialGrowth)
   );
   return {
     growth: nextBiomass - cell.producerBiomass,
     carryingCapacity,
     nextBiomass,
+    nextNutrients,
+    maintenanceLoss,
   };
 }
 
@@ -98,16 +140,20 @@ export function growProducers(
   world: World,
   energyType: EnergyType,
   growthRate: number = PRODUCER_GROWTH_RATE,
-  useBiomeProductivity: boolean = false
+  useBiomeProductivity: boolean = false,
+  useNutrientCycle: boolean = false
 ): void {
   for (let y = 0; y < world.height; y++) {
     for (let x = 0; x < world.width; x++) {
       const cell = world.getCell(x, y);
 
       const growth = calculateProducerGrowth(
-        cell, energyType, growthRate, useBiomeProductivity
+        cell, energyType, growthRate, useBiomeProductivity, useNutrientCycle
       );
-      world.setCell(x, y, { producerBiomass: growth.nextBiomass });
+      world.setCell(x, y, {
+        producerBiomass: growth.nextBiomass,
+        nutrients: growth.nextNutrients,
+      });
     }
   }
 }

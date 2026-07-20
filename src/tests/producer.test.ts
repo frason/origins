@@ -6,6 +6,7 @@ import {
   MAX_PRODUCER_BIOMASS,
   BIOME_PRODUCTIVITY,
   calculateProducerGrowth,
+  getNutrientCapacity,
   getBiomeProductivity,
 } from '../simulation/producer';
 import { PRODUCER_GROWTH_RATE } from '../utils/constants';
@@ -37,6 +38,75 @@ describe('Producer Growth Logic', () => {
   });
 
   describe('growProducers function', () => {
+    describe('bounded nutrient cycle', () => {
+      it('limits growth to the available local nutrient stock', () => {
+        const world = new World(1, 1);
+        world.setCell(0, 0, {
+          energy: 100,
+          nutrients: 0,
+          producerBiomass: 0,
+          biome: 'grassland',
+          producerArchetype: 'ground-cover',
+        });
+
+        growProducers(world, 'solar', 1, true, true);
+
+        expect(world.getCell(0, 0).producerBiomass).toBeCloseTo(15, 5);
+        expect(world.getCell(0, 0).nutrients).toBe(0);
+      });
+
+      it('declines when producer maintenance cannot be met', () => {
+        const world = new World(1, 1);
+        world.setCell(0, 0, {
+          energy: 0,
+          nutrients: 0,
+          producerBiomass: 30,
+          biome: 'mountain',
+          producerArchetype: 'lithotroph',
+          toxicity: 100,
+        });
+
+        growProducers(world, 'solar', PRODUCER_GROWTH_RATE, true, true);
+
+        expect(world.getCell(0, 0).producerBiomass).toBeLessThan(30);
+      });
+
+      it('recovers an abandoned depleted cell gradually and stays bounded', () => {
+        const world = new World(1, 1);
+        world.setCell(0, 0, {
+          energy: 100,
+          nutrients: 0,
+          producerBiomass: 0,
+          biome: 'grassland',
+          producerArchetype: 'ground-cover',
+        });
+
+        growProducers(world, 'solar', PRODUCER_GROWTH_RATE, true, true);
+        const firstTick = world.getCell(0, 0).producerBiomass;
+        for (let tick = 0; tick < 20; tick++) {
+          growProducers(world, 'solar', PRODUCER_GROWTH_RATE, true, true);
+        }
+
+        expect(firstTick).toBeGreaterThan(0);
+        expect(firstTick).toBeLessThan(16);
+        expect(world.getCell(0, 0).producerBiomass).toBeGreaterThan(firstTick);
+        expect(world.getCell(0, 0).nutrients).toBeLessThanOrEqual(
+          getNutrientCapacity(world.getCell(0, 0))
+        );
+      });
+
+      it('gives productive biomes larger nutrient stocks than harsh biomes', () => {
+        const forest = new World(1, 1);
+        const desert = new World(1, 1);
+        forest.setCell(0, 0, { biome: 'forest', producerArchetype: 'canopy-colony' });
+        desert.setCell(0, 0, { biome: 'desert', producerArchetype: 'xerophyte-mat' });
+
+        expect(getNutrientCapacity(forest.getCell(0, 0))).toBeGreaterThan(
+          getNutrientCapacity(desert.getCell(0, 0))
+        );
+      });
+    });
+
     describe('Biome productivity', () => {
       it('defines positive productivity for every biome', () => {
         for (const productivity of Object.values(BIOME_PRODUCTIVITY)) {

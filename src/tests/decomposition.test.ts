@@ -13,6 +13,7 @@ import {
   CORPSE_DECAY_DURATION_TICKS,
 } from '../utils/constants';
 import { DEFAULT_TRAITS } from '../utils/traits';
+import { getNutrientCapacity } from '../simulation/producer';
 
 describe('Decomposition Functions', () => {
   beforeEach(() => {
@@ -328,47 +329,29 @@ describe('Decomposition Functions', () => {
   });
 
   describe('recycleNutrients', () => {
-    it('should convert nutrients to energy at 0.5 ratio', () => {
+    it('should keep solar energy separate from recycled nutrients', () => {
       const world = new World();
-      world.setCell(50, 50, { nutrients: 100, energy: 0 });
+      world.setCell(50, 50, { nutrients: 20, energy: 7 });
 
       recycleNutrients(world);
 
       const cell = world.getCell(50, 50);
-      expect(cell.energy).toBeCloseTo(50, 5);
+      expect(cell.energy).toBe(7);
+      expect(cell.nutrients).toBe(20);
     });
 
-    it('should reduce nutrients after recycling', () => {
+    it('should cap recycled nutrients at local habitat capacity', () => {
       const world = new World();
-      world.setCell(50, 50, { nutrients: 100, energy: 0 });
+      world.setCell(50, 50, {
+        nutrients: 1000,
+        biome: 'tundra',
+        producerArchetype: 'frost-lichen',
+      });
 
       recycleNutrients(world);
 
       const cell = world.getCell(50, 50);
-      expect(cell.nutrients).toBeCloseTo(50, 5);
-    });
-
-    it('should process all cells with nutrients', () => {
-      const world = new World();
-      world.setCell(10, 10, { nutrients: 100, energy: 0 });
-      world.setCell(50, 50, { nutrients: 200, energy: 0 });
-      world.setCell(90, 90, { nutrients: 50, energy: 0 });
-
-      recycleNutrients(world);
-
-      expect(world.getCell(10, 10).energy).toBeCloseTo(50, 5);
-      expect(world.getCell(50, 50).energy).toBeCloseTo(100, 5);
-      expect(world.getCell(90, 90).energy).toBeCloseTo(25, 5);
-    });
-
-    it('should preserve existing energy when recycling nutrients', () => {
-      const world = new World();
-      world.setCell(50, 50, { nutrients: 100, energy: 30 });
-
-      recycleNutrients(world);
-
-      const cell = world.getCell(50, 50);
-      expect(cell.energy).toBeCloseTo(30 + 50, 5);
+      expect(cell.nutrients).toBeCloseTo(22.5, 5);
     });
 
     it('should not affect cells with zero nutrients', () => {
@@ -382,24 +365,7 @@ describe('Decomposition Functions', () => {
       expect(cell.nutrients).toBe(0);
     });
 
-    it('should handle multiple recycling cycles', () => {
-      const world = new World();
-      world.setCell(50, 50, { nutrients: 100, energy: 0 });
-
-      // First cycle: 100 nutrients → 50 energy, 50 nutrients remain
-      recycleNutrients(world);
-      let cell = world.getCell(50, 50);
-      expect(cell.energy).toBeCloseTo(50, 5);
-      expect(cell.nutrients).toBeCloseTo(50, 5);
-
-      // Second cycle: 50 nutrients → 25 energy, 25 nutrients remain
-      recycleNutrients(world);
-      cell = world.getCell(50, 50);
-      expect(cell.energy).toBeCloseTo(75, 5);
-      expect(cell.nutrients).toBeCloseTo(25, 5);
-    });
-
-    it('should close the energy loop: corpse → nutrients → energy', () => {
+    it('should close the material loop without creating renewable energy', () => {
       const world = new World();
       const creature = new Creature({
         speciesId: 'species_1',
@@ -418,17 +384,14 @@ describe('Decomposition Functions', () => {
         decayCorpse(creature, world);
       }
 
-      // Each tick converts 10% of the remaining corpse energy.
       let cell = world.getCell(50, 50);
-      const convertedEnergy = 100 * (1 - Math.pow(0.9, 10));
-      expect(cell.nutrients).toBeCloseTo(convertedEnergy, 5);
+      expect(cell.nutrients).toBe(getNutrientCapacity(cell));
 
-      // Recycle nutrients (100 nutrients × 0.5 = 50 energy)
       recycleNutrients(world);
 
       cell = world.getCell(50, 50);
-      expect(cell.energy).toBeCloseTo(convertedEnergy * 0.5, 5);
-      expect(cell.nutrients).toBeCloseTo(convertedEnergy * 0.5, 5);
+      expect(cell.energy).toBe(0);
+      expect(cell.nutrients).toBe(getNutrientCapacity(cell));
     });
   });
 });
