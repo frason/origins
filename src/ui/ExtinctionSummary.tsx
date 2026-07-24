@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { useStore } from '../state/store';
 import { buildSessionSummary, hasLivingCreatures } from './sessionSummary';
 import { speciesDisplayName } from '../simulation/speciesNames';
@@ -41,7 +41,107 @@ function eventText(event: ReturnType<typeof buildSessionSummary>['finalEvents'][
   return `${subject} went extinct`;
 }
 
-export default function ExtinctionSummary({ onRestart }: { onRestart: () => void }) {
+export function getReplayTicks(checkpointTicks: number[], endTick: number): number[] {
+  return [...new Set([0, ...checkpointTicks])]
+    .filter((checkpointTick) => checkpointTick >= 0 && checkpointTick < endTick)
+    .sort((a, b) => b - a);
+}
+
+interface ExtinctionSummaryProps {
+  onNewWorld: () => void;
+  onReplayWorld: () => void;
+  onReplayFromTick: (tick: number) => string | null;
+  checkpointTicks: number[];
+}
+
+export function ExtinctionActions({
+  onNewWorld,
+  onReplayWorld,
+  onReplayFromTick,
+  checkpointTicks,
+  endTick,
+}: ExtinctionSummaryProps & { endTick: number }) {
+  const [replayMenuOpen, setReplayMenuOpen] = useState(false);
+  const [selectedReplayTick, setSelectedReplayTick] = useState('0');
+  const [replayError, setReplayError] = useState<string | null>(null);
+  const replayTicks = useMemo(
+    () => getReplayTicks(checkpointTicks, endTick),
+    [checkpointTicks, endTick]
+  );
+
+  return (
+    <div className="extinction-summary__actions">
+      <button className="sim-button extinction-summary__action" type="button" onClick={onNewWorld}>
+        New world
+      </button>
+      <div className="extinction-summary__replay">
+        <button
+          className="sim-button extinction-summary__replay-main"
+          type="button"
+          onClick={onReplayWorld}
+        >
+          Replay current world
+        </button>
+        <button
+          className="sim-button extinction-summary__replay-toggle"
+          type="button"
+          aria-label="Choose a tick to replay from"
+          aria-haspopup="menu"
+          aria-expanded={replayMenuOpen}
+          onClick={() => {
+            setReplayMenuOpen((open) => !open);
+            setReplayError(null);
+          }}
+        >
+          ▾
+        </button>
+        {replayMenuOpen && (
+          <div className="extinction-summary__replay-menu" role="menu">
+            <label className="extinction-summary__replay-label" htmlFor="extinction-replay-tick">
+              Start back at
+            </label>
+            <select
+              className="extinction-summary__replay-select sim-data"
+              id="extinction-replay-tick"
+              value={selectedReplayTick}
+              onChange={(event) => {
+                setSelectedReplayTick(event.target.value);
+                setReplayError(null);
+              }}
+            >
+              {replayTicks.map((checkpointTick) => (
+                <option key={checkpointTick} value={checkpointTick}>
+                  Tick {checkpointTick.toLocaleString()}
+                </option>
+              ))}
+            </select>
+            <button
+              className="sim-button extinction-summary__replay-confirm"
+              type="button"
+              onClick={() => {
+                const replayTick = Number(selectedReplayTick);
+                let error: string | null = null;
+                if (replayTick === 0) onReplayWorld();
+                else error = onReplayFromTick(replayTick);
+                setReplayError(error);
+              }}
+            >
+              Replay from tick
+            </button>
+            {replayError && <div className="sim-status--danger" role="status">{replayError}</div>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function ExtinctionSummary({
+  onNewWorld,
+  onReplayWorld,
+  onReplayFromTick,
+  checkpointTicks,
+}: ExtinctionSummaryProps) {
   const worldState = useStore((state) => state.worldState);
   const tick = useStore((state) => state.tick);
 
@@ -104,22 +204,13 @@ export default function ExtinctionSummary({ onRestart }: { onRestart: () => void
           ))
         )}
 
-        <button
-          onClick={onRestart}
-          style={{
-            marginTop: '1.25rem',
-            width: '100%',
-            padding: '0.75rem',
-            border: 0,
-            borderRadius: 7,
-            background: '#d3b38c',
-            color: '#18130f',
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
-        >
-          Begin a new world
-        </button>
+        <ExtinctionActions
+          onNewWorld={onNewWorld}
+          onReplayWorld={onReplayWorld}
+          onReplayFromTick={onReplayFromTick}
+          checkpointTicks={checkpointTicks}
+          endTick={tick}
+        />
       </div>
     </div>
   );

@@ -98,6 +98,11 @@ export default function App() {
     startWorld(createFreshWorldSeed(worldSeed));
   }, [startWorld, worldSeed]);
 
+  const replayWorld = useCallback(() => {
+    reset();
+    useStore.getState().setRunning(true);
+  }, [reset]);
+
   const addSpecies = useCallback((strategy: EnergyStrategy, name: string): string | null => {
     if (recipeReplayRef.current) return 'Manual interventions are disabled during recipe replay';
     const engine = engineRef.current;
@@ -131,6 +136,12 @@ export default function App() {
     publish(restored.state);
     return null;
   }, [publish]);
+
+  const replayFromTick = useCallback((restoreTick: number): string | null => {
+    const error = restoreToTick(restoreTick);
+    if (!error) useStore.getState().setRunning(true);
+    return error;
+  }, [restoreToTick]);
 
   const startRecipeReplay = useCallback((recipe: WorldRecipe): string | null => {
     try {
@@ -315,7 +326,12 @@ export default function App() {
           <SpeciesPanel />
           <LineageHistory />
       </SettingsDrawer>
-      <ExtinctionSummary onRestart={newWorld} />
+      <ExtinctionSummary
+        onNewWorld={newWorld}
+        onReplayWorld={replayWorld}
+        onReplayFromTick={replayFromTick}
+        checkpointTicks={checkpointTicks}
+      />
     </div>
   );
 }
