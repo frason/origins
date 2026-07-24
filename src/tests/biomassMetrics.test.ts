@@ -83,6 +83,16 @@ describe('biomass ecology baseline', () => {
     expect(getProducerBiteCapacity(large)).toBeLessThanOrEqual(100);
   });
 
+  it('trades lower metabolism for reduced food-processing throughput', () => {
+    const lowThroughput = grazer();
+    const highThroughput = grazer();
+    lowThroughput.traits.metabolism = 0.5;
+    highThroughput.traits.metabolism = 1.5;
+
+    expect(getProducerBiteCapacity(lowThroughput)).toBeLessThan(getProducerBiteCapacity(highThroughput));
+    expect(getProducerBiteCapacity(highThroughput)).toBeGreaterThan(getProducerBiteCapacity(grazer()));
+  });
+
   it('makes concentrated grazers deplete a tile faster than a sparse grazer', () => {
     const denseWorld = new World(1, 1);
     const sparseWorld = new World(1, 1);
@@ -155,28 +165,28 @@ describe('biomass ecology baseline', () => {
     expect(first).toMatchInlineSnapshot(`
       [
         {
-          "averageOccupiedTileBiomass": 7.91,
-          "depletedOccupiedTileShare": 0.917,
-          "occupiedTileCount": 12,
-          "population": 16,
-          "seed": 12345,
-          "totalBiomass": 602189,
-        },
-        {
-          "averageOccupiedTileBiomass": 2.433,
-          "depletedOccupiedTileShare": 0.941,
-          "occupiedTileCount": 17,
-          "population": 27,
-          "seed": 54321,
-          "totalBiomass": 627089,
-        },
-        {
-          "averageOccupiedTileBiomass": 13.243,
-          "depletedOccupiedTileShare": 0.875,
+          "averageOccupiedTileBiomass": 31.019,
+          "depletedOccupiedTileShare": 0.5,
           "occupiedTileCount": 16,
-          "population": 17,
+          "population": 30,
+          "seed": 12345,
+          "totalBiomass": 599040,
+        },
+        {
+          "averageOccupiedTileBiomass": 0.574,
+          "depletedOccupiedTileShare": 1,
+          "occupiedTileCount": 10,
+          "population": 10,
+          "seed": 54321,
+          "totalBiomass": 628476,
+        },
+        {
+          "averageOccupiedTileBiomass": 1.768,
+          "depletedOccupiedTileShare": 1,
+          "occupiedTileCount": 18,
+          "population": 50,
           "seed": 99999,
-          "totalBiomass": 658369,
+          "totalBiomass": 651174,
         },
       ]
     `);

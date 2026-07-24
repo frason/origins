@@ -9,6 +9,7 @@ import {
   MAX_ENERGY_MULTIPLIER,
 } from '../utils/constants';
 import { getProducerTraits } from './producerTypes';
+import { metabolicPerformanceMultiplier } from '../utils/traits';
 
 /** Size-based energy storage limit used by decisions and all feeding paths. */
 export function getEnergyCapacity(creature: Creature): number {
@@ -19,7 +20,10 @@ export function getEnergyCapacity(creature: Creature): number {
 export function getProducerBiteCapacity(creature: Pick<Creature, 'traits'>): number {
   const size = Math.max(0.1, creature.traits.size);
   const speed = Math.max(0.1, creature.traits.speed);
-  return Math.max(1, Math.min(100, size * (16 + speed * 4)));
+  return Math.max(
+    1,
+    Math.min(100, size * (16 + speed * 4) * metabolicPerformanceMultiplier(creature.traits.metabolism))
+  );
 }
 
 /**

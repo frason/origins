@@ -76,6 +76,16 @@ export const DEFAULT_TRAITS: Traits = {
 };
 
 /**
+ * Metabolic throughput converts food into sustained activity. The neutral
+ * value (1) preserves the original simulation; lower values save energy but
+ * process food and traverse terrain more slowly, while higher values do both
+ * faster at a correspondingly higher per-tick cost.
+ */
+export function metabolicPerformanceMultiplier(metabolism: number): number {
+  return Math.max(0.6, Math.min(1.4, 0.6 + Math.max(0, metabolism) * 0.4));
+}
+
+/**
  * Relative per-trait mutation weights reserved for differentiated genetics.
  * The engine's overall per-birth chance is DEFAULT_MUTATION_RATE.
  */

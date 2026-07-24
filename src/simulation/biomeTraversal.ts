@@ -1,6 +1,7 @@
 import type { Creature } from './creature';
 import type { Biome, World } from './world';
 import type { Traits } from '../utils/traits';
+import { metabolicPerformanceMultiplier } from '../utils/traits';
 
 export const BIOME_MOVEMENT_COST: Record<Biome, number> = {
   grassland: 1,
@@ -82,7 +83,7 @@ export function moveAcrossTerrain(
 ): { x: number; y: number } {
   let x = creature.x;
   let y = creature.y;
-  let budget = Math.max(0, creature.traits.speed);
+  let budget = Math.max(0, creature.traits.speed * metabolicPerformanceMultiplier(creature.traits.metabolism));
   const targetX = Math.max(0, Math.min(world.width - 1, target.x));
   const targetY = Math.max(0, Math.min(world.height - 1, target.y));
 

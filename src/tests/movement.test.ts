@@ -42,6 +42,20 @@ describe('Movement and Decision Logic', () => {
     });
   });
 
+  it('makes higher metabolic throughput sustain more movement', () => {
+    const low = new Creature({
+      speciesId: 'low', lineageId: 'low', parentId: null,
+      traits: { ...DEFAULT_TRAITS, speed: 1.2, metabolism: 0.5 }, x: 20, y: 20, energy: 100,
+    });
+    const high = new Creature({
+      speciesId: 'high', lineageId: 'high', parentId: null,
+      traits: { ...DEFAULT_TRAITS, speed: 1.2, metabolism: 1.5 }, x: 20, y: 20, energy: 100,
+    });
+
+    expect(moveAcrossTerrain(low, { x: 23, y: 20 }, world)).toEqual({ x: 20, y: 20 });
+    expect(moveAcrossTerrain(high, { x: 23, y: 20 }, world)).toEqual({ x: 21, y: 20 });
+  });
+
   describe('findNearestTarget', () => {
     it('should find the nearest target', () => {
       const targets = [
