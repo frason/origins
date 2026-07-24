@@ -10,7 +10,7 @@ import {
 } from './worldViewport';
 import TurningPointNotice from './TurningPointNotice';
 import { createDrawScheduler, type DrawScheduler } from './drawScheduler';
-import { getToxicityHazard } from '../simulation/toxicity';
+import { buildMiasmaPressureGrid, getToxicityHazard } from '../simulation/toxicity';
 
 /**
  * Rendering constants for the canvas grid
@@ -155,6 +155,7 @@ function extractCreatures(worldState: any): Array<{
   y: number;
   speciesId: string;
   lifecycleState: 'alive' | 'dead' | 'corpse';
+  corpseDecayTicks: number;
 }> {
   if (!worldState) return [];
 
@@ -267,6 +268,14 @@ const WorldView: React.FC = () => {
         return;
       }
 
+      const miasmaPressure = buildMiasmaPressureGrid(
+        grid.width,
+        grid.height,
+        creatures,
+        constants.corpseToxicityRadius,
+        constants.corpseDecayDurationTicks
+      );
+
       // Render grid cells
       for (let y = 0; y < grid.height; y++) {
         for (let x = 0; x < grid.width; x++) {
@@ -299,6 +308,20 @@ const WorldView: React.FC = () => {
           if (toxicityOpacity > 0) {
             ctx.fillStyle = `rgba(105, 45, 120, ${toxicityOpacity})`;
             ctx.fillRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
+          }
+
+          // Mutation pressure is an amber edge, deliberately distinct from violet toxin harm.
+          const pressure = miasmaPressure[y * grid.width + x];
+          if (pressure > 0) {
+            ctx.strokeStyle = `rgba(255, 214, 89, ${0.12 + pressure * 0.42})`;
+            ctx.lineWidth = Math.max(0.5, layout.cellSize * 0.1);
+            const inset = Math.max(0.25, layout.cellSize * 0.14);
+            ctx.strokeRect(
+              pixelX + inset,
+              pixelY + inset,
+              Math.max(0, layout.cellSize - inset * 2),
+              Math.max(0, layout.cellSize - inset * 2)
+            );
           }
         }
       }

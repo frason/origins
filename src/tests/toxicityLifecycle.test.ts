@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Creature } from '../simulation/creature';
 import { createEngine, tickEngine } from '../simulation/engine';
 import {
+  buildMiasmaPressureGrid,
   getCorpseDecayStage,
   getLocalMiasmaMutationPressure,
   getMiasmaAdjustedMutationRate,
@@ -44,6 +45,20 @@ describe('toxicity lifecycle', () => {
     expect(getMiasmaAdjustedMutationRate(0.12, peak)).toBeCloseTo(0.2);
     expect(getMiasmaAdjustedMutationRate(0.5, peak)).toBe(0.5);
     expect(getMiasmaAdjustedMutationRate(1, peak)).toBe(1);
+  });
+
+  it('builds a bounded render field equivalent to local miasma measurements', () => {
+    const source = {
+      x: 5, y: 5, lifecycleState: 'dead' as const, corpseDecayTicks: 20,
+    };
+    const grid = buildMiasmaPressureGrid(10, 10, [source], 3, 30);
+
+    expect(grid).toHaveLength(100);
+    expect(grid[5 * 10 + 5]).toBeCloseTo(
+      getLocalMiasmaMutationPressure(5, 5, [source], 3, 30)
+    );
+    expect(grid[5 * 10 + 9]).toBe(0);
+    expect(grid[0]).toBe(0);
   });
 
   it('records a higher local mutation rate for births inside active miasma', () => {

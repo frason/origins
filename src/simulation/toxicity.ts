@@ -12,6 +12,21 @@ export interface MiasmaSource {
   corpseDecayTicks: number;
 }
 
+function sourceMiasmaPressure(
+  x: number,
+  y: number,
+  source: MiasmaSource,
+  radius: number,
+  decayDurationTicks: number
+): number {
+  if (source.lifecycleState === 'alive' || source.corpseDecayTicks <= 0) return 0;
+  const distance = Math.hypot(source.x - x, source.y - y);
+  if (distance > radius) return 0;
+  const falloff = radius === 0 ? 1 : 1 - distance / (radius + 1);
+  const stage = getCorpseDecayStage(source.corpseDecayTicks, decayDurationTicks);
+  return (stage.hazardMultiplier / 1.5) * falloff;
+}
+
 /** Persistent exposure makes successful reproduction progressively more demanding. */
 export function getToxinAdjustedReproductionThreshold(
   baseThreshold: number,
@@ -49,22 +64,40 @@ export function getLocalMiasmaMutationPressure(
   const boundedRadius = Math.max(0, Math.floor(radius));
   let pressure = 0;
   for (const source of sources) {
-    if (
-      source.lifecycleState === 'alive'
-      || source.corpseDecayTicks <= 0
-    ) continue;
-    const distance = Math.hypot(source.x - x, source.y - y);
-    if (distance > boundedRadius) continue;
-    const falloff = boundedRadius === 0
-      ? 1
-      : 1 - distance / (boundedRadius + 1);
-    const stage = getCorpseDecayStage(
-      source.corpseDecayTicks,
-      decayDurationTicks
-    );
-    pressure += (stage.hazardMultiplier / 1.5) * falloff;
+    pressure += sourceMiasmaPressure(x, y, source, boundedRadius, decayDurationTicks);
   }
   return Math.min(1, Math.max(0, pressure));
+}
+
+/** Build a compact, render-ready mutation-pressure field without per-cell source scans. */
+export function buildMiasmaPressureGrid(
+  width: number,
+  height: number,
+  sources: MiasmaSource[],
+  radius: number,
+  decayDurationTicks: number
+): Float32Array {
+  const safeWidth = Math.max(0, Math.floor(width));
+  const safeHeight = Math.max(0, Math.floor(height));
+  const pressure = new Float32Array(safeWidth * safeHeight);
+  const boundedRadius = Math.max(0, Math.floor(radius));
+  for (const source of sources) {
+    if (source.lifecycleState === 'alive' || source.corpseDecayTicks <= 0) continue;
+    const minX = Math.max(0, Math.floor(source.x) - boundedRadius);
+    const maxX = Math.min(safeWidth - 1, Math.floor(source.x) + boundedRadius);
+    const minY = Math.max(0, Math.floor(source.y) - boundedRadius);
+    const maxY = Math.min(safeHeight - 1, Math.floor(source.y) + boundedRadius);
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const index = y * safeWidth + x;
+        pressure[index] = Math.min(
+          1,
+          pressure[index] + sourceMiasmaPressure(x, y, source, boundedRadius, decayDurationTicks)
+        );
+      }
+    }
+  }
+  return pressure;
 }
 
 /** Convert local miasma pressure into a bounded per-birth mutation chance. */
