@@ -41,6 +41,8 @@ export interface SimEvent {
   parentLineageId?: string;
   lineageId?: string;
   traitChanges?: TraitChange[];
+  mutationPressure?: number;
+  mutationRate?: number;
   constantChanges?: ConstantChange[];
   ecosystemBefore?: EcosystemCheckpoint;
   interventionKind?: 'settings-change' | 'species-introduction';

@@ -23,7 +23,11 @@ import {
   type EcosystemHistorySample,
 } from './ecosystemHistory';
 import { compareConstants, compareTraits, type DeathCause, type SimEvent } from './events';
-import { getToxinAdjustedReproductionThreshold } from './toxicity';
+import {
+  getLocalMiasmaMutationPressure,
+  getMiasmaAdjustedMutationRate,
+  getToxinAdjustedReproductionThreshold,
+} from './toxicity';
 import {
   buildSpeciesLifespanEvidence,
   getAdaptiveReproductionTiming,
@@ -695,12 +699,23 @@ export function tickEngine(
         constants.reproductionEnergyCost * timing.costMultiplier
       );
       const offspringEnergy = Math.min(constants.reproductionEnergyCost, energyPaid);
+      const mutationPressure = getLocalMiasmaMutationPressure(
+        creature.x,
+        creature.y,
+        creatures,
+        constants.corpseToxicityRadius,
+        constants.corpseDecayDurationTicks
+      );
+      const mutationRate = getMiasmaAdjustedMutationRate(
+        constants.defaultMutationRate,
+        mutationPressure
+      );
 
       const child = reproduceCreature(
         creature,
         rng,
         constants.mutationDrift,
-        constants.defaultMutationRate,
+        mutationRate,
         offspringEnergy
       );
 
@@ -733,6 +748,8 @@ export function tickEngine(
         speciesId: child.speciesId,
         lineageId: child.lineageId,
         parentCreatureId: creature.id,
+        mutationPressure,
+        mutationRate,
       });
       if (child.lineageId !== creature.lineageId) {
         newEvents.push({
@@ -743,6 +760,8 @@ export function tickEngine(
           parentLineageId: creature.lineageId,
           lineageId: child.lineageId,
           traitChanges: compareTraits(creature.traits, child.traits),
+          mutationPressure,
+          mutationRate,
           detail: `${lineageDisplayName(
             creature.speciesId,
             creature.lineageId
