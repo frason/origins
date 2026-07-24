@@ -1,5 +1,10 @@
 import { lineageDisplayName } from '../simulation/speciesNames';
+import {
+  getLocalMiasmaMutationPressure,
+  getMiasmaAdjustedMutationRate,
+} from '../simulation/toxicity';
 import type { CellSnapshot, CreatureSnapshot } from '../state/store';
+import type { SimulationConstants } from '../utils/constants';
 import type { EnergyStrategy } from '../utils/traits';
 import { describeHabitatSuitability, type HabitatSuitability } from './habitatSuitability';
 
@@ -20,6 +25,38 @@ export interface TileLineageSummary {
   averageDispersalMoves: number;
   localContext: string;
   habitat?: HabitatSuitability;
+}
+
+export interface TileMutationContext {
+  pressure: number;
+  rate: number;
+  label: string;
+}
+
+/** Explain the local corpse-miasma effect that will apply to births on this tile. */
+export function buildTileMutationContext(
+  x: number,
+  y: number,
+  creatures: CreatureSnapshot[],
+  constants: SimulationConstants
+): TileMutationContext {
+  const pressure = getLocalMiasmaMutationPressure(
+    x,
+    y,
+    creatures,
+    constants.corpseToxicityRadius,
+    constants.corpseDecayDurationTicks
+  );
+  const rate = getMiasmaAdjustedMutationRate(constants.defaultMutationRate, pressure);
+  return {
+    pressure,
+    rate,
+    label: pressure === 0
+      ? 'Baseline'
+      : pressure >= 0.75
+        ? 'Peak miasma'
+        : 'Miasma nearby',
+  };
 }
 
 function contextFor(

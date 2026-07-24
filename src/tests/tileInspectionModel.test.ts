@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { CreatureSnapshot } from '../state/store';
 import { DEFAULT_TRAITS } from '../utils/traits';
+import { SIMULATION_CONSTANTS } from '../utils/constants';
 import { buildTileLineageSummaries } from '../ui/tileInspectionModel';
+import { buildTileMutationContext } from '../ui/tileInspectionModel';
 
 const tundra = {
   energy: 10, nutrients: 10, producerBiomass: 0, toxicity: 0,
@@ -58,5 +60,21 @@ describe('tile lineage inspection model', () => {
     );
     expect(summary.habitat?.rating).toBe('harsh');
     expect(summary.habitat?.summary).toContain('cold exposure');
+  });
+
+  it('separately explains local corpse miasma and its birth mutation rate', () => {
+    const baseline = buildTileMutationContext(2, 3, [], SIMULATION_CONSTANTS);
+    const hotspot = buildTileMutationContext(2, 3, [
+      {
+        ...creature('corpse', 0, 1, 1),
+        lifecycleState: 'dead',
+        corpseDecayTicks: 20,
+      },
+    ], SIMULATION_CONSTANTS);
+
+    expect(baseline).toMatchObject({ pressure: 0, rate: 0.12, label: 'Baseline' });
+    expect(hotspot.label).toBe('Peak miasma');
+    expect(hotspot.pressure).toBeGreaterThan(0);
+    expect(hotspot.rate).toBeGreaterThan(baseline.rate);
   });
 });

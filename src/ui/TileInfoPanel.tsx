@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../state/store';
 import { getProducerTraits } from '../simulation/producerTypes';
-import { buildTileLineageSummaries } from './tileInspectionModel';
+import { buildTileLineageSummaries, buildTileMutationContext } from './tileInspectionModel';
 import { buildTileBiomassContext } from './biomassObservability';
 import { getCorpseDecayStage, getToxicityHazard } from '../simulation/toxicity';
 
@@ -45,6 +45,12 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
   );
   const biomass = buildTileBiomassContext(cell, living, constants);
   const toxicity = getToxicityHazard(cell.toxicity);
+  const mutation = buildTileMutationContext(
+    selectedTile.x,
+    selectedTile.y,
+    worldState.creatures,
+    constants
+  );
 
   return (
     <aside
@@ -93,6 +99,8 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
             <div><dt>Nutrients</dt><dd>{cell.nutrients.toFixed(2)}</dd></div>
             <div><dt>Biomass / capacity</dt><dd>{cell.producerBiomass.toFixed(1)} / {biomass.capacity}</dd></div>
             <div><dt>Toxicity</dt><dd>{toxicity.label} ({cell.toxicity.toFixed(2)})</dd></div>
+            <div><dt>Mutation pressure</dt><dd>{mutation.label} ({Math.round(mutation.pressure * 100)}%)</dd></div>
+            <div><dt>Birth mutation rate</dt><dd>{Math.round(mutation.rate * 100)}%</dd></div>
             <div><dt>Producer</dt><dd>{cell.producerArchetype.replace(/-/g, ' ')}</dd></div>
             <div><dt>Capacity used</dt><dd>{Math.round(biomass.biomassShare * 100)}%</dd></div>
             <div><dt>Grazing pressure</dt><dd>{biomass.grazingLabel} ({biomass.grazingCapacity.toFixed(0)} max)</dd></div>
@@ -105,6 +113,10 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
           <p className="tile-inspector__mechanics-note">
             Toxicity currently allows {Math.round(toxicity.producerGrowthMultiplier * 100)}% producer growth
             and costs exposed animals {toxicity.creatureEnergyCost.toFixed(2)} energy per tick.
+          </p>
+          <p className="tile-inspector__mechanics-note">
+            Corpse miasma affects only births near active corpses: pressure peaks during putrefaction,
+            fades with distance and decay, and is shown separately from toxin harm.
           </p>
         </section>
 
