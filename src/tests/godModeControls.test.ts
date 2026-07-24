@@ -11,7 +11,7 @@ describe('grouped God Mode control schema', () => {
       'Biodiversity Pressure',
     ]);
     const keys = GOD_MODE_GROUPS.flatMap((group) => group.controls.map((control) => control.key));
-    expect(keys).toHaveLength(30);
+    expect(keys).toHaveLength(31);
     expect(new Set(keys).size).toBe(keys.length);
   });
 

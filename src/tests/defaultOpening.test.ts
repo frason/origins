@@ -47,8 +47,11 @@ describe('default opening quality gate', () => {
         'carnivore', 'herbivore', 'omnivore', 'scavenger',
       ]);
       // Eight founders create intentional local competition. All feeding guilds must receive
-      // a viable opening, while longer-term species retention belongs to #131's food-web work.
-      expect(result.strategies.length, `seed ${seed} at tick 100`).toBeGreaterThanOrEqual(3);
+      // a viable opening and recurring carrion keeps scavengers in the food web after
+      // the starter corpses are depleted.
+      expect(result.strategies, `seed ${seed} at tick 100`).toEqual([
+        'carnivore', 'herbivore', 'omnivore', 'scavenger',
+      ]);
       expect(result.tick60Population, `seed ${seed} at tick 60`).toBeGreaterThanOrEqual(18);
       expect(result.population, `seed ${seed} at tick 100`).toBeGreaterThanOrEqual(10);
       expect(result.population, `seed ${seed} runaway growth`).toBeLessThanOrEqual(60);

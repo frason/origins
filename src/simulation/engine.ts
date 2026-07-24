@@ -577,6 +577,7 @@ export function tickEngine(
           (candidate) =>
             candidate.lifecycleState !== 'alive' &&
             candidate.corpseDecayTicks > 0 &&
+            candidate.energy > 0 &&
             candidate.x === creature.x &&
             candidate.y === creature.y
         );
@@ -830,6 +831,14 @@ export function tickEngine(
       if (creature.corpseDecayTicks <= 0) {
         creature.corpseDecayTicks = constants.corpseDecayDurationTicks;
       }
+      // A starved animal has spent its stored energy, but still leaves behind
+      // limited structural body mass. Without this reserve, starvation deaths
+      // are visible corpses that provide no food and scavengers can only live
+      // off the opening's hand-placed carrion.
+      creature.energy = Math.max(
+        creature.energy,
+        Math.max(0, constants.minimumCarrionEnergy) * Math.max(0.25, creature.traits.size)
+      );
       newEvents.push({
         type: 'death',
         tick: state.tick,

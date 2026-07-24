@@ -88,6 +88,27 @@ describe('Simulation Engine', () => {
       expect(newEngine.events.length).toBe(0);
     });
 
+    it('leaves a small edible carcass when a creature starves', () => {
+      const creature = new Creature({
+        speciesId: 'species_1', lineageId: 'lineage_1', parentId: null,
+        traits: { ...DEFAULT_TRAITS }, x: 2, y: 2, energy: 0,
+      });
+      const engine = createEngine(12345, [creature], 5, 5, {
+        producerGrowthRate: 0,
+        corpseDecayRate: 0,
+        corpseToxicityPerTick: 0,
+        minimumCarrionEnergy: 24,
+      });
+
+      const next = tickEngine(engine);
+
+      expect(next.creatures[0]).toMatchObject({
+        lifecycleState: 'dead',
+        corpseDecayTicks: CORPSE_DECAY_DURATION_TICKS - 1,
+        energy: 24,
+      });
+    });
+
     it('should increment tick counter', () => {
       const creature = new Creature({
         speciesId: 'species_1',

@@ -548,6 +548,23 @@ describe('Energy Functions', () => {
       expect(corpse.energy).toBe(75);
       expect(corpse.corpseDecayTicks).toBe(17);
     });
+
+    it('can feed from the structural reserve left by a starved creature', () => {
+      const scavenger = new Creature({
+        speciesId: 'scavenger', lineageId: 'scavenger_root', parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'scavenger' },
+        x: 10, y: 10, energy: 20,
+      });
+      const corpse = new Creature({
+        speciesId: 'prey', lineageId: 'prey_root', parentId: null,
+        traits: { ...DEFAULT_TRAITS }, x: 10, y: 10, energy: 24,
+        lifecycleState: 'dead', corpseDecayTicks: 20,
+      });
+
+      expect(feedOnCorpse(scavenger, corpse, 0.8, 0.25)).toBeGreaterThan(0);
+      expect(corpse.energy).toBeLessThan(24);
+      expect(scavenger.energy).toBeGreaterThan(20);
+    });
   });
 
   describe('canReproduce', () => {

@@ -98,6 +98,13 @@ export const TOXICITY_RETENTION = 0.2;
 /** Fraction of corpse energy consumed in one scavenging action */
 export const SCAVENGING_RATE = 0.25;
 
+/**
+ * Structural body mass left as edible carrion when an animal dies with no
+ * stored energy. This keeps starvation deaths in the food web without making
+ * the carcass a large energy windfall.
+ */
+export const MINIMUM_CARRION_ENERGY = 24;
+
 // ============================================================================
 // Creature Energy Constants
 // ============================================================================
@@ -175,6 +182,7 @@ export interface SimulationConstants {
   maxCreatureAgeTicks: number;
   corpseDecayRate: number;
   corpseDecayDurationTicks: number;
+  minimumCarrionEnergy: number;
   corpseToxicityPerTick: number;
   corpseToxicityRadius: number;
   toxicityRetention: number;
@@ -222,6 +230,7 @@ export const SIMULATION_CONSTANTS: SimulationConstants = {
   maxCreatureAgeTicks: MAX_CREATURE_AGE_TICKS,
   corpseDecayRate: CORPSE_DECAY_RATE,
   corpseDecayDurationTicks: CORPSE_DECAY_DURATION_TICKS,
+  minimumCarrionEnergy: MINIMUM_CARRION_ENERGY,
   corpseToxicityPerTick: CORPSE_TOXICITY_PER_TICK,
   corpseToxicityRadius: CORPSE_TOXICITY_RADIUS,
   toxicityRetention: TOXICITY_RETENTION,

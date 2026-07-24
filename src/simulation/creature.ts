@@ -328,8 +328,10 @@ export function scanEnvironment(
 
     if (other.lifecycleState !== 'alive') {
       if (
-        creature.traits.energyStrategy === 'omnivore' ||
-        creature.traits.energyStrategy === 'scavenger'
+        (creature.traits.energyStrategy === 'omnivore' ||
+          creature.traits.energyStrategy === 'scavenger') &&
+        other.corpseDecayTicks > 0 &&
+        other.energy > 0
       ) {
         if (reachable.has(`${other.x},${other.y}`)) foodCreatures.push(other);
       }
@@ -609,7 +611,8 @@ export function findMigrationFoodTarget(
     if (other.id === creature.id || !reachable.has(`${other.x},${other.y}`)) continue;
     const corpseFood = other.lifecycleState !== 'alive'
       && (strategy === 'scavenger' || strategy === 'omnivore')
-      && other.corpseDecayTicks > 0;
+      && other.corpseDecayTicks > 0
+      && other.energy > 0;
     const preyFood = other.lifecycleState === 'alive'
       && (strategy === 'carnivore' || strategy === 'omnivore')
       && ['herbivore', 'omnivore', 'scavenger'].includes(other.traits.energyStrategy);
