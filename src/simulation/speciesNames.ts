@@ -1,3 +1,5 @@
+import { founderSpeciesName } from './founderSpecies';
+
 const GENERA = [
   'Aurelia', 'Caelora', 'Demeris', 'Eluvia', 'Feronia', 'Ilyria',
   'Lunaris', 'Nemoris', 'Orthea', 'Pelagia', 'Quintara', 'Sylvara',
@@ -104,6 +106,8 @@ export function introducedSpeciesId(
 export function speciesDisplayName(speciesId: string): string {
   const customName = customSpeciesName(speciesId);
   if (customName) return customName;
+  const founderName = founderSpeciesName(speciesId);
+  if (founderName) return founderName;
   const rootId = rootSpeciesId(speciesId);
   const rootCustomName = customSpeciesName(rootId);
   const epithet = founderEpithetFor(speciesId);

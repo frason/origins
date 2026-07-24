@@ -7,6 +7,7 @@ import { lineageDisplayName, speciesDisplayName } from '../simulation/speciesNam
 import { formatPrematureDeathRate, getPrematureDeathMetrics } from './prematureDeathMetrics';
 import { getAdaptiveReproductionTiming } from '../simulation/adaptiveReproduction';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
+import { founderSpeciesDefinition } from '../simulation/founderSpecies';
 
 const panelStyle: CSSProperties = {
   backgroundColor: '#222',
@@ -63,6 +64,7 @@ export default function SpeciesPanel() {
             worldState?.events ?? [],
             worldState?.constants ?? SIMULATION_CONSTANTS
           );
+          const founder = founderSpeciesDefinition(item.speciesId);
           return (
           <div
             key={item.speciesId}
@@ -78,6 +80,11 @@ export default function SpeciesPanel() {
               {item.strategy} · {item.speciesId} · {item.lineages.length}{' '}
               {item.lineages.length === 1 ? 'lineage' : 'lineages'}
             </div>
+            {founder && (
+              <div style={{ color: '#9fbdad', fontSize: '0.7rem', marginBottom: '0.35rem' }}>
+                Founder habitat · {founder.viableBiomes[0]} primary · {founder.viableBiomes[1]} secondary
+              </div>
+            )}
             {timing.expectedLifespan !== null && (
               <div style={{ color: '#9fbdad', fontSize: '0.7rem', marginBottom: '0.35rem' }}>
                 Adaptive timing · maturity {timing.maturityAge} · expected lifespan{' '}

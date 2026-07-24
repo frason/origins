@@ -1,29 +1,15 @@
 import { Creature } from './creature';
-import { createRng, randChoice, randInt, type RngFn } from './rng';
+import { createRng, randChoice, type RngFn } from './rng';
 import { generateTerrain } from './world';
-import { DEFAULT_TRAITS, type EnergyStrategy } from '../utils/traits';
+import { DEFAULT_TRAITS } from '../utils/traits';
+import { FOUNDER_SPECIES, type FounderSpeciesDefinition } from './founderSpecies';
 
 interface Position {
   x: number;
   y: number;
 }
 
-interface StarterSpec {
-  speciesId: string;
-  strategy: EnergyStrategy;
-  energy: number;
-}
-
-const HERBIVORE_COUNT = 14;
-const STARTER_CORPSE_COUNT = 2;
-const SUPPORT_SPECS: StarterSpec[] = [
-  { speciesId: 'omnivore_001', strategy: 'omnivore', energy: 160 },
-  { speciesId: 'omnivore_001', strategy: 'omnivore', energy: 160 },
-  { speciesId: 'omnivore_001', strategy: 'omnivore', energy: 160 },
-  { speciesId: 'carnivore_001', strategy: 'carnivore', energy: 180 },
-  { speciesId: 'carnivore_001', strategy: 'carnivore', energy: 180 },
-  { speciesId: 'scavenger_001', strategy: 'scavenger', energy: 120 },
-];
+const STARTER_CORPSE_COUNT = 3;
 
 function positionKey(position: Position): string {
   return `${position.x},${position.y}`;
@@ -41,6 +27,12 @@ function takeRandomPosition(
   return selected;
 }
 
+function firstAvailablePool(candidates: Position[][], occupied: Set<string>): Position[] {
+  const available = candidates.find((pool) => pool.some((position) => !occupied.has(positionKey(position))));
+  if (!available) throw new Error('No unoccupied starter tiles remain');
+  return available;
+}
+
 function takeNearbyPosition(
   rng: RngFn,
   anchor: Position,
@@ -53,6 +45,39 @@ function takeNearbyPosition(
       Math.max(Math.abs(position.x - anchor.x), Math.abs(position.y - anchor.y)) <= 4
   );
   return takeRandomPosition(rng, nearby.length > 0 ? nearby : candidates, occupied);
+}
+
+function takeAnchoredPosition(
+  rng: RngFn,
+  anchors: Position[],
+  candidates: Position[],
+  occupied: Set<string>
+): Position {
+  const reachableAnchors = anchors.filter((anchor) => candidates.some(
+    (candidate) =>
+      !occupied.has(positionKey(candidate)) &&
+      Math.max(Math.abs(candidate.x - anchor.x), Math.abs(candidate.y - anchor.y)) <= 4
+  ));
+  const anchor = randChoice(rng, reachableAnchors.length > 0 ? reachableAnchors : anchors);
+  return takeNearbyPosition(rng, anchor, candidates, occupied);
+}
+
+function preferredPositions(
+  terrain: ReturnType<typeof generateTerrain>,
+  species: FounderSpeciesDefinition
+): Position[] {
+  return terrain.flatMap((row, y) => row.flatMap((cell, x) =>
+    species.viableBiomes.includes(cell.biome) ? [{ x, y }] : []
+  ));
+}
+
+function primaryPositions(
+  terrain: ReturnType<typeof generateTerrain>,
+  species: FounderSpeciesDefinition
+): Position[] {
+  return terrain.flatMap((row, y) => row.flatMap((cell, x) =>
+    cell.biome === species.viableBiomes[0] ? [{ x, y }] : []
+  ));
 }
 
 /** Build a varied, replay-safe starter food web on habitable land. */
@@ -72,42 +97,40 @@ export function buildStarterCreatures(
       if (biome !== 'ocean' && biome !== 'mountain') habitable.push({ x, y });
     }
   }
-  if (habitable.length < HERBIVORE_COUNT + SUPPORT_SPECS.length) {
+  const founderPopulation = FOUNDER_SPECIES.reduce((sum, species) => sum + species.population, 0);
+  if (habitable.length < founderPopulation + STARTER_CORPSE_COUNT) {
     throw new Error('World does not contain enough habitable starter tiles');
   }
 
   const occupied = new Set<string>();
-  const herbivorePositions = Array.from({ length: HERBIVORE_COUNT }, () =>
-    takeRandomPosition(rng, habitable, occupied)
-  );
-  const creatures = herbivorePositions.map(
-    (position) =>
-      new Creature({
-        speciesId: 'herbivore_001',
-        lineageId: 'herbivore_001',
-        parentId: null,
-        traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore' },
-        ...position,
-        energy: 140,
-      })
-  );
+  const creatures: Creature[] = [];
+  const positionsBySpecies = new Map<string, Position[]>();
 
-  for (const spec of SUPPORT_SPECS) {
-    const anchor = herbivorePositions[randInt(rng, 0, herbivorePositions.length)];
-    const position = takeNearbyPosition(rng, anchor, habitable, occupied);
-    const strategyTraits = spec.strategy === 'scavenger'
-      ? { ...DEFAULT_TRAITS, energyStrategy: spec.strategy, metabolism: 0.5, visionRange: 8 }
-      : { ...DEFAULT_TRAITS, energyStrategy: spec.strategy, metabolism: 0.75 };
-    const founder = new Creature({
-        speciesId: spec.speciesId,
-        lineageId: spec.speciesId,
+  for (const spec of FOUNDER_SPECIES) {
+    const primary = primaryPositions(terrain, spec);
+    const preferred = preferredPositions(terrain, spec);
+    const anchors = spec.foodAnchor ? positionsBySpecies.get(spec.foodAnchor) ?? [] : [];
+    const positions = Array.from({ length: spec.population }, () => {
+      const candidates = firstAvailablePool([primary, preferred, habitable], occupied);
+      const anchor = anchors[0];
+      return anchor
+        ? takeAnchoredPosition(rng, anchors, candidates, occupied)
+        : takeRandomPosition(rng, candidates, occupied);
+    });
+    positionsBySpecies.set(spec.id, positions);
+    for (const position of positions) {
+      creatures.push(new Creature({
+        speciesId: spec.id,
+        lineageId: spec.id,
         parentId: null,
-        traits: strategyTraits,
+        traits: { ...DEFAULT_TRAITS, ...spec.traits, energyStrategy: spec.strategy },
         ...position,
-        energy: spec.energy,
-      });
-    creatures.push(founder);
+        energy: spec.startingEnergy,
+      }));
+    }
+
     if (spec.strategy === 'scavenger') {
+      const position = positions[0];
       const carrionCandidates = habitable.filter((candidate) => {
         const distance = Math.max(
           Math.abs(candidate.x - position.x), Math.abs(candidate.y - position.y)
@@ -115,10 +138,14 @@ export function buildStarterCreatures(
         return distance >= 4 && distance <= 6;
       });
       for (let index = 0; index < STARTER_CORPSE_COUNT; index++) {
-        const carrionPosition = takeRandomPosition(rng, carrionCandidates, occupied);
+        const carrionPosition = takeRandomPosition(
+          rng,
+          firstAvailablePool([carrionCandidates, habitable], occupied),
+          occupied
+        );
         creatures.push(new Creature({
-          speciesId: spec.speciesId,
-          lineageId: `${spec.speciesId}_starter_carrion`,
+          speciesId: spec.id,
+          lineageId: `${spec.id}_starter_carrion`,
           parentId: null,
           traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore' },
           ...carrionPosition,

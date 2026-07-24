@@ -7,6 +7,7 @@ import {
   speciesDisplayName,
   suggestedIntroducedSpeciesName,
 } from '../simulation/speciesNames';
+import { FOUNDER_SPECIES } from '../simulation/founderSpecies';
 
 describe('reproducible species names', () => {
   it('returns the same pseudo-Latin name for the same stable ID', () => {
@@ -16,15 +17,10 @@ describe('reproducible species names', () => {
     expect(speciesDisplayName('herbivore_001')).toMatch(/^[A-Z][a-z]+ [a-z]+$/);
   });
 
-  it('distinguishes the four founding starter species', () => {
-    const names = [
-      'herbivore_001',
-      'omnivore_001',
-      'carnivore_001',
-      'scavenger_001',
-    ].map(speciesDisplayName);
-
-    expect(new Set(names).size).toBe(names.length);
+  it('uses readable, distinct names for the eight founding starter species', () => {
+    const names = FOUNDER_SPECIES.map((species) => speciesDisplayName(species.id));
+    expect(names).toEqual(FOUNDER_SPECIES.map((species) => species.name));
+    expect(new Set(names).size).toBe(8);
   });
 
   it('keeps the genus while giving mutated lineages distinct names', () => {
