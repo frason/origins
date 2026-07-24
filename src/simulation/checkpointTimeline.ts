@@ -4,6 +4,7 @@ export const MAX_CHECKPOINTS = 30;
 export interface SimulationCheckpoint<T> {
   tick: number;
   state: T;
+  creatureIdCounter?: number;
 }
 
 /** Capture immutable engine states at fixed intervals under a strict memory bound. */
@@ -16,7 +17,7 @@ export function captureCheckpoint<T extends { tick: number }>(
   if (state.tick % interval !== 0) return checkpoints;
   const next = [
     ...checkpoints.filter((checkpoint) => checkpoint.tick !== state.tick),
-    { tick: state.tick, state },
+    { tick: state.tick, state, creatureIdCounter: Creature.getIdCounter() },
   ].sort((a, b) => a.tick - b.tick);
   return next.slice(-Math.max(1, limit));
 }
@@ -33,8 +34,15 @@ export function restoreCheckpoint<T>(
 ): CheckpointRestore<T> | null {
   const checkpoint = checkpoints.find((item) => item.tick === tick);
   if (!checkpoint) return null;
+  const checkpointState = checkpoint.state as T & { creatures?: Array<Pick<Creature, 'id'>> };
+  if (checkpoint.creatureIdCounter !== undefined) {
+    Creature.setIdCounter(checkpoint.creatureIdCounter);
+  } else if (checkpointState.creatures) {
+    Creature.syncIdCounter(checkpointState.creatures);
+  }
   return {
     state: checkpoint.state,
     checkpoints: checkpoints.filter((item) => item.tick <= tick),
   };
 }
+import { Creature } from './creature';

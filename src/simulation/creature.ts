@@ -235,6 +235,23 @@ export class Creature {
   static getIdCounter(): number {
     return Creature.creatureCounter;
   }
+
+  /**
+   * Continue generated IDs after the highest serialized creature ID.
+   * Checkpoint replay uses this to reproduce the original future exactly.
+   */
+  static syncIdCounter(creatures: Array<Pick<Creature, 'id'>>): void {
+    const nextId = creatures.reduce((highest, creature) => {
+      const match = /^creature_(\d+)$/.exec(creature.id);
+      return match ? Math.max(highest, Number(match[1]) + 1) : highest;
+    }, 0);
+    Creature.creatureCounter = nextId;
+  }
+
+  /** Restore the allocator state captured alongside a simulation checkpoint. */
+  static setIdCounter(nextId: number): void {
+    Creature.creatureCounter = Math.max(0, Math.floor(nextId));
+  }
 }
 
 /**

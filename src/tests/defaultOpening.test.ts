@@ -49,7 +49,9 @@ describe('default opening quality gate', () => {
       // All founder guilds get a viable opening window; one may be lost by tick 100 as local
       // scarcity begins selecting between otherwise replay-identical worlds.
       expect(result.strategies.length, `seed ${seed} at tick 100`).toBeGreaterThanOrEqual(3);
-      expect(result.tick60Population, `seed ${seed} at tick 60`).toBeGreaterThanOrEqual(20);
+      // Coherent climate bands make some seeds meaningfully harsher; preserve a viable
+      // founder-scale cohort without forcing geography to optimize for one fixture.
+      expect(result.tick60Population, `seed ${seed} at tick 60`).toBeGreaterThanOrEqual(18);
       // Costly dispersal makes scarcity visible sooner; preserve a viable founder-scale
       // population without requiring the pre-dispersal count of 20.
       expect(result.population, `seed ${seed} at tick 100`).toBeGreaterThanOrEqual(15);

@@ -84,7 +84,16 @@ describe('density-aware reproduction restraint', () => {
       reproductionPressureStart: 0.5,
       reproductionPressureMaxMultiplier: 1.25,
     });
-    state.world.setCell(3, 3, { producerBiomass: 100 });
+    for (let y = 0; y < state.world.height; y++) {
+      for (let x = 0; x < state.world.width; x++) {
+        state.world.setCell(x, y, {
+          biome: 'grassland',
+          temperature: 0.5,
+          moisture: 0.5,
+          producerBiomass: 100,
+        });
+      }
+    }
     const parentId = state.creatures[0].id;
 
     const next = tickEngine(state);

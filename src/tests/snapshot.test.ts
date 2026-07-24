@@ -48,7 +48,12 @@ function runSimulation(): EngineState {
   for (let y = 0; y < engine.world.height; y++) {
     for (let x = 0; x < engine.world.width; x++) {
       const cell = engine.world.getCell(x, y);
-      engine.world.setCell(x, y, { producerBiomass: cell.energy * 2 });
+      engine.world.setCell(x, y, {
+        biome: 'grassland',
+        temperature: 0.5,
+        moisture: 0.5,
+        producerBiomass: Math.max(100, cell.energy * 2),
+      });
     }
   }
   return runEngine(engine, TICKS);

@@ -35,26 +35,102 @@ function coordinateNoise(seed: number, x: number, y: number): number {
   return ((hash ^ (hash >>> 16)) >>> 0) / 0xffffffff;
 }
 
-function valueNoise(seed: number, x: number, y: number, scale: number): number {
-  const scaledX = x / scale;
+function valueNoise(
+  seed: number,
+  x: number,
+  y: number,
+  scale: number,
+  wrapWidth?: number
+): number {
+  const period = wrapWidth === undefined ? 0 : Math.max(1, Math.ceil(wrapWidth / scale));
+  const scaledX = wrapWidth === undefined ? x / scale : x / wrapWidth * period;
   const scaledY = y / scale;
   const x0 = Math.floor(scaledX);
   const y0 = Math.floor(scaledY);
   const tx = smoothstep(scaledX - x0);
   const ty = smoothstep(scaledY - y0);
-  const top = coordinateNoise(seed, x0, y0) * (1 - tx) + coordinateNoise(seed, x0 + 1, y0) * tx;
+  const leftX = period > 0 ? ((x0 % period) + period) % period : x0;
+  const rightX = period > 0 ? (leftX + 1) % period : x0 + 1;
+  const top = coordinateNoise(seed, leftX, y0) * (1 - tx) +
+    coordinateNoise(seed, rightX, y0) * tx;
   const bottom =
-    coordinateNoise(seed, x0, y0 + 1) * (1 - tx) +
-    coordinateNoise(seed, x0 + 1, y0 + 1) * tx;
+    coordinateNoise(seed, leftX, y0 + 1) * (1 - tx) +
+    coordinateNoise(seed, rightX, y0 + 1) * tx;
   return top * (1 - ty) + bottom * ty;
 }
 
-function layeredNoise(seed: number, x: number, y: number): number {
+function layeredNoise(seed: number, x: number, y: number, wrapWidth?: number): number {
   return (
-    valueNoise(seed, x, y, 32) * 0.55 +
-    valueNoise(seed + 1013, x, y, 16) * 0.3 +
-    valueNoise(seed + 2027, x, y, 8) * 0.15
+    valueNoise(seed, x, y, 32, wrapWidth) * 0.55 +
+    valueNoise(seed + 1013, x, y, 16, wrapWidth) * 0.3 +
+    valueNoise(seed + 2027, x, y, 8, wrapWidth) * 0.15
   );
+}
+
+interface MountainRange {
+  baseX: number;
+  amplitude: number;
+  phase: number;
+  frequency: number;
+  halfWidth: number;
+}
+
+function mountainRanges(seed: number, width: number): MountainRange[] {
+  const count = width < 30 ? 1 : 2;
+  return Array.from({ length: count }, (_, index) => ({
+    baseX: coordinateNoise(seed + 12001, index, 0) * width,
+    amplitude: width * (0.07 + coordinateNoise(seed + 12007, index, 1) * 0.09),
+    phase: coordinateNoise(seed + 12011, index, 2) * Math.PI * 2,
+    frequency: 0.65 + coordinateNoise(seed + 12017, index, 3) * 0.7,
+    halfWidth: Math.max(2, width * (0.025 + coordinateNoise(seed + 12023, index, 4) * 0.025)),
+  }));
+}
+
+function wrapCoordinate(value: number, size: number): number {
+  return ((value % size) + size) % size;
+}
+
+function wrappedDistance(a: number, b: number, size: number): number {
+  const distance = Math.abs(a - b);
+  return Math.min(distance, size - distance);
+}
+
+function rangeCenter(range: MountainRange, y: number, height: number, width: number): number {
+  const progress = height <= 1 ? 0.5 : y / (height - 1);
+  return wrapCoordinate(
+    range.baseX + Math.sin(progress * Math.PI * 2 * range.frequency + range.phase) * range.amplitude,
+    width
+  );
+}
+
+function mountainInfluence(
+  ranges: MountainRange[],
+  x: number,
+  y: number,
+  width: number,
+  height: number
+): number {
+  return Math.max(0, ...ranges.map((range) => {
+    const distance = wrappedDistance(x, rangeCenter(range, y, height, width), width);
+    return Math.exp(-Math.pow(distance / range.halfWidth, 2));
+  }));
+}
+
+/** Prevailing west-to-east winds dry a bounded region downwind of mountain ranges. */
+function rainShadow(
+  ranges: MountainRange[],
+  x: number,
+  y: number,
+  width: number,
+  height: number
+): number {
+  const shadowRange = Math.max(4, width * 0.18);
+  return Math.max(0, ...ranges.map((range) => {
+    const center = rangeCenter(range, y, height, width);
+    const eastwardDistance = wrapCoordinate(x - center, width);
+    if (eastwardDistance <= range.halfWidth || eastwardDistance >= shadowRange) return 0;
+    return 1 - eastwardDistance / shadowRange;
+  }));
 }
 
 export function classifyBiome(
@@ -74,15 +150,22 @@ export function classifyBiome(
 /** Generate smooth deterministic terrain from a world seed. */
 export function generateTerrain(width: number, height: number, seed: number): TerrainCell[][] {
   const terrain: TerrainCell[][] = [];
+  const ranges = mountainRanges(seed, width);
   for (let y = 0; y < height; y++) {
     const row: TerrainCell[] = [];
     for (let x = 0; x < width; x++) {
-      const elevation = clamp01(layeredNoise(seed, x, y));
-      const moisture = clamp01(layeredNoise(seed + 4099, x, y));
+      const ridge = mountainInfluence(ranges, x, y, width, height);
+      const elevation = clamp01(0.08 + layeredNoise(seed, x, y, width) * 0.72 + ridge * 0.38);
+      const moisture = clamp01(
+        0.1 + layeredNoise(seed + 4099, x, y, width) * 0.82 -
+        rainShadow(ranges, x, y, width, height) * 0.38
+      );
       const latitude = height <= 1 ? 0.5 : y / (height - 1);
       const equatorWarmth = 1 - Math.abs(latitude * 2 - 1);
       const temperature = clamp01(
-        equatorWarmth * 0.72 + layeredNoise(seed + 8191, x, y) * 0.28 - elevation * 0.22
+        equatorWarmth * 0.8 +
+        layeredNoise(seed + 8191, x, y, width) * 0.2 -
+        elevation * 0.18
       );
       const biome = classifyBiome(elevation, moisture, temperature);
       row.push({
