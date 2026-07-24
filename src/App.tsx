@@ -29,6 +29,11 @@ import {
   restoreCheckpoint,
   type SimulationCheckpoint,
 } from './simulation/checkpointTimeline';
+import { loadBrowserWorld, saveBrowserWorld } from './state/browserWorldSave';
+
+function browserStorage(): Storage | null {
+  return typeof window === 'undefined' ? null : window.localStorage;
+}
 
 export default function App() {
   const engineRef = useRef<EngineState | null>(null);
@@ -54,6 +59,8 @@ export default function App() {
     if (engine.tick > 0 && !engine.creatures.some((creature) => creature.lifecycleState === 'alive')) {
       store.setRunning(false);
     }
+    const storage = browserStorage();
+    if (storage) saveBrowserWorld(storage, engine);
   }, []);
 
   const recordCheckpoint = useCallback((engine: EngineState) => {
@@ -171,8 +178,15 @@ export default function App() {
   // Initialize world once
   useEffect(() => {
     if (!engineRef.current) {
-      const engine = buildDemoEngine(worldSeed, useStore.getState().constants);
+      const store = useStore.getState();
+      const storage = browserStorage();
+      const restored = storage ? loadBrowserWorld(storage) : null;
+      const engine = restored ?? buildDemoEngine(worldSeed, store.constants);
       engineRef.current = engine;
+      if (restored) {
+        store.updateConstants(restored.constants);
+        setWorldSeed(restored.seed);
+      }
       recordCheckpoint(engine);
       publish(engine);
     }
