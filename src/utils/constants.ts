@@ -122,8 +122,11 @@ export const MUTATION_DRIFT = 0.1;
 /** Monoculture dominance threshold: species with >80% of population incurs penalty */
 export const MONOCULTURE_DOMINANCE_THRESHOLD = 0.80;
 
-/** Extra mortality rate for creatures in dominant species (applied when >threshold) */
-export const MONOCULTURE_MORTALITY_PENALTY = 0.05;
+/**
+ * Optional legacy mortality experiment for dominant species.
+ * Local scarcity, reproduction restraint, and dispersal govern default play.
+ */
+export const MONOCULTURE_MORTALITY_PENALTY = 0;
 
 /** Population a dominant species must reach before its reproduction is suppressed */
 export const MONOCULTURE_REPRODUCTION_LIMIT = 2;
@@ -247,4 +250,6 @@ export const BALANCED_LONGEVITY_PRESET: Readonly<Partial<SimulationConstants>> =
   adaptiveReproductionMinDeaths: 500,
   reproductiveUrgencyThresholdDiscount: 0,
   earlyReproductionCostMultiplier: 1,
+  // Preserve the preset's established diversity gate as an explicit lab intervention.
+  monocultureMortalityPenalty: 0.05,
 };

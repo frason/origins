@@ -108,15 +108,15 @@ export function getGodModeRecommendations(
     const changes = compact([
       change(
         constants,
-        'monocultureMortalityPenalty',
-        'Monoculture mortality',
-        Math.min(0.5, rounded(constants.monocultureMortalityPenalty + 0.02))
-      ),
-      change(
-        constants,
         'monocultureReproductionLimit',
         'Dominant reproduction limit',
-        Math.max(1, Math.round(constants.monocultureReproductionLimit * 0.8))
+        Math.max(
+          1,
+          Math.min(
+            constants.monocultureReproductionLimit - 1,
+            Math.floor(constants.monocultureReproductionLimit * 0.8)
+          )
+        )
       ),
     ]);
     if (changes.length > 0) recommendations.push({
@@ -125,6 +125,7 @@ export function getGodModeRecommendations(
       reason: 'One species holds a disproportionate share of the living population.',
       priority: 80,
       changes,
+      guidance: 'Default play uses reproduction restraint rather than adding unexplained deaths.',
     });
   }
 

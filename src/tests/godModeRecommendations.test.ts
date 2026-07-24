@@ -57,6 +57,21 @@ describe('pressure-aware God Mode recommendations', () => {
       constant: 'reproductionEnergyThreshold', label: 'Reproduction threshold',
       before: 150, after: 180,
     });
+    expect(recommendations[1]).toMatchObject({
+      id: 'counter-dominance',
+      changes: [
+        {
+          constant: 'monocultureReproductionLimit',
+          label: 'Dominant reproduction limit',
+          before: 2,
+          after: 1,
+        },
+      ],
+      guidance: expect.stringContaining('reproduction restraint'),
+    });
+    expect(recommendations[1].changes).not.toContainEqual(
+      expect.objectContaining({ constant: 'monocultureMortalityPenalty' })
+    );
     expect(recommendations[2].changes).toEqual([
       { constant: 'corpseToxicityPerTick', label: 'Corpse toxicity', before: 1, after: 0.8 },
       { constant: 'toxicityRetention', label: 'Toxicity retention', before: 0.2, after: 0.15 },

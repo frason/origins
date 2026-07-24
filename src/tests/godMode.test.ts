@@ -56,8 +56,11 @@ describe('God Mode runtime constants', () => {
     const unchanged = tickEngine(changed, changed.constants);
 
     expect(changed.events.filter((event) => event.type === 'intervention')).toHaveLength(1);
-    expect(changed.events.find((event) => event.type === 'intervention')?.constantChanges)
-      .toHaveLength(5);
+    const changes = changed.events.find((event) => event.type === 'intervention')?.constantChanges;
+    expect(changes).toHaveLength(4);
+    expect(changes).not.toContainEqual(
+      expect.objectContaining({ constant: 'monocultureMortalityPenalty' })
+    );
     expect(unchanged.events.filter((event) => event.type === 'intervention')).toHaveLength(1);
   });
 

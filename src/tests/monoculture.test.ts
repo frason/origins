@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { Creature } from '../simulation/creature';
 import { createEngine, runEngine, tickEngine } from '../simulation/engine';
+import { BALANCED_LONGEVITY_PRESET, SIMULATION_CONSTANTS } from '../utils/constants';
 import { DEFAULT_TRAITS } from '../utils/traits';
 
 function population(count: number, speciesId: string): Creature[] {
@@ -36,6 +37,13 @@ const pressureOverrides = {
 
 describe('monoculture population control', () => {
   beforeEach(() => Creature.resetIdCounter());
+
+  it('keeps the legacy mortality lottery opt-in under default settings', () => {
+    expect(SIMULATION_CONSTANTS.monocultureMortalityPenalty).toBe(0);
+    expect(BALANCED_LONGEVITY_PRESET.monocultureMortalityPenalty).toBeGreaterThan(0);
+    expect(SIMULATION_CONSTANTS.monocultureReproductionLimit).toBeGreaterThan(0);
+    expect(SIMULATION_CONSTANTS.maxGlobalPopulation).toBeGreaterThan(0);
+  });
 
   it('makes a reproducing monoculture decline instead of replenishing itself', () => {
     const initial = createEngine(42, population(40, 'monoculture'), 30, 30, {
