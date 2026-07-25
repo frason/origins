@@ -12,6 +12,11 @@ describe('default opening quality diagnostic', () => {
     expect(first.maximumWindowDecline).toBeGreaterThanOrEqual(0);
     expect(first.declineWindowBirths).toBeGreaterThanOrEqual(0);
     expect(first.declineWindowDeaths).toBeGreaterThanOrEqual(0);
+    expect(Object.values(first.finalStrategyCounts).reduce(
+      (total, population) => total + population, 0
+    )).toBe(first.finalPopulation);
+    expect(first.starterCarrionConsumptionEvents).toBeGreaterThanOrEqual(0);
+    expect(first.generatedCarrionConsumptionEvents).toBeGreaterThanOrEqual(0);
   });
 
   it('bounds invalid horizons and decline windows', () => {
@@ -19,5 +24,21 @@ describe('default opening quality diagnostic', () => {
     expect(report.throughTick).toBe(0);
     expect(report.populations).toHaveLength(1);
     expect(report.finalPopulation).toBeGreaterThan(0);
+  });
+
+  it('distinguishes starter carrion from recurring simulation-generated carrion', () => {
+    const reports = [12345, 42, 54321, 99999].map(
+      (seed) => measureDefaultOpeningQuality(seed, 100, 10)
+    );
+
+    expect(
+      reports.filter((report) => report.generatedCarrionConsumptionEvents > 0).length
+    ).toBeGreaterThanOrEqual(3);
+    expect(
+      reports.reduce(
+        (total, report) => total + report.generatedCarrionConsumptionEvents,
+        0
+      )
+    ).toBeGreaterThan(0);
   });
 });
