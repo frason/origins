@@ -555,8 +555,12 @@ export function tickEngine(
 
       // Carnivores and omnivores feed on other creatures
       if (
-        creature.traits.energyStrategy === 'carnivore' ||
-        creature.traits.energyStrategy === 'omnivore'
+        (
+          creature.traits.energyStrategy === 'carnivore' ||
+          creature.traits.energyStrategy === 'omnivore'
+        ) &&
+        creature.energy / getEnergyCapacity(creature)
+          < Math.max(0, Math.min(1, constants.predationHungerThresholdShare))
       ) {
         for (const prey of creatureIndex.at(creature.x, creature.y)) {
           if (

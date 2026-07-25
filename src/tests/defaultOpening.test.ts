@@ -55,7 +55,7 @@ describe('default opening quality gate', () => {
       expect(result.tick60Population, `seed ${seed} at tick 60`).toBeGreaterThanOrEqual(18);
       expect(result.population, `seed ${seed} at tick 100`).toBeGreaterThanOrEqual(10);
       expect(result.population, `seed ${seed} runaway growth`).toBeLessThanOrEqual(60);
-      expect(result.maximumTenTickDecline, `seed ${seed} cohort cliff`).toBeLessThanOrEqual(0.6);
+      expect(result.maximumTenTickDecline, `seed ${seed} cohort cliff`).toBeLessThanOrEqual(0.25);
     }
   });
 
