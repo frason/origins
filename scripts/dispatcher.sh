@@ -73,6 +73,25 @@ mkdir -p "$STATE" "$ROOT/logs" "$INBOX/done"
 TS()  { date +%Y-%m-%dT%H:%M:%S; }
 log() { echo "$(TS) $*" | tee -a "$ACTIVITY"; }
 
+# A verified issue may commit only the explicit worker manifest; never stage the
+# whole worktree because client files and a later issue may already be present.
+commit_verified_issue() {
+  local number="$1" title="$2" manifest paths path
+  manifest=$(grep '^Changed files:' "$STATE/worker_output.txt" 2>/dev/null | tail -1 | sed 's/^Changed files:[[:space:]]*//')
+  [ -n "$manifest" ] || return 1
+  paths=$(printf '%s' "$manifest" | tr ',' '\n')
+  while IFS= read -r path; do
+    path=$(printf '%s' "$path" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    case "$path" in ''|/*|*'..'* ) return 1 ;; esac
+    [ -e "$path" ] || return 1
+    git add -- "$path"
+  done <<EOF
+$paths
+EOF
+  git diff --cached --quiet && return 1
+  git commit -m "chore(issue): ${title} (closes #${number})"
+}
+
 # ---- preflight: required tools ----
 command -v jq     >/dev/null 2>&1 || { log "ERROR: jq not found in PATH";                exit 1; }
 command -v gh     >/dev/null 2>&1 || { log "ERROR: gh CLI not found in PATH";             exit 1; }
@@ -505,6 +524,12 @@ ${verdict_text}
 \`\`\`" >/dev/null 2>&1 || true
 
   if [ "$first_word" = "PASSED" ]; then
+    if ! commit_verified_issue "$iss_num" "$iss_title"; then
+      msg="⚠️ **Verified but not committed.** The worker summary needs a valid \`Changed files: path, path\` manifest, or the commit failed. Keeping this issue in \`agent-review\`."
+      gh issue comment "$iss_num" --repo "$REPO" --body "$msg" >/dev/null 2>&1 || true
+      log "  issue #$iss_num PASSED but commit gate failed — left in review"
+      exit 0
+    fi
     gh issue edit  "$iss_num" --repo "$REPO" \
       --remove-label "agent-review" --add-label "agent-done" >/dev/null 2>&1 || true
     gh issue close "$iss_num" --repo "$REPO" >/dev/null 2>&1 || true
@@ -594,7 +619,8 @@ Instructions:
 1. Read only the files you actually need — do not explore the entire repository.
 2. Do the work described. Stay strictly in scope; do not expand requirements.
 3. When finished, write a concise technical markdown summary to state/worker_output.txt.
-   Include: what you did, which files were changed or created, any caveats or follow-up items.
+   Include: what you did, any caveats, and exactly one manifest line formatted
+   \`Changed files: path/to/file, path/to/other-file\`. List every changed or created source/test file.
    Keep it under 40 lines — this will be posted as a GitHub issue comment.
 4. If the task is ambiguous or blocked, write what you found to state/worker_output.txt,
    state the blocker clearly, and stop — do not guess or broaden scope.
