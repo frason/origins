@@ -289,6 +289,35 @@ describe('Simulation Engine', () => {
       );
     });
 
+    it('does not let a well-fed predator kill surplus prey', () => {
+      const predator = new Creature({
+        speciesId: 'predator',
+        lineageId: 'predator_root',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'carnivore' },
+        x: 50,
+        y: 50,
+        energy: 180,
+      });
+      const prey = new Creature({
+        speciesId: 'prey',
+        lineageId: 'prey_root',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore' },
+        x: 50,
+        y: 50,
+        energy: 50,
+      });
+      const engine = createEngine(12345, [predator, prey], 100, 100, {
+        baseMetabolism: 0,
+        predationHungerThresholdShare: 0.75,
+        monocultureMortalityPenalty: 0,
+      });
+
+      const next = tickEngine(engine);
+      expect(next.events.some((event) => event.deathCause === 'predation')).toBe(false);
+    });
+
     it('should be deterministic: same seed produces same results', () => {
       const creature1 = new Creature({
         speciesId: 'species_1',
