@@ -79,6 +79,8 @@ commit_verified_issue() {
   local number="$1" title="$2" manifest paths path
   manifest=$(grep '^Changed files:' "$STATE/worker_output.txt" 2>/dev/null | tail -1 | sed 's/^Changed files:[[:space:]]*//')
   [ -n "$manifest" ] || return 1
+  # Do not absorb an operator's already-staged work into an issue commit.
+  git diff --cached --quiet || return 1
   paths=$(printf '%s' "$manifest" | tr ',' '\n')
   while IFS= read -r path; do
     path=$(printf '%s' "$path" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
@@ -89,7 +91,8 @@ commit_verified_issue() {
 $paths
 EOF
   git diff --cached --quiet && return 1
-  git commit -m "chore(issue): ${title} (closes #${number})"
+  git commit -m "chore(issue): ${title} (closes #${number})" || return 1
+  git push origin HEAD
 }
 
 # ---- preflight: required tools ----
