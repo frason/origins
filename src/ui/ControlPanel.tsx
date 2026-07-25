@@ -17,6 +17,7 @@ interface ControlPanelProps {
   onReset?: () => void;
   onNewWorld?: () => void;
   onExportWorld?: () => void;
+  onImportWorld?: (file: File) => Promise<string | null>;
   onStartSeed?: (seed: number) => void;
   worldSeed?: number;
   worldName?: string;
@@ -150,6 +151,7 @@ export default function ControlPanel({
   onReset,
   onNewWorld,
   onExportWorld,
+  onImportWorld,
   onStartSeed,
   worldSeed = 12345,
   worldName = 'Living World',
@@ -178,6 +180,7 @@ export default function ControlPanel({
   const [checkpointDraft, setCheckpointDraft] = useState('');
   const [checkpointMessage, setCheckpointMessage] = useState<string | null>(null);
   const [openHelpKey, setOpenHelpKey] = useState<string | null>(null);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
 
   const recommendations = showGodMode
     ? getGodModeRecommendations(
@@ -255,8 +258,15 @@ export default function ControlPanel({
         {onReset && <button className="sim-button" type="button" onClick={onReset}>Replay world</button>}
         {onNewWorld && <button className="sim-button" type="button" onClick={onNewWorld}>New world</button>}
         {onExportWorld && <button className="sim-button" type="button" onClick={onExportWorld}>Export world</button>}
+        {onImportWorld && <label className="sim-button">Import world<input aria-label="Import world save" type="file" accept="application/json,.json,.origins.json" hidden onChange={async (event) => {
+          const file = event.target.files?.[0];
+          if (!file) return;
+          setImportMessage(await onImportWorld(file));
+          event.target.value = '';
+        }} /></label>}
         <output className="control-panel__tick sim-data">Tick {tick.toLocaleString()}</output>
       </div>
+      {importMessage && <div className={`control-panel__status ${importMessage.startsWith('Restored') ? 'sim-status--positive' : 'sim-status--danger'}`} role="status">{importMessage}</div>}
 
       <label className="control-panel__field">
         <span>Speed <span className="sim-data">{speed}×</span></span>

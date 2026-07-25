@@ -30,7 +30,7 @@ import {
   type SimulationCheckpoint,
 } from './simulation/checkpointTimeline';
 import { loadBrowserWorld, saveBrowserWorld } from './state/browserWorldSave';
-import { serializeEngineState } from './simulation/enginePersistence';
+import { deserializeEngineState, serializeEngineState } from './simulation/enginePersistence';
 
 function browserStorage(): Storage | null {
   return typeof window === 'undefined' ? null : window.localStorage;
@@ -116,6 +116,25 @@ export default function App() {
     link.click();
     URL.revokeObjectURL(url);
   }, []);
+
+  const importWorld = useCallback(async (file: File): Promise<string | null> => {
+    try {
+      const engine = deserializeEngineState(await file.text());
+      const store = useStore.getState();
+      store.setRunning(false);
+      store.setSelectedTile(null);
+      store.clearFollowedLineages();
+      store.updateConstants(engine.constants);
+      engineRef.current = engine;
+      checkpointsRef.current = [];
+      recordCheckpoint(engine);
+      setWorldSeed(engine.seed);
+      publish(engine);
+      return `Restored ${worldNameFromSeed(engine.seed)} at tick ${engine.tick.toLocaleString()}`;
+    } catch (error) {
+      return error instanceof Error ? `Could not restore world: ${error.message}` : 'Could not restore world';
+    }
+  }, [publish, recordCheckpoint]);
 
   const replayWorld = useCallback(() => {
     reset();
@@ -337,6 +356,7 @@ export default function App() {
             onReset={reset}
             onNewWorld={newWorld}
             onExportWorld={exportWorld}
+            onImportWorld={importWorld}
             onStartSeed={startWorld}
             worldSeed={worldSeed}
             worldName={worldName}
