@@ -3,7 +3,12 @@ import {
   SIMULATION_CONSTANTS,
   type SimulationConstants,
 } from '../utils/constants';
-import type { EnergyStrategy } from '../utils/traits';
+import { TRAIT_MAX, TRAIT_MIN, type EnergyStrategy } from '../utils/traits';
+import {
+  FOUNDER_TRAIT_CONTROLS,
+  founderTraitOverrides,
+  type FounderTraitOverrides,
+} from '../simulation/founderTraits';
 
 export interface SettingsRecipeAction {
   type: 'settings';
@@ -18,6 +23,7 @@ export interface IntroductionRecipeAction {
   origin: { x: number; y: number };
   speciesId: string;
   founderCount: number;
+  traits?: FounderTraitOverrides;
 }
 
 export interface WorldRecipe {
@@ -67,6 +73,9 @@ export function buildWorldRecipe(world: WorldSnapshot | null): WorldRecipe | nul
         origin: { ...event.interventionOrigin },
         speciesId: event.speciesId,
         founderCount: event.founderCount,
+        ...(event.introducedTraits
+          ? { traits: founderTraitOverrides(event.introducedTraits) }
+          : {}),
       });
     }
   }
@@ -100,6 +109,23 @@ function parseSettings(value: unknown): Partial<SimulationConstants> | null {
     settings[key as keyof SimulationConstants] = setting;
   }
   return settings;
+}
+
+function parseFounderTraits(value: unknown): FounderTraitOverrides | null {
+  if (value === undefined) return {};
+  if (!isRecord(value)) return null;
+  const traits: FounderTraitOverrides = {};
+  const supported = new Set(FOUNDER_TRAIT_CONTROLS.map((control) => control.key));
+  for (const [rawKey, trait] of Object.entries(value)) {
+    if (!supported.has(rawKey as keyof FounderTraitOverrides)) return null;
+    const key = rawKey as keyof FounderTraitOverrides;
+    if (
+      typeof trait !== 'number' || !Number.isFinite(trait) ||
+      trait < Number(TRAIT_MIN[key]) || trait > Number(TRAIT_MAX[key])
+    ) return null;
+    traits[key] = trait;
+  }
+  return traits;
 }
 
 /** Parse untrusted pasted text without mutating simulation state. */
@@ -167,8 +193,10 @@ export function parseWorldRecipe(text: string): WorldRecipeParseResult {
         return { recipe: null, error: 'Species introductions must precede settings at the same tick' };
       }
       const origin = raw.origin;
+      const strategy = raw.strategy as EnergyStrategy;
+      const traits = parseFounderTraits(raw.traits);
       if (
-        !strategies.includes(raw.strategy as EnergyStrategy) ||
+        !strategies.includes(strategy) || !traits ||
         typeof raw.speciesId !== 'string' || raw.speciesId.length === 0 || raw.speciesId.length > 200 ||
         raw.founderCount !== 3 || !isRecord(origin) ||
         typeof origin.x !== 'number' || !Number.isInteger(origin.x) ||
@@ -181,10 +209,11 @@ export function parseWorldRecipe(text: string): WorldRecipeParseResult {
       actions.push({
         type: 'introduce-species',
         tick: raw.tick,
-        strategy: raw.strategy as EnergyStrategy,
+        strategy,
         origin: { x: origin.x, y: origin.y },
         speciesId: raw.speciesId,
         founderCount: 3,
+        ...(raw.traits === undefined ? {} : { traits }),
       });
     } else {
       return { recipe: null, error: 'Recipe contains an unsupported action' };

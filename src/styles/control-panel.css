@@ -98,6 +98,26 @@
   margin-block-start: var(--sim-space-3);
 }
 
+.control-panel__trait-editor {
+  margin-block-start: var(--sim-space-2);
+  padding: 0;
+}
+
+.control-panel__trait-editor[open] {
+  padding-block-end: var(--sim-space-2);
+}
+
+.control-panel__trait-editor[open] > :not(summary) {
+  margin-inline: var(--sim-space-2);
+}
+
+.control-panel__trait {
+  display: grid;
+  gap: var(--sim-space-1);
+  padding-block: var(--sim-space-2);
+  border-block-start: var(--sim-border-thin) dotted var(--sim-color-shadow);
+}
+
 .control-panel__group {
   padding: 0;
 }

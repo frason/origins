@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { WorldSnapshot } from '../state/store';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
+import { DEFAULT_TRAITS } from '../utils/traits';
 import {
   buildWorldRecipe,
   parseWorldRecipe,
@@ -84,6 +85,26 @@ describe('reproducible world recipe', () => {
       baseMetabolism: 0.75,
       producerGrowthRate: 0.3,
     });
+  });
+
+  it('preserves selected founder traits in exported recipes', () => {
+    const state = world();
+    state.events[1].introducedTraits = {
+      ...DEFAULT_TRAITS,
+      energyStrategy: 'scavenger',
+      speed: 1.8,
+      toxinResistance: 0.6,
+    };
+
+    const recipe = buildWorldRecipe(state)!;
+    const introduction = recipe.actions.find((action) => action.type === 'introduce-species');
+    expect(introduction).toMatchObject({
+      traits: {
+        speed: 1.8,
+        toxinResistance: 0.6,
+      },
+    });
+    expect(parseWorldRecipe(JSON.stringify(recipe))).toEqual({ recipe, error: null });
   });
 
   it('serializes identical histories to byte-identical text', () => {

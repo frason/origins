@@ -1,6 +1,7 @@
 import { getCellEnvironmentalStress } from '../simulation/biomeStress';
 import type { CellSnapshot } from '../state/store';
-import { DEFAULT_TRAITS, type EnergyStrategy, type Traits } from '../utils/traits';
+import type { EnergyStrategy, Traits } from '../utils/traits';
+import { buildFounderTraits, type FounderTraitOverrides } from '../simulation/founderTraits';
 
 export interface HabitatSuitability {
   rating: 'favorable' | 'mixed' | 'harsh';
@@ -43,9 +44,14 @@ export function describeFounderSuitability(
   cell: CellSnapshot,
   strategy: EnergyStrategy,
   livingCount: number,
-  waterRelief: boolean
+  waterRelief: boolean,
+  traitOverrides: FounderTraitOverrides = {}
 ): string {
-  const habitat = describeHabitatSuitability(cell, { ...DEFAULT_TRAITS, energyStrategy: strategy }, waterRelief);
+  const habitat = describeHabitatSuitability(
+    cell,
+    buildFounderTraits(strategy, traitOverrides),
+    waterRelief
+  );
   const foodReady = strategy === 'herbivore'
     ? cell.producerBiomass > 5
     : strategy === 'carnivore'

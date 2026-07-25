@@ -8,6 +8,7 @@ import ExtinctionSummary from './ui/ExtinctionSummary';
 import { useStore } from './state/store';
 import { introduceSpecies, tickEngine, EngineState } from './simulation/engine';
 import type { EnergyStrategy } from './utils/traits';
+import type { FounderTraitOverrides } from './simulation/founderTraits';
 import { buildDemoEngine } from './simulation/demoWorld';
 import { createFreshWorldSeed, DEFAULT_WORLD_SEED } from './ui/worldSeed';
 import SettingsDrawer from './ui/SettingsDrawer';
@@ -142,13 +143,17 @@ export default function App() {
     useStore.getState().setRunning(true);
   }, [reset]);
 
-  const addSpecies = useCallback((strategy: EnergyStrategy, name: string): string | null => {
+  const addSpecies = useCallback((
+    strategy: EnergyStrategy,
+    name: string,
+    traitOverrides: FounderTraitOverrides
+  ): string | null => {
     if (recipeReplayRef.current) return 'Manual interventions are disabled during recipe replay';
     const engine = engineRef.current;
     const tile = useStore.getState().selectedTile;
     if (!engine || !tile) return 'Select a tile in the world first';
     try {
-      const introduction = introduceSpecies(engine, strategy, tile, name);
+      const introduction = introduceSpecies(engine, strategy, tile, name, traitOverrides);
       engineRef.current = introduction.state;
       recordCheckpoint(introduction.state);
       publish(introduction.state);
