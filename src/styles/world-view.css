@@ -14,6 +14,25 @@
   cursor: crosshair;
 }
 
+.world-view__elevation-toggle {
+  position: absolute;
+  z-index: 3;
+  top: var(--sim-space-2);
+  left: var(--sim-space-2);
+  min-height: var(--sim-control-min-size);
+  padding-inline: var(--sim-space-3);
+  border: var(--sim-border-thin) solid var(--sim-color-border);
+  color: var(--sim-color-ink);
+  background: var(--sim-color-panel-raised);
+  box-shadow: 0.125rem 0.125rem 0 var(--sim-color-shadow);
+  cursor: pointer;
+}
+
+.world-view__elevation-toggle--active {
+  color: var(--sim-color-title-text);
+  background: var(--sim-color-title);
+}
+
 .world-view__assistive-text {
   position: absolute;
   width: 0.0625rem;
