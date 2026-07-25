@@ -9,6 +9,9 @@ export interface DefaultOpeningQuality {
   throughTick: number;
   finalPopulation: number;
   finalStrategies: EnergyStrategy[];
+  finalStrategyCounts: Record<EnergyStrategy, number>;
+  starterCarrionConsumptionEvents: number;
+  generatedCarrionConsumptionEvents: number;
   maximumWindowDecline: number;
   declineWindowStart: number;
   declineWindowEnd: number;
@@ -30,12 +33,31 @@ export function measureDefaultOpeningQuality(
   const horizon = Math.max(0, Math.floor(throughTick));
   const window = Math.max(1, Math.min(horizon || 1, Math.floor(declineWindowTicks)));
   let state = buildDemoEngine(seed, { ...constants });
+  let starterCarrionConsumptionEvents = 0;
+  let generatedCarrionConsumptionEvents = 0;
   const eventStarts = [state.events.length];
   const populations = [
     state.creatures.filter((creature) => creature.lifecycleState === 'alive').length,
   ];
   for (let tick = 1; tick <= horizon; tick++) {
+    const previousCreatures = new Map(
+      state.creatures.map((creature) => [creature.id, creature])
+    );
     state = tickEngine(state);
+    for (const creature of state.creatures) {
+      const previous = previousCreatures.get(creature.id);
+      if (
+        !previous ||
+        previous.lifecycleState === 'alive' ||
+        previous.corpseDecayTicks <= 0 ||
+        previous.corpseDecayTicks - creature.corpseDecayTicks <= 1
+      ) continue;
+      if (creature.lineageId.endsWith('_starter_carrion')) {
+        starterCarrionConsumptionEvents++;
+      } else {
+        generatedCarrionConsumptionEvents++;
+      }
+    }
     eventStarts.push(state.events.length);
     populations.push(
       state.creatures.filter((creature) => creature.lifecycleState === 'alive').length
@@ -53,6 +75,15 @@ export function measureDefaultOpeningQuality(
     }
   }
   const living = state.creatures.filter((creature) => creature.lifecycleState === 'alive');
+  const finalStrategyCounts: Record<EnergyStrategy, number> = {
+    herbivore: 0,
+    carnivore: 0,
+    omnivore: 0,
+    scavenger: 0,
+  };
+  for (const creature of living) {
+    finalStrategyCounts[creature.traits.energyStrategy]++;
+  }
   const windowEvents = state.events.slice(
     eventStarts[declineWindowStart],
     eventStarts[declineWindowStart + window]
@@ -70,6 +101,9 @@ export function measureDefaultOpeningQuality(
     finalStrategies: [...new Set(
       living.map((creature) => creature.traits.energyStrategy)
     )].sort() as EnergyStrategy[],
+    finalStrategyCounts,
+    starterCarrionConsumptionEvents,
+    generatedCarrionConsumptionEvents,
     maximumWindowDecline,
     declineWindowStart,
     declineWindowEnd: declineWindowStart + window,
