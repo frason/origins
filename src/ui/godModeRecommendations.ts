@@ -98,7 +98,7 @@ export function getGodModeRecommendations(
     if (changes.length > 0) recommendations.push({
       id: 'slow-reproduction',
       title: 'Slow population growth',
-      reason: 'The population is pressing against its configured carrying capacity.',
+      reason: 'The population is nearing the deterministic safety limit; local food and crowding should normally slow growth before this guard is reached.',
       priority: 90,
       changes,
     });
