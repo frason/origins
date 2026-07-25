@@ -13,6 +13,7 @@ import { createFreshWorldSeed, DEFAULT_WORLD_SEED } from './ui/worldSeed';
 import SettingsDrawer from './ui/SettingsDrawer';
 import EventTimeline from './ui/EventTimeline';
 import LineageHistory from './ui/LineageHistory';
+import WorldLegend from './ui/WorldLegend';
 import {
   advanceRecipeReplay,
   createRecipeReplay,
@@ -348,6 +349,7 @@ export default function App() {
         <EvolutionRibbon onOpenLineages={() => setSettingsOpen(true)} />
         <main aria-label="Ecosystem world" className="app-shell__world">
           <WorldView />
+          <WorldLegend />
         </main>
         <TileInfoPanel onOpenLineages={() => setSettingsOpen(true)} />
       </SimWindow>

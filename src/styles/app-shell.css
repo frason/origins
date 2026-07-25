@@ -123,3 +123,23 @@
     grid-row: 2;
   }
 }
+
+.world-legend {
+  align-self: start;
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.5rem;
+  max-width: 15rem;
+  padding: 0.5rem;
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 2;
+}
+
+.world-legend span { align-items: center; display: flex; gap: 0.4rem; font-size: 0.75rem; }
+.world-legend__swatch { border: 1px solid var(--sim-ink, #2b241b); height: 0.7rem; width: 0.7rem; }
+.world-legend__swatch--life { background: #d89c3d; }
+.world-legend__swatch--biomass { background: #2d8d45; }
+.world-legend__swatch--toxicity { background: #692d78; }
+.world-legend__swatch--miasma { background: #d98a21; }
