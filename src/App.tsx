@@ -30,6 +30,7 @@ import {
   type SimulationCheckpoint,
 } from './simulation/checkpointTimeline';
 import { loadBrowserWorld, saveBrowserWorld } from './state/browserWorldSave';
+import { serializeEngineState } from './simulation/enginePersistence';
 
 function browserStorage(): Storage | null {
   return typeof window === 'undefined' ? null : window.localStorage;
@@ -104,6 +105,17 @@ export default function App() {
   const newWorld = useCallback(() => {
     startWorld(createFreshWorldSeed(worldSeed));
   }, [startWorld, worldSeed]);
+
+  const exportWorld = useCallback(() => {
+    const engine = engineRef.current;
+    if (!engine || typeof document === 'undefined') return;
+    const url = URL.createObjectURL(new Blob([serializeEngineState(engine)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${worldNameFromSeed(engine.seed).toLowerCase().replace(/\s+/g, '-')}-tick-${engine.tick}.origins.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, []);
 
   const replayWorld = useCallback(() => {
     reset();
@@ -324,6 +336,7 @@ export default function App() {
           <ControlPanel
             onReset={reset}
             onNewWorld={newWorld}
+            onExportWorld={exportWorld}
             onStartSeed={startWorld}
             worldSeed={worldSeed}
             worldName={worldName}

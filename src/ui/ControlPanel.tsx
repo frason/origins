@@ -16,6 +16,7 @@ import { describeFounderSuitability } from './habitatSuitability';
 interface ControlPanelProps {
   onReset?: () => void;
   onNewWorld?: () => void;
+  onExportWorld?: () => void;
   onStartSeed?: (seed: number) => void;
   worldSeed?: number;
   worldName?: string;
@@ -148,6 +149,7 @@ function GodModeSlider({
 export default function ControlPanel({
   onReset,
   onNewWorld,
+  onExportWorld,
   onStartSeed,
   worldSeed = 12345,
   worldName = 'Living World',
@@ -252,6 +254,7 @@ export default function ControlPanel({
         </button>
         {onReset && <button className="sim-button" type="button" onClick={onReset}>Replay world</button>}
         {onNewWorld && <button className="sim-button" type="button" onClick={onNewWorld}>New world</button>}
+        {onExportWorld && <button className="sim-button" type="button" onClick={onExportWorld}>Export world</button>}
         <output className="control-panel__tick sim-data">Tick {tick.toLocaleString()}</output>
       </div>
 
