@@ -15,7 +15,8 @@ import {
   lineageDisplayName,
   speciesDisplayName,
 } from './speciesNames';
-import { DEFAULT_TRAITS, type EnergyStrategy } from '../utils/traits';
+import type { EnergyStrategy } from '../utils/traits';
+import { buildFounderTraits, type FounderTraitOverrides } from './founderTraits';
 import {
   appendEcosystemHistory,
   BASE_HISTORY_INTERVAL,
@@ -156,7 +157,8 @@ export function introduceSpecies(
   state: EngineState,
   strategy: EnergyStrategy,
   origin: { x: number; y: number },
-  requestedName?: string
+  requestedName?: string,
+  traitOverrides: FounderTraitOverrides = {}
 ): SpeciesIntroduction {
   if (
     !Number.isInteger(origin.x) || !Number.isInteger(origin.y) ||
@@ -200,12 +202,13 @@ export function introduceSpecies(
   const speciesId = requestedName === undefined
     ? `introduced_${strategy}_${introductionNumber}`
     : introducedSpeciesId(strategy, introductionNumber, requestedName);
+  const founderTraits = buildFounderTraits(strategy, traitOverrides);
   const founders = candidates.slice(0, 3).map((position, index) => {
     const creature = new Creature({
       speciesId,
       lineageId: speciesId,
       parentId: null,
-      traits: { ...DEFAULT_TRAITS, energyStrategy: strategy },
+      traits: { ...founderTraits },
       ...position,
       energy: INTRODUCTION_ENERGY[strategy],
     });
@@ -219,6 +222,7 @@ export function introduceSpecies(
     interventionKind: 'species-introduction',
     interventionOrigin: { ...origin },
     introducedStrategy: strategy,
+    introducedTraits: { ...founderTraits },
     founderCount: founders.length,
     ecosystemBefore: ecosystemCheckpoint(state.world, state.creatures),
     detail: `Introduced ${speciesDisplayName(speciesId)} (${strategy}) with 3 founders`,

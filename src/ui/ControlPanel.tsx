@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/store';
 import { BALANCED_LONGEVITY_PRESET } from '../utils/constants';
-import type { EnergyStrategy } from '../utils/traits';
+import { DEFAULT_TRAITS, type EnergyStrategy } from '../utils/traits';
+import {
+  FOUNDER_TRAIT_CONTROLS,
+  FOUNDER_TRAIT_PRESETS,
+  type FounderTraitOverrides,
+  type FounderTraitPreset,
+} from '../simulation/founderTraits';
 import { parseWorldSeed } from './worldSeed';
 import { getEcosystemPressures } from './ecosystemPressures';
 import { getEcosystemTrajectories } from './ecosystemTrajectory';
@@ -21,7 +27,11 @@ interface ControlPanelProps {
   onStartSeed?: (seed: number) => void;
   worldSeed?: number;
   worldName?: string;
-  onIntroduceSpecies?: (strategy: EnergyStrategy, name: string) => string | null;
+  onIntroduceSpecies?: (
+    strategy: EnergyStrategy,
+    name: string,
+    traits: FounderTraitOverrides
+  ) => string | null;
   replayActive?: boolean;
   checkpointTicks?: number[];
   onRestoreCheckpoint?: (tick: number) => string | null;
@@ -173,6 +183,8 @@ export default function ControlPanel({
   const [showGodMode, setShowGodMode] = useState(false);
   const [introductionStrategy, setIntroductionStrategy] = useState<EnergyStrategy>('herbivore');
   const [introductionName, setIntroductionName] = useState('');
+  const [founderPreset, setFounderPreset] = useState<FounderTraitPreset | 'custom'>('balanced');
+  const [founderTraits, setFounderTraits] = useState<FounderTraitOverrides>({});
   const [introductionMessage, setIntroductionMessage] = useState<string | null>(null);
   const [seedDraft, setSeedDraft] = useState(String(worldSeed));
   const [seedMessage, setSeedMessage] = useState<string | null>(null);
@@ -213,7 +225,8 @@ export default function ControlPanel({
           const y = Math.floor(index / world.width);
           return Math.max(Math.abs(x - selectedTile.x), Math.abs(y - selectedTile.y)) <= 1
             && (candidate.biome === 'ocean' || candidate.biome === 'wetland');
-        })
+        }),
+        founderTraits
       )
     : null;
 
@@ -432,19 +445,84 @@ export default function ControlPanel({
                   <option value="omnivore">Omnivore</option>
                   <option value="scavenger">Scavenger</option>
                 </select>
-                <button
-                  className="sim-button"
-                  type="button"
+              </div>
+              <label className="control-panel__field">
+                <span>Founder traits</span>
+                <select
+                  className="control-panel__input"
+                  aria-label="Founder trait preset"
                   disabled={replayActive}
-                  onClick={() => {
-                    const error = onIntroduceSpecies(introductionStrategy, introductionName);
-                    setIntroductionMessage(error ?? `${introductionName.trim() || suggestedName} introduced`);
-                    if (!error) setIntroductionName('');
+                  value={founderPreset}
+                  onChange={(event) => {
+                    const preset = event.target.value as FounderTraitPreset;
+                    setFounderPreset(preset);
+                    setFounderTraits({ ...FOUNDER_TRAIT_PRESETS[preset] });
+                    setIntroductionMessage(null);
                   }}
                 >
-                  Introduce
-                </button>
-              </div>
+                  <option value="balanced">Balanced</option>
+                  <option value="efficient">Small efficient survivor</option>
+                  <option value="explorer">Fast explorer</option>
+                  <option value="adaptable">Adaptable generalist</option>
+                  {founderPreset === 'custom' && <option value="custom">Custom</option>}
+                </select>
+              </label>
+              <details className="control-panel__trait-editor sim-panel">
+                <summary className="control-panel__group-summary">
+                  <span>Fine-tune traits</span>
+                  <span className="control-panel__group-count sim-data">
+                    {Object.keys(founderTraits).length} changed
+                  </span>
+                </summary>
+                <p className="control-panel__help">
+                  Every advantage has an ecological cost. These values become the founders’ inherited traits.
+                </p>
+                {FOUNDER_TRAIT_CONTROLS.map((control) => {
+                  const value = founderTraits[control.key] ?? DEFAULT_TRAITS[control.key];
+                  return (
+                    <label className="control-panel__trait" key={control.key}>
+                      <span className="control-panel__slider-heading">
+                        <span>{control.label}</span>
+                        <output className="sim-data">{value}</output>
+                      </span>
+                      <input
+                        className="control-panel__range"
+                        type="range"
+                        min={control.min}
+                        max={control.max}
+                        step={control.step}
+                        disabled={replayActive}
+                        value={value}
+                        onChange={(event) => {
+                          setFounderPreset('custom');
+                          setFounderTraits((current) => ({
+                            ...current,
+                            [control.key]: Number(event.target.value),
+                          }));
+                          setIntroductionMessage(null);
+                        }}
+                      />
+                      <span className="control-panel__help">{control.description}</span>
+                    </label>
+                  );
+                })}
+              </details>
+              <button
+                className="sim-button control-panel__wide-button"
+                type="button"
+                disabled={replayActive}
+                onClick={() => {
+                  const error = onIntroduceSpecies(
+                    introductionStrategy,
+                    introductionName,
+                    founderTraits
+                  );
+                  setIntroductionMessage(error ?? `${introductionName.trim() || suggestedName} introduced`);
+                  if (!error) setIntroductionName('');
+                }}
+              >
+                Introduce three founders
+              </button>
               {introductionMessage && (
                 <div className={`control-panel__status ${introductionMessage.includes('introduced') ? 'sim-status--positive' : 'sim-status--danger'}`} role="status">
                   {introductionMessage}

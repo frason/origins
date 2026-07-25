@@ -48,6 +48,7 @@ export interface SimEvent {
   interventionKind?: 'settings-change' | 'species-introduction';
   interventionOrigin?: { x: number; y: number };
   introducedStrategy?: Traits['energyStrategy'];
+  introducedTraits?: Traits;
   founderCount?: number;
   deathCause?: DeathCause;
   parentCreatureId?: string;
