@@ -11,6 +11,9 @@ describe('WorldViewSpike', () => {
     expect(html).toContain('B · Full globe');
     expect(html).toContain('2D world navigator');
     expect(html).toContain('Focus event context');
+    expect(html).toContain('Biomass brightens terrain');
+    expect(html).toContain('Toxicity overlay');
+    expect(html).toContain('Corpses');
     expect(html).toContain('data-direction="isometric"');
     expect(html).not.toContain('style=');
   });

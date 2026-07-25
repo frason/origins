@@ -136,6 +136,41 @@
   margin-top: var(--sim-space-2);
 }
 
+.world-spike__legend {
+  display: grid;
+  gap: var(--sim-space-1);
+  margin: var(--sim-space-3) 0 0;
+  padding: 0;
+  color: #aebdba;
+  font-size: var(--sim-font-size-xs);
+  list-style: none;
+}
+
+.world-spike__legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--sim-space-2);
+}
+
+.world-spike__swatch {
+  width: 0.75rem;
+  height: 0.75rem;
+  border: var(--sim-border-thin) solid #d9e4df;
+}
+
+.world-spike__swatch--biomass {
+  background: #b6d967;
+}
+
+.world-spike__swatch--toxicity {
+  background: #d459b7;
+}
+
+.world-spike__swatch--corpse {
+  background: #9b7049;
+  transform: rotate(45deg) scale(0.72);
+}
+
 .world-spike__facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

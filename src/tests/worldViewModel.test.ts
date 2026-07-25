@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  creatureVisual,
   globePosition,
   isometricPosition,
   locationFromMapPoint,
   notableEvent,
+  normalizedLayer,
 } from '../prototype/worldViewModel';
 import type { PrototypeWorldSnapshot } from '../prototype/worldSnapshot';
 
@@ -35,5 +37,25 @@ describe('prototype world-view model', () => {
       tick: 9,
       detail: 'new lineage',
     });
+  });
+
+  it('normalizes ecological layers without exceeding visual bounds', () => {
+    expect(normalizedLayer(50, 100)).toBe(0.5);
+    expect(normalizedLayer(150, 100)).toBe(1);
+    expect(normalizedLayer(-10, 100)).toBe(0);
+    expect(normalizedLayer(10, 0)).toBe(0);
+  });
+
+  it('makes corpses distinct and colors living strategies consistently', () => {
+    const living = {
+      lifecycleState: 'alive',
+      strategy: 'carnivore',
+    } as PrototypeWorldSnapshot['creatures'][number];
+    const corpse = {
+      lifecycleState: 'dead',
+      strategy: 'carnivore',
+    } as PrototypeWorldSnapshot['creatures'][number];
+    expect(creatureVisual(living)).toEqual({ role: 'living', color: 0xe8664a });
+    expect(creatureVisual(corpse)).toEqual({ role: 'corpse', color: 0x9b7049 });
   });
 });

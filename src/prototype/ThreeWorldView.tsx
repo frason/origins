@@ -3,8 +3,11 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { PrototypeWorldSnapshot } from './worldSnapshot';
 import {
+  cellAt,
+  creatureVisual,
   globePosition,
   isometricPosition,
+  normalizedLayer,
   type PrototypeDirection,
   type SelectedLocation,
 } from './worldViewModel';
@@ -70,6 +73,13 @@ export default function ThreeWorldView({
     let cellMesh: THREE.InstancedMesh;
     const dummy = new THREE.Object3D();
     const cellColor = new THREE.Color();
+    const biomassColor = new THREE.Color(0xb6d967);
+    const maximumBiomass = Math.max(
+      ...snapshot.world.cells.map((cell) => cell.producerBiomass),
+      1,
+    );
+    const toxicCells = snapshot.world.cells.filter((cell) => cell.toxicity > 0.01);
+    const maximumToxicity = Math.max(...toxicCells.map((cell) => cell.toxicity), 1);
     if (direction === 'isometric') {
       const geometry = new THREE.BoxGeometry(0.94, 1, 0.94);
       cellMesh = new THREE.InstancedMesh(
@@ -88,7 +98,10 @@ export default function ThreeWorldView({
         dummy.rotation.set(0, 0, 0);
         dummy.updateMatrix();
         cellMesh.setMatrixAt(index, dummy.matrix);
-        cellMesh.setColorAt(index, cellColor.setHex(BIOME_COLORS[cell.biome] ?? 0x777777));
+        cellColor
+          .setHex(BIOME_COLORS[cell.biome] ?? 0x777777)
+          .lerp(biomassColor, normalizedLayer(cell.producerBiomass, maximumBiomass) * 0.32);
+        cellMesh.setColorAt(index, cellColor);
       });
       camera.position.set(78, 72, 78);
       controls.target.set(0, 0, 0);
@@ -115,7 +128,10 @@ export default function ThreeWorldView({
         dummy.rotateX(Math.PI);
         dummy.updateMatrix();
         cellMesh.setMatrixAt(index, dummy.matrix);
-        cellMesh.setColorAt(index, cellColor.setHex(BIOME_COLORS[cell.biome] ?? 0x777777));
+        cellColor
+          .setHex(BIOME_COLORS[cell.biome] ?? 0x777777)
+          .lerp(biomassColor, normalizedLayer(cell.producerBiomass, maximumBiomass) * 0.32);
+        cellMesh.setColorAt(index, cellColor);
       });
       camera.position.set(0, 8, 31);
       controls.target.set(0, 0, 0);
@@ -128,14 +144,74 @@ export default function ThreeWorldView({
     if (cellMesh.instanceColor) cellMesh.instanceColor.needsUpdate = true;
     scene.add(cellMesh);
 
-    const organismGeometry = new THREE.SphereGeometry(direction === 'globe' ? 0.22 : 0.55, 8, 6);
-    const organismMaterial = new THREE.MeshBasicMaterial({ color: 0xffe089 });
+    if (toxicCells.length > 0) {
+      const toxicityMesh = new THREE.InstancedMesh(
+        direction === 'globe'
+          ? new THREE.BoxGeometry(0.64, 0.3, 0.12)
+          : new THREE.BoxGeometry(0.72, 0.06, 0.72),
+        new THREE.MeshBasicMaterial({
+          transparent: true,
+          opacity: 0.78,
+          depthWrite: false,
+        }),
+        toxicCells.length,
+      );
+      toxicCells.forEach((cell, index) => {
+        if (direction === 'globe') {
+          const position = globePosition(
+            cell,
+            snapshot.world.width,
+            snapshot.world.height,
+            12.35 + cell.elevation * 0.45,
+          );
+          dummy.position.set(...position);
+          dummy.scale.set(1, 1, 1);
+          dummy.lookAt(0, 0, 0);
+          dummy.rotateX(Math.PI);
+        } else {
+          const surface = 0.15 + cell.elevation * 2.4;
+          dummy.position.set(
+            cell.x - snapshot.world.width / 2,
+            surface + 0.05,
+            cell.y - snapshot.world.height / 2,
+          );
+          dummy.scale.set(1, 1, 1);
+          dummy.rotation.set(0, 0, 0);
+        }
+        dummy.updateMatrix();
+        toxicityMesh.setMatrixAt(index, dummy.matrix);
+        toxicityMesh.setColorAt(
+          index,
+          cellColor.setHex(0xdc5b43).lerp(
+            new THREE.Color(0xd459b7),
+            normalizedLayer(cell.toxicity, maximumToxicity),
+          ),
+        );
+      });
+      toxicityMesh.instanceMatrix.needsUpdate = true;
+      if (toxicityMesh.instanceColor) toxicityMesh.instanceColor.needsUpdate = true;
+      scene.add(toxicityMesh);
+    }
+
     snapshot.creatures.forEach((creature) => {
-      const organism = new THREE.Mesh(organismGeometry, organismMaterial);
+      const visual = creatureVisual(creature);
+      const organism = new THREE.Mesh(
+        visual.role === 'corpse'
+          ? new THREE.OctahedronGeometry(direction === 'globe' ? 0.28 : 0.68, 0)
+          : new THREE.SphereGeometry(direction === 'globe' ? 0.22 : 0.55, 8, 6),
+        new THREE.MeshBasicMaterial({ color: visual.color }),
+      );
       const position = direction === 'globe'
         ? globePosition(creature, snapshot.world.width, snapshot.world.height, 12.8)
         : isometricPosition(creature, snapshot.world.width, snapshot.world.height);
-      organism.position.set(position[0], direction === 'globe' ? position[1] : 3.1, position[2]);
+      const cell = cellAt(snapshot, creature);
+      const isometricHeight = 0.9 + (cell ? 0.15 + cell.elevation * 2.4 : 0);
+      organism.position.set(
+        position[0],
+        direction === 'globe' ? position[1] : isometricHeight,
+        position[2],
+      );
+      if (visual.role === 'corpse') organism.scale.set(1.15, 0.45, 1.15);
       scene.add(organism);
     });
 

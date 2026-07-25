@@ -1,4 +1,8 @@
-import type { PrototypeCell, PrototypeWorldSnapshot } from './worldSnapshot';
+import type {
+  PrototypeCell,
+  PrototypeCreature,
+  PrototypeWorldSnapshot,
+} from './worldSnapshot';
 
 export type PrototypeDirection = 'isometric' | 'globe';
 
@@ -7,7 +11,32 @@ export interface SelectedLocation {
   y: number;
 }
 
+const CREATURE_COLORS: Record<string, number> = {
+  herbivore: 0xffdc73,
+  carnivore: 0xe8664a,
+  omnivore: 0x6bb8d8,
+  scavenger: 0xb58ad6,
+};
+
 export const cellKey = ({ x, y }: SelectedLocation): string => `${x},${y}`;
+
+export function normalizedLayer(value: number, maximum: number): number {
+  if (!Number.isFinite(value) || !Number.isFinite(maximum) || maximum <= 0) return 0;
+  return Math.max(0, Math.min(1, value / maximum));
+}
+
+export function creatureVisual(creature: PrototypeCreature): {
+  role: 'living' | 'corpse';
+  color: number;
+} {
+  if (creature.lifecycleState !== 'alive') {
+    return { role: 'corpse', color: 0x9b7049 };
+  }
+  return {
+    role: 'living',
+    color: CREATURE_COLORS[creature.strategy] ?? 0xfff0b5,
+  };
+}
 
 export function cellAt(
   snapshot: PrototypeWorldSnapshot,

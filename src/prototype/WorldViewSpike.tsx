@@ -86,6 +86,11 @@ export default function WorldViewSpike() {
           <section className="world-spike__panel">
             <h2 className="world-spike__panel-title">2D navigation reference</h2>
             <PrototypeMap snapshot={snapshot} selected={selected} onSelect={select} />
+            <ul className="world-spike__legend" aria-label="Ecology layer legend">
+              <li><span className="world-spike__swatch world-spike__swatch--biomass" />Biomass brightens terrain</li>
+              <li><span className="world-spike__swatch world-spike__swatch--toxicity" />Toxicity overlay</li>
+              <li><span className="world-spike__swatch world-spike__swatch--corpse" />Corpses</li>
+            </ul>
           </section>
 
           <section className="world-spike__panel" aria-live="polite">

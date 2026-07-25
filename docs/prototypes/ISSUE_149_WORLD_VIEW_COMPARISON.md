@@ -10,6 +10,8 @@ simulation engine, Zustand, replay, or God Mode.
   selection.
 - The navigator supports click/tap and keyboard arrows.
 - Both views support orbit, pan/zoom, direct geometry selection, and the same seed/tick label.
+- Biomass brightens the underlying biome color, toxicity appears as a red-to-magenta surface
+  overlay, living strategies have distinct colors, and corpses use a separate brown diamond form.
 - The notable mutation is visible, but the fixture has no event coordinates. The prototype states
   this explicitly rather than inventing a location.
 - Desktop and 390×844 mobile browser checks rendered two canvases with no console errors or
