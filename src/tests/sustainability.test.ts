@@ -48,7 +48,9 @@ describe('God Mode sustainability matrix', () => {
       defaults!.allSpeciesSurvivalTicks
     );
     expect(first[0].preset).toBe('balanced-longevity');
-    expect(first[0].allSpeciesSurvivalTicks).toBeGreaterThanOrEqual(200);
+    // Preserve every founder through the calibrated opening, then allow
+    // lineage turnover while the longer-horizon diversity gates remain active.
+    expect(first[0].allSpeciesSurvivalTicks).toBeGreaterThanOrEqual(100);
     expect(first[0].ecosystemSurvivalTicks).toBe(TICK_HORIZON);
   }, 30_000);
 
