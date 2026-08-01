@@ -333,6 +333,63 @@ describe('Movement and Decision Logic', () => {
       expect(decision).toBe('flee');
     });
 
+    it('lets scavengers forage up to their reproductive reserve target', () => {
+      const scavenger = new Creature({
+        speciesId: 'scavenger', lineageId: 'scavenger', parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'scavenger', visionRange: 10 },
+        x: 50, y: 50, energy: 110,
+      });
+      const corpse = new Creature({
+        speciesId: 'prey', lineageId: 'prey', parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore' },
+        x: 55, y: 50, energy: 80, lifecycleState: 'dead', corpseDecayTicks: 20,
+      });
+
+      expect(decideTick(scavenger, world, [scavenger, corpse], rng))
+        .toBe('move-to-food');
+    });
+
+    it('does not flee scavengers from predators that are too well-fed to hunt', () => {
+      const scavenger = new Creature({
+        speciesId: 'scavenger', lineageId: 'scavenger', parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'scavenger', visionRange: 10 },
+        x: 50, y: 50, energy: 80,
+      });
+      const predator = new Creature({
+        speciesId: 'predator', lineageId: 'predator', parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'omnivore' },
+        x: 55, y: 50, energy: 180,
+      });
+
+      expect(decideTick(scavenger, world, [scavenger, predator], rng)).not.toBe('flee');
+      predator.energy = 100;
+      expect(decideTick(scavenger, world, [scavenger, predator], rng)).toBe('flee');
+    });
+
+    it('risks contested carrion only when a scavenger is critically hungry', () => {
+      const scavenger = new Creature({
+        speciesId: 'scavenger', lineageId: 'scavenger', parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'scavenger', visionRange: 10 },
+        x: 50, y: 50, energy: 30,
+      });
+      const predator = new Creature({
+        speciesId: 'predator', lineageId: 'predator', parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'carnivore' },
+        x: 55, y: 50, energy: 40,
+      });
+      const corpse = new Creature({
+        speciesId: 'prey', lineageId: 'prey', parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore' },
+        x: 70, y: 50, energy: 80, lifecycleState: 'dead', corpseDecayTicks: 20,
+      });
+
+      expect(decideTick(scavenger, world, [scavenger, predator, corpse], rng))
+        .toBe('search');
+      scavenger.energy = 60;
+      expect(decideTick(scavenger, world, [scavenger, predator, corpse], rng))
+        .toBe('flee');
+    });
+
     it('should return idle when at full energy even if food is nearby', () => {
       // size = 1, MAX_ENERGY = 1 * 100 = 100
       const fullEnergyCreature = new Creature({

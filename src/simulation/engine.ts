@@ -115,10 +115,14 @@ export function hasLocalReproductiveResources(
   const hasCorpse = nearby.some((other) =>
     other.lifecycleState === 'dead' || other.lifecycleState === 'corpse'
   );
+  const hasGeneratedCorpse = nearby.some((other) =>
+    (other.lifecycleState === 'dead' || other.lifecycleState === 'corpse') &&
+    !other.lineageId.endsWith('_starter_carrion')
+  );
   const recentlyFed = creature.energy >= supportedEnergy;
   if (strategy === 'herbivore') return cellHasProducers || recentlyFed;
   if (strategy === 'carnivore') return hasPrey || recentlyFed;
-  if (strategy === 'scavenger') return hasCorpse || recentlyFed;
+  if (strategy === 'scavenger') return hasGeneratedCorpse || recentlyFed;
   return cellHasProducers || hasPrey || hasCorpse || recentlyFed;
 }
 
@@ -482,7 +486,15 @@ export function tickEngine(
           creature.lastDispersalTick = state.tick;
         }
       }
-      let decision = decideTick(creature, newWorld, creatures, rng, creatureIndex);
+      let decision = decideTick(
+        creature,
+        newWorld,
+        creatures,
+        rng,
+        creatureIndex,
+        constants.reproductionEnergyThreshold * 0.8,
+        constants.predationHungerThresholdShare
+      );
       const hasDispersalTarget =
         creature.dispersalTargetX !== null && creature.dispersalTargetY !== null;
       if (hasDispersalTarget && decision !== 'flee') decision = 'disperse';

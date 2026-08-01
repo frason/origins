@@ -12,6 +12,7 @@ export interface DefaultOpeningQuality {
   finalStrategyCounts: Record<EnergyStrategy, number>;
   starterCarrionConsumptionEvents: number;
   generatedCarrionConsumptionEvents: number;
+  generatedCarrionScavengerAccessEvents: number;
   maximumWindowDecline: number;
   declineWindowStart: number;
   declineWindowEnd: number;
@@ -35,6 +36,7 @@ export function measureDefaultOpeningQuality(
   let state = buildDemoEngine(seed, { ...constants });
   let starterCarrionConsumptionEvents = 0;
   let generatedCarrionConsumptionEvents = 0;
+  let generatedCarrionScavengerAccessEvents = 0;
   const eventStarts = [state.events.length];
   const populations = [
     state.creatures.filter((creature) => creature.lifecycleState === 'alive').length,
@@ -56,6 +58,13 @@ export function measureDefaultOpeningQuality(
         starterCarrionConsumptionEvents++;
       } else {
         generatedCarrionConsumptionEvents++;
+        if (state.creatures.some((candidate) =>
+          candidate.lifecycleState === 'alive' &&
+          candidate.traits.energyStrategy === 'scavenger' &&
+          candidate.x === creature.x && candidate.y === creature.y
+        )) {
+          generatedCarrionScavengerAccessEvents++;
+        }
       }
     }
     eventStarts.push(state.events.length);
@@ -104,6 +113,7 @@ export function measureDefaultOpeningQuality(
     finalStrategyCounts,
     starterCarrionConsumptionEvents,
     generatedCarrionConsumptionEvents,
+    generatedCarrionScavengerAccessEvents,
     maximumWindowDecline,
     declineWindowStart,
     declineWindowEnd: declineWindowStart + window,

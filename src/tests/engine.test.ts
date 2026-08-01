@@ -5,6 +5,7 @@ import {
   createEngine,
   tickEngine,
   runEngine,
+  hasLocalReproductiveResources,
   EngineState,
   SimEvent,
 } from '../simulation/engine';
@@ -78,6 +79,26 @@ describe('Simulation Engine', () => {
   });
 
   describe('tickEngine', () => {
+    it('requires recurring carrion before starter scavengers reproduce', () => {
+      const scavenger = new Creature({
+        speciesId: 'scavenger', lineageId: 'scavenger', parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'scavenger' },
+        x: 2, y: 2, energy: 180,
+      });
+      const corpse = new Creature({
+        speciesId: 'prey', lineageId: 'scavenger_starter_carrion', parentId: null,
+        traits: { ...DEFAULT_TRAITS }, x: 2, y: 3, energy: 80,
+        lifecycleState: 'dead', corpseDecayTicks: 20,
+      });
+      const world = new World(5, 5);
+
+      expect(hasLocalReproductiveResources(scavenger, [scavenger, corpse], world))
+        .toBe(false);
+      corpse.lineageId = 'naturally_generated_carrion';
+      expect(hasLocalReproductiveResources(scavenger, [scavenger, corpse], world))
+        .toBe(true);
+    });
+
     it('should not crash with zero creatures', () => {
       const engine = createEngine(12345, []);
 

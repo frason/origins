@@ -1,9 +1,15 @@
 import { Traits } from '../utils/traits';
 import { World } from './world';
 import { RngFn } from './rng';
-import { MAX_ENERGY_MULTIPLIER } from '../utils/constants';
+import {
+  MAX_ENERGY_MULTIPLIER,
+  PREDATION_HUNGER_THRESHOLD_SHARE,
+} from '../utils/constants';
 import type { CreatureSpatialIndex } from './creatureSpatialIndex';
 import { moveAcrossTerrain, reachableTerrainCells } from './biomeTraversal';
+
+const DEFAULT_SCAVENGER_FORAGING_ENERGY_TARGET = 120;
+const CRITICAL_SCAVENGER_ENERGY_SHARE = 0.2;
 
 /**
  * Lifecycle states for creatures
@@ -297,7 +303,8 @@ export function scanEnvironment(
   world: World,
   allCreatures: Creature[],
   rng: RngFn,
-  spatialIndex?: CreatureSpatialIndex
+  spatialIndex?: CreatureSpatialIndex,
+  predationHungerThresholdShare = PREDATION_HUNGER_THRESHOLD_SHARE
 ): VisionScan {
   const threats: Creature[] = [];
   const foodLocations: Array<{ x: number; y: number; biomass: number }> = [];
@@ -339,11 +346,21 @@ export function scanEnvironment(
     }
 
     // Determine if this creature is a threat (predator)
+    const predatorCapacity = Math.max(
+      200,
+      other.traits.size * MAX_ENERGY_MULTIPLIER
+    );
+    const predatorIsHunting =
+      other.energy / predatorCapacity <
+      Math.max(0, Math.min(1, predationHungerThresholdShare));
     const isThreatsource =
       other.traits.energyStrategy === 'carnivore' ||
       other.traits.energyStrategy === 'omnivore';
 
-    if (isThreatsource) {
+    if (
+      isThreatsource &&
+      (creature.traits.energyStrategy !== 'scavenger' || predatorIsHunting)
+    ) {
       // Predators are always visible to their prey (camouflage doesn't affect threat detection)
       threats.push(other);
     }
@@ -426,18 +443,37 @@ export function decideTick(
   world: World,
   allCreatures: Creature[],
   rng: RngFn,
-  spatialIndex?: CreatureSpatialIndex
+  spatialIndex?: CreatureSpatialIndex,
+  scavengerForagingEnergyTarget = DEFAULT_SCAVENGER_FORAGING_ENERGY_TARGET,
+  predationHungerThresholdShare = PREDATION_HUNGER_THRESHOLD_SHARE
 ): DecisionType {
   // Scan environment
-  const scan = scanEnvironment(creature, world, allCreatures, rng, spatialIndex);
+  const scan = scanEnvironment(
+    creature, world, allCreatures, rng, spatialIndex, predationHungerThresholdShare
+  );
+
+  const scavengerCapacity = Math.max(
+    200,
+    creature.traits.size * MAX_ENERGY_MULTIPLIER
+  );
+  const criticalScavengerForaging =
+    creature.traits.energyStrategy === 'scavenger' &&
+    creature.energy / scavengerCapacity < CRITICAL_SCAVENGER_ENERGY_SHARE &&
+    findMigrationFoodTarget(creature, world, allCreatures) !== null;
 
   // If threatened, flee
-  if (scan.threats.length > 0) {
+  if (scan.threats.length > 0 && !criticalScavengerForaging) {
     return 'flee';
   }
 
+  if (criticalScavengerForaging && scan.foodCreatures.length === 0) {
+    return 'search';
+  }
+
   // If at or near maximum energy, idle (no need to eat)
-  const MAX_ENERGY = creature.traits.size * MAX_ENERGY_MULTIPLIER;
+  const MAX_ENERGY = creature.traits.energyStrategy === 'scavenger'
+    ? Math.max(creature.traits.size * MAX_ENERGY_MULTIPLIER, scavengerForagingEnergyTarget)
+    : creature.traits.size * MAX_ENERGY_MULTIPLIER;
   if (creature.energy >= MAX_ENERGY) {
     return 'idle';
   }

@@ -60,7 +60,7 @@ export const FOUNDER_SPECIES: readonly FounderSpeciesDefinition[] = [
   {
     id: 'shore_scavenger', name: 'Shore Scavenger', strategy: 'scavenger',
     viableBiomes: ['wetland', 'ocean'], population: 2, startingEnergy: 190,
-    traits: { metabolism: 0.8, aquaticAffinity: 1, visionRange: 8 },
+    traits: { metabolism: 0.8, aquaticAffinity: 1, terrainGrip: 1, visionRange: 8 },
     foodAnchor: 'marsh_forager',
   },
 ];

@@ -17,6 +17,7 @@ describe('default opening quality diagnostic', () => {
     )).toBe(first.finalPopulation);
     expect(first.starterCarrionConsumptionEvents).toBeGreaterThanOrEqual(0);
     expect(first.generatedCarrionConsumptionEvents).toBeGreaterThanOrEqual(0);
+    expect(first.generatedCarrionScavengerAccessEvents).toBeGreaterThanOrEqual(0);
   });
 
   it('bounds invalid horizons and decline windows', () => {
@@ -26,19 +27,16 @@ describe('default opening quality diagnostic', () => {
     expect(report.finalPopulation).toBeGreaterThan(0);
   });
 
-  it('distinguishes starter carrion from recurring simulation-generated carrion', () => {
+  it('proves scavengers reach recurring simulation-generated carrion across seeds', () => {
     const reports = [12345, 42, 54321, 99999].map(
       (seed) => measureDefaultOpeningQuality(seed, 100, 10)
     );
 
-    expect(
-      reports.filter((report) => report.generatedCarrionConsumptionEvents > 0).length
-    ).toBeGreaterThanOrEqual(3);
-    expect(
-      reports.reduce(
-        (total, report) => total + report.generatedCarrionConsumptionEvents,
-        0
-      )
-    ).toBeGreaterThan(0);
+    for (const report of reports) {
+      expect(
+        report.generatedCarrionScavengerAccessEvents,
+        `seed ${report.seed} scavenger carrion access`
+      ).toBeGreaterThan(0);
+    }
   });
 });

@@ -80,6 +80,7 @@ describe('starter world placement', () => {
     expect(living.find((creature) => creature.speciesId === 'frost_brower')?.traits.thermalTolerance).toBe(1);
     expect(living.find((creature) => creature.speciesId === 'ridge_forager')?.traits.terrainGrip).toBe(1);
     expect(living.find((creature) => creature.speciesId === 'shore_scavenger')?.traits.aquaticAffinity).toBe(1);
+    expect(living.find((creature) => creature.speciesId === 'shore_scavenger')?.traits.terrainGrip).toBe(1);
   });
 
   it('keeps carnivores close to prey and scavengers within carrion range', () => {
