@@ -63,6 +63,12 @@ export default function App() {
   const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
   const worldName = worldNameFromSeed(worldSeed);
 
+  const openSettings = useCallback(() => {
+    // A drawer is a focused task, not a second panel competing with tile details.
+    useStore.getState().setSelectedTile(null);
+    setSettingsOpen(true);
+  }, []);
+
   const publish = useCallback((engine: EngineState) => {
     const store = useStore.getState();
     store.setWorldState(snapshotEngine(engine));
@@ -323,7 +329,7 @@ export default function App() {
             aria-label="Open world controls"
             aria-controls="settings-drawer"
             aria-expanded={settingsOpen}
-            onClick={() => setSettingsOpen(true)}
+            onClick={openSettings}
           >
             ⚙
           </button>
@@ -331,10 +337,10 @@ export default function App() {
         menu={(
           <>
             <strong aria-current="page">World</strong>
-            <button type="button" className="app-shell__menu-button" onClick={() => setSettingsOpen(true)}>
+            <button type="button" className="app-shell__menu-button" onClick={openSettings}>
               Simulation
             </button>
-            <button type="button" className="app-shell__menu-button" onClick={() => setSettingsOpen(true)}>
+            <button type="button" className="app-shell__menu-button" onClick={openSettings}>
               Data
             </button>
             <span className="app-shell__seed">
@@ -383,12 +389,12 @@ export default function App() {
             <button type="button" className="sim-button sim-button--compact" onClick={() => setRecoveryNotice(null)}>Dismiss</button>
           </div>
         )}
-        <EvolutionRibbon onOpenLineages={() => setSettingsOpen(true)} />
+        <EvolutionRibbon onOpenLineages={openSettings} />
         <main aria-label="Ecosystem world" className="app-shell__world">
           <WorldView />
           <WorldLegend />
         </main>
-        <TileInfoPanel onOpenLineages={() => setSettingsOpen(true)} />
+        <TileInfoPanel onOpenLineages={openSettings} />
       </SimWindow>
       <SettingsDrawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}>
           <ControlPanel
