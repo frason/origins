@@ -6,6 +6,7 @@ import {
   calculateGridLayout,
   GridLayout,
   navigateTileSelection,
+  selectNearbyLivingTile,
   viewportPointToTile,
 } from './worldViewport';
 import TurningPointNotice from './TurningPointNotice';
@@ -227,12 +228,12 @@ const WorldView: React.FC = () => {
       const pixelY = event.clientY - rect.top;
 
       const tile = viewportPointToTile(pixelX, pixelY, layout, GRID_WIDTH, GRID_HEIGHT);
-      if (tile) setSelectedTile(tile);
+      if (tile) setSelectedTile(selectNearbyLivingTile(tile, extractCreatures(worldState)));
     };
 
     canvas.addEventListener('click', handleCanvasClick);
     return () => canvas.removeEventListener('click', handleCanvasClick);
-  }, [layout, setSelectedTile]);
+  }, [layout, setSelectedTile, worldState]);
 
   /** Paint once when a published visual input changes; remain idle otherwise. */
   useEffect(() => {
