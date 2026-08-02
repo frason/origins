@@ -28,17 +28,18 @@ implement a shared password in browser code.
 
 ## What the repository enforces
 
-- GitHub Actions runs the full test suite, production build, and release smoke
-  check on every pull request and `main` push.
-- Vercel builds with the same `npm run build` command and serves `dist`.
+- GitHub Actions installs the committed dependency lock with `npm ci`, then runs
+  the full test suite, production build, and release smoke check on every pull
+  request and `main` push.
+- Vercel uses the same lockfile through `npm ci` before building with `npm run build`
+  and serving `dist`.
 - `GET /health.json` returns a small static health contract. It is deliberately
   cache-disabled so it confirms the selected deployment's build output.
 - Basic browser security headers are configured in `vercel.json`.
 
-The repository currently has no committed npm lockfile. Before the public beta
-cut, commit a reviewed lockfile and change both CI and Vercel to `npm ci`; that
-makes dependency resolution reproducible rather than accepting future matching
-minor versions.
+The repository commits a reviewed npm lockfile and uses `npm ci` in CI and Vercel.
+Regenerate and review it whenever dependencies change; do not use an unreviewed
+floating dependency resolution for a beta deployment.
 
 ## Release checklist
 
