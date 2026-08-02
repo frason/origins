@@ -24,7 +24,7 @@ claude setup-token
 
 Copy the token it outputs (starts with `sk-ant-oat01-...`) and paste it into `.env`:
 ```bash
-CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-YOUR_TOKEN_HERE
+CLAUDE_CODE_OAUTH_TOKEN=YOUR_CLAUDE_SUBSCRIPTION_TOKEN
 ```
 
 ### 2. Authenticate GitHub (optional but recommended for this setup)
