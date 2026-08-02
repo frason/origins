@@ -623,6 +623,17 @@ describe('Movement and Decision Logic', () => {
       expect(BIOME_MOVEMENT_COST.tundra).toBeGreaterThan(BIOME_MOVEMENT_COST.desert);
     });
 
+    it('moves and reaches terrain across the east/west seam', () => {
+      const creature = new Creature({
+        speciesId: 'grazer', lineageId: 'grazer', parentId: null,
+        traits: { ...DEFAULT_TRAITS, speed: 1.2 }, x: 0, y: 10, energy: 50,
+      });
+
+      expect(moveAcrossTerrain(creature, { x: world.width - 1, y: 10 }, world))
+        .toEqual({ x: world.width - 1, y: 10 });
+      expect(reachableTerrainCells(world, 0, 10, 1).has(`${world.width - 1},10`)).toBe(true);
+    });
+
     it('does not cross an impassable wall or perceive food behind it', () => {
       const creature = new Creature({
         speciesId: 'grazer', lineageId: 'grazer', parentId: null,
