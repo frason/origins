@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import BetaFeedbackPanel from '../ui/BetaFeedbackPanel';
+import BetaFeedbackPanel, { getFocusTrapTargetIndex } from '../ui/BetaFeedbackPanel';
 import type { BetaFeedbackBackend } from '../services/betaFeedbackClient';
 
 const noopBackend: BetaFeedbackBackend = {
@@ -10,6 +10,13 @@ const noopBackend: BetaFeedbackBackend = {
 };
 
 describe('BetaFeedbackPanel accessibility structure', () => {
+  it('wraps keyboard focus only at the dialog boundaries', () => {
+    expect(getFocusTrapTargetIndex(0, 4, true)).toBe(3);
+    expect(getFocusTrapTargetIndex(3, 4, false)).toBe(0);
+    expect(getFocusTrapTargetIndex(1, 4, false)).toBeNull();
+    expect(getFocusTrapTargetIndex(-1, 4, false)).toBeNull();
+  });
+
   it('exposes modal semantics and external BEM styling without inline CSS', () => {
     const html = renderToStaticMarkup(
       <BetaFeedbackPanel isOpen onClose={() => undefined} backend={noopBackend} />,

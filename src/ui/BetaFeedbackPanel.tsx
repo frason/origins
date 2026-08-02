@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import {
   BETA_FEEDBACK_CATEGORIES,
   submitBetaFeedback,
@@ -25,6 +32,25 @@ const CATEGORY_LABELS: Record<BetaFeedbackCategory, string> = {
   other: 'Other',
 };
 
+const FOCUSABLE_SELECTOR = [
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[href]',
+].join(',');
+
+export function getFocusTrapTargetIndex(
+  activeIndex: number,
+  focusableCount: number,
+  shiftKey: boolean,
+): number | null {
+  if (focusableCount === 0) return null;
+  if (shiftKey && activeIndex === 0) return focusableCount - 1;
+  if (!shiftKey && activeIndex === focusableCount - 1) return 0;
+  return null;
+}
+
 function currentPageUrl(): string {
   return typeof window === 'undefined' ? '' : window.location.href;
 }
@@ -35,6 +61,7 @@ export default function BetaFeedbackPanel({
   backend,
   pageUrl,
 }: BetaFeedbackPanelProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
@@ -76,6 +103,25 @@ export default function BetaFeedbackPanel({
   const handleClose = () => {
     resetForm();
     onClose();
+  };
+
+  const trapFocus = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Tab' || !dialogRef.current) return;
+
+    const focusable = Array.from(
+      dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+    );
+    if (focusable.length === 0) return;
+
+    const targetIndex = getFocusTrapTargetIndex(
+      focusable.indexOf(document.activeElement as HTMLElement),
+      focusable.length,
+      event.shiftKey,
+    );
+    if (targetIndex !== null) {
+      event.preventDefault();
+      focusable[targetIndex].focus();
+    }
   };
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -135,6 +181,7 @@ export default function BetaFeedbackPanel({
   return (
     <>
       <div
+        ref={dialogRef}
         aria-hidden="true"
         onClick={handleClose}
         className={`beta-feedback__backdrop${isOpen ? ' beta-feedback__backdrop--open' : ''}`}
@@ -145,6 +192,7 @@ export default function BetaFeedbackPanel({
         aria-hidden={!isOpen}
         aria-modal="true"
         role="dialog"
+        onKeyDown={trapFocus}
         className={`beta-feedback__dialog sim-window${isOpen ? ' beta-feedback__dialog--open' : ''}`}
       >
         <header className="beta-feedback__header sim-window__title-bar">
