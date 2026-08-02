@@ -1,5 +1,5 @@
 import { Traits } from '../utils/traits';
-import { World } from './world';
+import { World, wrapCoordinate } from './world';
 import { RngFn } from './rng';
 import { MAX_ENERGY_MULTIPLIER } from '../utils/constants';
 import type { CreatureSpatialIndex } from './creatureSpatialIndex';
@@ -710,8 +710,8 @@ export function applyMovement(
     const previousY = creature.y;
     const nextPos = moveAcrossTerrain(creature, targetLocation, world);
 
-    // Clamp to world bounds
-    creature.x = Math.max(0, Math.min(world.width - 1, nextPos.x));
+    // The terrain joins east to west, so movement must use the same seam.
+    creature.x = wrapCoordinate(nextPos.x, world.width);
     creature.y = Math.max(0, Math.min(world.height - 1, nextPos.y));
     spatialIndex?.move(creature, previousX, previousY);
   }

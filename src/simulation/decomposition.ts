@@ -1,5 +1,5 @@
 import { Creature } from './creature';
-import { World } from './world';
+import { World, wrapCoordinate } from './world';
 import {
   MAX_CREATURE_AGE_TICKS,
   CORPSE_DECAY_RATE,
@@ -66,8 +66,9 @@ export function decayCorpse(
     creature.corpseDecayTicks, decayDuration
   ).hazardMultiplier;
   for (let y = Math.max(0, creature.y - radius); y <= Math.min(world.height - 1, creature.y + radius); y++) {
-    for (let x = Math.max(0, creature.x - radius); x <= Math.min(world.width - 1, creature.x + radius); x++) {
-      const distance = Math.hypot(x - creature.x, y - creature.y);
+    for (let offsetX = -radius; offsetX <= radius; offsetX++) {
+      const x = wrapCoordinate(creature.x + offsetX, world.width);
+      const distance = Math.hypot(offsetX, y - creature.y);
       if (distance > radius) continue;
       const falloff = radius === 0 ? 1 : 1 - distance / (radius + 1);
       const affectedCell = world.getCell(x, y);

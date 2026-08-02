@@ -1,5 +1,5 @@
 import type { Creature } from './creature';
-import type { Biome, World } from './world';
+import { wrapCoordinate, wrappedDistance, type Biome, type World } from './world';
 import type { Traits } from '../utils/traits';
 import { metabolicPerformanceMultiplier } from '../utils/traits';
 
@@ -38,8 +38,8 @@ export function isTerrainTraversable(
   y: number,
   traits?: Pick<Traits, 'aquaticAffinity' | 'terrainGrip'>
 ): boolean {
-  if (x < 0 || y < 0 || x >= world.width || y >= world.height) return false;
-  return Number.isFinite(terrainMovementCost(world.getCell(x, y).biome, traits));
+  if (y < 0 || y >= world.height) return false;
+  return Number.isFinite(terrainMovementCost(world.getCell(wrapCoordinate(x, world.width), y).biome, traits));
 }
 
 const key = (x: number, y: number) => `${x},${y}`;
@@ -53,15 +53,16 @@ export function reachableTerrainCells(
   traits?: Pick<Traits, 'aquaticAffinity' | 'terrainGrip'>
 ): Set<string> {
   const boundedRange = Math.max(0, Math.min(50, Math.floor(range)));
-  const reachable = new Set<string>([key(originX, originY)]);
-  const queue = [{ x: originX, y: originY }];
+  const wrappedOriginX = wrapCoordinate(originX, world.width);
+  const reachable = new Set<string>([key(wrappedOriginX, originY)]);
+  const queue = [{ x: wrappedOriginX, y: originY }];
   for (let index = 0; index < queue.length; index++) {
     const current = queue[index];
     for (const direction of DIRECTIONS) {
-      const x = current.x + direction.dx;
+      const x = wrapCoordinate(current.x + direction.dx, world.width);
       const y = current.y + direction.dy;
       if (
-        Math.max(Math.abs(x - originX), Math.abs(y - originY)) > boundedRange ||
+        Math.max(wrappedDistance(x, wrappedOriginX, world.width), Math.abs(y - originY)) > boundedRange ||
         !isTerrainTraversable(world, x, y, traits) || reachable.has(key(x, y))
       ) continue;
       reachable.add(key(x, y));
@@ -71,8 +72,8 @@ export function reachableTerrainCells(
   return reachable;
 }
 
-function distance(x: number, y: number, targetX: number, targetY: number): number {
-  return Math.max(Math.abs(targetX - x), Math.abs(targetY - y));
+function distance(x: number, y: number, targetX: number, targetY: number, width: number): number {
+  return Math.max(wrappedDistance(targetX, x, width), Math.abs(targetY - y));
 }
 
 /** Move greedily through passable neighboring cells with deterministic biome slowdown. */
@@ -84,19 +85,19 @@ export function moveAcrossTerrain(
   let x = creature.x;
   let y = creature.y;
   let budget = Math.max(0, creature.traits.speed * metabolicPerformanceMultiplier(creature.traits.metabolism));
-  const targetX = Math.max(0, Math.min(world.width - 1, target.x));
+  const targetX = wrapCoordinate(target.x, world.width);
   const targetY = Math.max(0, Math.min(world.height - 1, target.y));
 
   while (budget > 0) {
-    const currentDistance = distance(x, y, targetX, targetY);
+    const currentDistance = distance(x, y, targetX, targetY, world.width);
     if (currentDistance === 0) break;
     const candidates = DIRECTIONS
-      .map((direction) => ({ x: x + direction.dx, y: y + direction.dy }))
+      .map((direction) => ({ x: wrapCoordinate(x + direction.dx, world.width), y: y + direction.dy }))
       .filter((candidate) => isTerrainTraversable(world, candidate.x, candidate.y, creature.traits))
       .map((candidate) => ({
         ...candidate,
-        distance: distance(candidate.x, candidate.y, targetX, targetY),
-        directDistance: Math.abs(targetX - candidate.x) + Math.abs(targetY - candidate.y),
+        distance: distance(candidate.x, candidate.y, targetX, targetY, world.width),
+        directDistance: wrappedDistance(targetX, candidate.x, world.width) + Math.abs(targetY - candidate.y),
         cost: terrainMovementCost(world.getCell(candidate.x, candidate.y).biome, creature.traits),
       }))
       // Equal-distance steps allow deterministic routing around a shoreline or ridge.

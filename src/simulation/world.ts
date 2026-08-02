@@ -86,11 +86,13 @@ function mountainRanges(seed: number, width: number): MountainRange[] {
   }));
 }
 
-function wrapCoordinate(value: number, size: number): number {
+/** Wrap a horizontal world coordinate so the eastern and western edges meet. */
+export function wrapCoordinate(value: number, size: number): number {
   return ((value % size) + size) % size;
 }
 
-function wrappedDistance(a: number, b: number, size: number): number {
+/** Shortest horizontal distance on the world's east/west seam. */
+export function wrappedDistance(a: number, b: number, size: number): number {
   const distance = Math.abs(a - b);
   return Math.min(distance, size - distance);
 }
