@@ -18,8 +18,9 @@ import {
 } from './ecosystemTrajectory';
 import { buildEcosystemPoints } from './ecosystemPoints';
 import EcosystemPointsPanel from './EcosystemPointsPanel';
-import { formatPrematureDeathRate, getPrematureDeathMetrics } from './prematureDeathMetrics';
 import { buildLocalBiomassSummary } from './biomassObservability';
+import { buildPopulationGovernanceSummary } from './populationGovernanceModel';
+import { formatReplacementRatio, getReplacementMetrics } from './replacementMetrics';
 
 const panelStyle: CSSProperties = {
   backgroundColor: '#222',
@@ -147,7 +148,11 @@ export default function StatsPanel() {
   const dynamics = getEcosystemDynamics(worldState, tick, maxPopulation);
   const trajectories = getEcosystemTrajectories(worldState, tick);
   const points = buildEcosystemPoints(worldState, tick);
-  const prematureDeaths = getPrematureDeathMetrics(worldState?.events ?? []).ecosystem;
+  const replacement = getReplacementMetrics(worldState?.events ?? [], tick);
+  const populationGovernance = buildPopulationGovernanceSummary(
+    worldState?.creatures ?? [],
+    maxPopulation
+  );
 
   return (
     <div style={panelStyle}>
@@ -171,12 +176,27 @@ export default function StatsPanel() {
       <DynamicsRow label="Exploration" metric={dynamics.exploration} trajectory={trajectories.exploration} />
       <EcosystemPointsPanel points={points} />
       <div style={{ borderTop: '1px solid #383838', margin: '0.65rem 0 0.45rem' }} />
-      <Row label="Population" value={alive} />
+      <HelpRow
+        label="Population / safety limit"
+        value={populationGovernance.populationLabel}
+        help="The second number is a deterministic performance guard, not the world's ecological carrying capacity. Local food, habitat, and crowding pressure should restrain growth first."
+      />
+      <HelpRow
+        label="Breeding pressure"
+        value={populationGovernance.breedingLabel}
+        help={populationGovernance.atSafetyLimit
+          ? 'At the safety limit, new births wait for deaths to create room. Survival, movement, feeding, and selection continue, but birth-driven mutation pauses until turnover.'
+          : 'Local scarcity can raise breeding requirements before the safety limit is reached. This is ecological restraint rather than a hidden population target.'}
+      />
       <Row label="Species" value={species.size} />
       <Row label="Births" value={births} />
       <Row label="Mutations" value={mutations} />
       <Row label="Corpses" value={corpses} />
-      <Row label="Premature deaths" value={formatPrematureDeathRate(prematureDeaths)} />
+      <HelpRow
+        label="Live replacement"
+        value={formatReplacementRatio(replacement.ecosystem)}
+        help={`Births divided by deaths in the last ${replacement.windowTicks} ticks. 1.00× replaces each death, below 1.00× contracts, and above 1.00× expands. A dash means no deaths have occurred in the window.`}
+      />
       <Row label="Avg energy" value={alive > 0 ? (totalEnergy / alive).toFixed(1) : '—'} />
       <HelpRow
         label="Global biomass"

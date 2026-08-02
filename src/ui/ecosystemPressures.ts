@@ -67,8 +67,8 @@ export function getEcosystemPressures(
   if (capacityShare >= 0.9) {
     candidates.push({
       id: 'capacity', tone: capacityShare >= 1 ? 'critical' : 'warning', priority: 85,
-      title: 'Population is pressing against capacity',
-      evidence: `${living.length} living creatures use ${Math.round(capacityShare * 100)}% of the configured limit`,
+      title: 'Population is nearing the safety limit',
+      evidence: `${living.length} living creatures use ${Math.round(capacityShare * 100)}% of the deterministic performance guard`,
     });
   }
 

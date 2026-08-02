@@ -333,6 +333,65 @@ describe('Movement and Decision Logic', () => {
       expect(decision).toBe('flee');
     });
 
+    it('lets scavengers forage up to their reproductive reserve target', () => {
+      const scavenger = new Creature({
+        speciesId: 'scavenger', lineageId: 'scavenger', parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'scavenger', visionRange: 10 },
+        x: 50, y: 50, energy: 110,
+      });
+      const corpse = new Creature({
+        speciesId: 'prey', lineageId: 'prey', parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore' },
+        x: 55, y: 50, energy: 80, lifecycleState: 'dead', corpseDecayTicks: 20,
+      });
+
+      expect(decideTick(scavenger, world, [scavenger, corpse], rng))
+        .toBe('move-to-food');
+    });
+
+    it('does not flee scavengers from predators that are too well-fed to hunt', () => {
+      const scavenger = new Creature({
+        speciesId: 'scavenger', lineageId: 'scavenger', parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'scavenger', visionRange: 10 },
+        x: 50, y: 50, energy: 80,
+      });
+      const predator = new Creature({
+        speciesId: 'predator', lineageId: 'predator', parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'omnivore' },
+        x: 55, y: 50, energy: 180,
+      });
+
+      expect(decideTick(scavenger, world, [scavenger, predator], rng)).not.toBe('flee');
+      // A size-one predator has a 200-energy capacity. Keep this below the
+      // calibrated 45% hunt threshold so the scavenger correctly flees.
+      predator.energy = 80;
+      expect(decideTick(scavenger, world, [scavenger, predator], rng)).toBe('flee');
+    });
+
+    it('risks contested carrion only when a scavenger is critically hungry', () => {
+      const scavenger = new Creature({
+        speciesId: 'scavenger', lineageId: 'scavenger', parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'scavenger', visionRange: 10 },
+        x: 50, y: 50, energy: 30,
+      });
+      const predator = new Creature({
+        speciesId: 'predator', lineageId: 'predator', parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'carnivore' },
+        x: 55, y: 50, energy: 40,
+      });
+      const corpse = new Creature({
+        speciesId: 'prey', lineageId: 'prey', parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore' },
+        x: 70, y: 50, energy: 80, lifecycleState: 'dead', corpseDecayTicks: 20,
+      });
+
+      expect(decideTick(scavenger, world, [scavenger, predator, corpse], rng))
+        .toBe('search');
+      scavenger.energy = 60;
+      expect(decideTick(scavenger, world, [scavenger, predator, corpse], rng))
+        .toBe('flee');
+    });
+
     it('should return idle when at full energy even if food is nearby', () => {
       // size = 1, MAX_ENERGY = 1 * 100 = 100
       const fullEnergyCreature = new Creature({
@@ -564,6 +623,17 @@ describe('Movement and Decision Logic', () => {
       expect(isTerrainTraversable(world, 52, 50)).toBe(false);
       expect(BIOME_MOVEMENT_COST.wetland).toBeGreaterThan(BIOME_MOVEMENT_COST.grassland);
       expect(BIOME_MOVEMENT_COST.tundra).toBeGreaterThan(BIOME_MOVEMENT_COST.desert);
+    });
+
+    it('moves and reaches terrain across the east/west seam', () => {
+      const creature = new Creature({
+        speciesId: 'grazer', lineageId: 'grazer', parentId: null,
+        traits: { ...DEFAULT_TRAITS, speed: 1.2 }, x: 0, y: 10, energy: 50,
+      });
+
+      expect(moveAcrossTerrain(creature, { x: world.width - 1, y: 10 }, world))
+        .toEqual({ x: world.width - 1, y: 10 });
+      expect(reachableTerrainCells(world, 0, 10, 1).has(`${world.width - 1},10`)).toBe(true);
     });
 
     it('does not cross an impassable wall or perceive food behind it', () => {

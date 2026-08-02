@@ -36,7 +36,8 @@ function applyActionsAtCurrentTick(session: RecipeReplaySession): RecipeReplaySe
         state,
         action.strategy,
         action.origin,
-        customName ?? undefined
+        customName ?? undefined,
+        action.traits ?? {}
       );
       if (result.speciesId !== action.speciesId || result.creatureIds.length !== action.founderCount) {
         throw new Error(`Recipe species identity diverged at tick ${state.tick}`);

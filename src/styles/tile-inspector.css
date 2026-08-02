@@ -38,6 +38,15 @@
   margin: 0;
 }
 
+.tile-inspector__section--life {
+  order: -1;
+}
+
+/* On a compact inspector, make the living occupants the first answer. */
+.tile-inspector:not(.tile-inspector--expanded) .tile-inspector__section--details {
+  display: none;
+}
+
 .tile-inspector__section-heading,
 .tile-lineage__heading {
   display: flex;
@@ -143,6 +152,10 @@
 
   .tile-inspector__body {
     max-height: calc(100% - 3.5rem);
+  }
+
+  .tile-inspector:not(.tile-inspector--expanded) .tile-inspector__section--details {
+    display: block;
   }
 }
 

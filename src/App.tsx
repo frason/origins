@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import WorldView from './ui/WorldView';
 import ControlPanel from './ui/ControlPanel';
 import SpeciesPanel from './ui/SpeciesPanel';
@@ -8,6 +8,7 @@ import ExtinctionSummary from './ui/ExtinctionSummary';
 import { useStore } from './state/store';
 import { introduceSpecies, tickEngine, EngineState } from './simulation/engine';
 import type { EnergyStrategy } from './utils/traits';
+import type { FounderTraitOverrides } from './simulation/founderTraits';
 import { buildDemoEngine } from './simulation/demoWorld';
 import { createFreshWorldSeed, DEFAULT_WORLD_SEED } from './ui/worldSeed';
 import SettingsDrawer from './ui/SettingsDrawer';
@@ -30,8 +31,23 @@ import {
   restoreCheckpoint,
   type SimulationCheckpoint,
 } from './simulation/checkpointTimeline';
-import { loadBrowserWorld, saveBrowserWorld } from './state/browserWorldSave';
+import { restoreBrowserWorld, saveBrowserWorld } from './state/browserWorldSave';
 import { deserializeEngineState, serializeEngineState } from './simulation/enginePersistence';
+import {
+  createDiagnosticBundle,
+  diagnosticBundleByteSize,
+  diagnosticBundleFileName,
+  serializeDiagnosticBundle,
+} from './simulation/diagnosticBundle';
+import { downloadJsonFile } from './ui/browserDownload';
+import BetaFeedbackPanel from './ui/BetaFeedbackPanel';
+import { loadBetaFeedbackBackend, type BetaFeedbackBackend } from './services/betaFeedbackClient';
+import {
+  loadBetaWorldBackupBackend,
+  restoreBetaWorldBackup,
+  saveBetaWorldBackup,
+  type BetaWorldBackupBackend,
+} from './services/betaWorldBackupClient';
 
 function browserStorage(): Storage | null {
   return typeof window === 'undefined' ? null : window.localStorage;
@@ -48,11 +64,21 @@ export default function App() {
   const setRunning = useStore((s) => s.setRunning);
   const setSpeed = useStore((s) => s.setSpeed);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const feedbackBackend: BetaFeedbackBackend | null = useMemo(() => loadBetaFeedbackBackend(), []);
+  const worldBackupBackend: BetaWorldBackupBackend | null = useMemo(() => loadBetaWorldBackupBackend(), []);
   const [worldSeed, setWorldSeed] = useState(DEFAULT_WORLD_SEED);
   const [replayActive, setReplayActive] = useState(false);
   const [replayStatus, setReplayStatus] = useState<string | null>(null);
   const [checkpointTicks, setCheckpointTicks] = useState<number[]>([]);
+  const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
   const worldName = worldNameFromSeed(worldSeed);
+
+  const openSettings = useCallback(() => {
+    // A drawer is a focused task, not a second panel competing with tile details.
+    useStore.getState().setSelectedTile(null);
+    setSettingsOpen(true);
+  }, []);
 
   const publish = useCallback((engine: EngineState) => {
     const store = useStore.getState();
@@ -109,13 +135,27 @@ export default function App() {
 
   const exportWorld = useCallback(() => {
     const engine = engineRef.current;
-    if (!engine || typeof document === 'undefined') return;
-    const url = URL.createObjectURL(new Blob([serializeEngineState(engine)], { type: 'application/json' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${worldNameFromSeed(engine.seed).toLowerCase().replace(/\s+/g, '-')}-tick-${engine.tick}.origins.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    if (!engine) return;
+    downloadJsonFile(
+      `${worldNameFromSeed(engine.seed).toLowerCase().replace(/\s+/g, '-')}-tick-${engine.tick}.origins.json`,
+      serializeEngineState(engine),
+    );
+  }, []);
+
+  const exportDiagnostic = useCallback((): string => {
+    const engine = engineRef.current;
+    if (!engine) return 'Could not export diagnostic: no world is loaded';
+    try {
+      const bundle = createDiagnosticBundle(engine);
+      const serialized = serializeDiagnosticBundle(bundle);
+      downloadJsonFile(diagnosticBundleFileName(bundle), serialized);
+      const kibibytes = Math.max(1, Math.ceil(diagnosticBundleByteSize(serialized) / 1024));
+      return `Downloaded diagnostic for tick ${engine.tick.toLocaleString()} (${kibibytes.toLocaleString()} KiB)`;
+    } catch (error) {
+      return error instanceof Error
+        ? `Could not export diagnostic: ${error.message}`
+        : 'Could not export diagnostic';
+    }
   }, []);
 
   const importWorld = useCallback(async (file: File): Promise<string | null> => {
@@ -137,18 +177,49 @@ export default function App() {
     }
   }, [publish, recordCheckpoint]);
 
+  const backupWorld = useCallback(async (): Promise<string> => {
+    const engine = engineRef.current;
+    if (!engine) return 'Could not save cloud backup: no world is loaded';
+    const result = await saveBetaWorldBackup(engine, worldBackupBackend);
+    return result.message;
+  }, [worldBackupBackend]);
+
+  const restoreCloudWorld = useCallback(async (): Promise<string> => {
+    const result = await restoreBetaWorldBackup(worldBackupBackend);
+    if (result.status !== 'success') return result.message;
+    const engine = result.state;
+    const store = useStore.getState();
+    store.setRunning(false);
+    store.setSelectedTile(null);
+    store.clearFollowedLineages();
+    store.updateConstants(engine.constants);
+    recipeReplayRef.current = null;
+    setReplayActive(false);
+    setReplayStatus(null);
+    engineRef.current = engine;
+    checkpointsRef.current = [];
+    recordCheckpoint(engine);
+    setWorldSeed(engine.seed);
+    publish(engine);
+    return result.message;
+  }, [publish, recordCheckpoint, worldBackupBackend]);
+
   const replayWorld = useCallback(() => {
     reset();
     useStore.getState().setRunning(true);
   }, [reset]);
 
-  const addSpecies = useCallback((strategy: EnergyStrategy, name: string): string | null => {
+  const addSpecies = useCallback((
+    strategy: EnergyStrategy,
+    name: string,
+    traitOverrides: FounderTraitOverrides
+  ): string | null => {
     if (recipeReplayRef.current) return 'Manual interventions are disabled during recipe replay';
     const engine = engineRef.current;
     const tile = useStore.getState().selectedTile;
     if (!engine || !tile) return 'Select a tile in the world first';
     try {
-      const introduction = introduceSpecies(engine, strategy, tile, name);
+      const introduction = introduceSpecies(engine, strategy, tile, name, traitOverrides);
       engineRef.current = introduction.state;
       recordCheckpoint(introduction.state);
       publish(introduction.state);
@@ -212,9 +283,13 @@ export default function App() {
     if (!engineRef.current) {
       const store = useStore.getState();
       const storage = browserStorage();
-      const restored = storage ? loadBrowserWorld(storage) : null;
+      const restoreResult = storage ? restoreBrowserWorld(storage) : null;
+      const restored = restoreResult?.state ?? null;
       const engine = restored ?? buildDemoEngine(worldSeed, store.constants);
       engineRef.current = engine;
+      if (restoreResult?.recoveredFromInvalidSave) {
+        setRecoveryNotice('A saved world could not be restored, so Origins started a new world. You can import an exported world save from World controls.');
+      }
       if (restored) {
         store.updateConstants(restored.constants);
         setWorldSeed(restored.seed);
@@ -286,24 +361,36 @@ export default function App() {
         className="app-shell__window"
         bodyClassName={`app-shell__window-body${selectedTile ? ' app-shell__window-body--inspecting' : ''}`}
         controls={(
-          <button
-            type="button"
-            className="sim-button sim-button--compact"
-            aria-label="Open world controls"
-            aria-controls="settings-drawer"
-            aria-expanded={settingsOpen}
-            onClick={() => setSettingsOpen(true)}
-          >
-            ⚙
-          </button>
+          <>
+            <button
+              type="button"
+              className="sim-button sim-button--compact"
+              aria-label="Send beta feedback"
+              aria-controls="beta-feedback-panel"
+              aria-expanded={feedbackOpen}
+              onClick={() => setFeedbackOpen(true)}
+            >
+              Feedback
+            </button>
+            <button
+              type="button"
+              className="sim-button sim-button--compact"
+              aria-label="Open world controls"
+              aria-controls="settings-drawer"
+              aria-expanded={settingsOpen}
+              onClick={openSettings}
+            >
+              ⚙
+            </button>
+          </>
         )}
         menu={(
           <>
             <strong aria-current="page">World</strong>
-            <button type="button" className="app-shell__menu-button" onClick={() => setSettingsOpen(true)}>
+            <button type="button" className="app-shell__menu-button" onClick={openSettings}>
               Simulation
             </button>
-            <button type="button" className="app-shell__menu-button" onClick={() => setSettingsOpen(true)}>
+            <button type="button" className="app-shell__menu-button" onClick={openSettings}>
               Data
             </button>
             <span className="app-shell__seed">
@@ -346,19 +433,28 @@ export default function App() {
           </div>
         )}
       >
-        <EvolutionRibbon onOpenLineages={() => setSettingsOpen(true)} />
+        {recoveryNotice && (
+          <div className="app-shell__recovery-notice sim-status--warning" role="status">
+            <span>{recoveryNotice}</span>
+            <button type="button" className="sim-button sim-button--compact" onClick={() => setRecoveryNotice(null)}>Dismiss</button>
+          </div>
+        )}
+        <EvolutionRibbon onOpenLineages={openSettings} />
         <main aria-label="Ecosystem world" className="app-shell__world">
           <WorldView />
           <WorldLegend />
         </main>
-        <TileInfoPanel onOpenLineages={() => setSettingsOpen(true)} />
+        <TileInfoPanel onOpenLineages={openSettings} />
       </SimWindow>
       <SettingsDrawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}>
           <ControlPanel
             onReset={reset}
             onNewWorld={newWorld}
             onExportWorld={exportWorld}
+            onExportDiagnostic={exportDiagnostic}
             onImportWorld={importWorld}
+            onCloudBackup={backupWorld}
+            onCloudRestore={restoreCloudWorld}
             onStartSeed={startWorld}
             worldSeed={worldSeed}
             worldName={worldName}
@@ -380,6 +476,11 @@ export default function App() {
         onReplayWorld={replayWorld}
         onReplayFromTick={replayFromTick}
         checkpointTicks={checkpointTicks}
+      />
+      <BetaFeedbackPanel
+        isOpen={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        backend={feedbackBackend}
       />
     </div>
   );

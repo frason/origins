@@ -82,7 +82,7 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
       </header>
 
       <div className="tile-inspector__body">
-        <section className="tile-inspector__section sim-panel" aria-labelledby="tile-landscape-title">
+        <section className="tile-inspector__section tile-inspector__section--details sim-panel" aria-labelledby="tile-landscape-title">
           <h3 className="sim-panel__heading" id="tile-landscape-title">Landscape</h3>
           <dl className="tile-inspector__data-grid">
             <div><dt>Biome</dt><dd>{cell.biome}</dd></div>
@@ -92,7 +92,7 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
           </dl>
         </section>
 
-        <section className="tile-inspector__section sim-panel" aria-labelledby="tile-resources-title">
+        <section className="tile-inspector__section tile-inspector__section--details sim-panel" aria-labelledby="tile-resources-title">
           <h3 className="sim-panel__heading" id="tile-resources-title">Resources</h3>
           <dl className="tile-inspector__data-grid">
             <div><dt>Energy</dt><dd>{cell.energy.toFixed(2)}</dd></div>

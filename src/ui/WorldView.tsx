@@ -6,11 +6,13 @@ import {
   calculateGridLayout,
   GridLayout,
   navigateTileSelection,
+  selectNearbyLivingTile,
   viewportPointToTile,
 } from './worldViewport';
 import TurningPointNotice from './TurningPointNotice';
 import { createDrawScheduler, type DrawScheduler } from './drawScheduler';
 import { buildMiasmaPressureGrid, getToxicityHazard } from '../simulation/toxicity';
+import { elevationAppearance } from './elevationLayer';
 
 /**
  * Rendering constants for the canvas grid
@@ -108,6 +110,7 @@ function getColorFromSpeciesId(speciesId: string): [number, number, number] {
  */
 interface RenderCell {
     energy: number;
+    elevation: number;
     producerBiomass: number;
     toxicity: number;
     biome: Biome;
@@ -175,6 +178,7 @@ const WorldView: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawSchedulerRef = useRef<DrawScheduler | null>(null);
   const { worldState, tick, selectedTile, setSelectedTile, constants } = useStore();
+  const [elevationVisible, setElevationVisible] = useState(true);
   const [layout, setLayout] = useState<GridLayout>(() =>
     calculateGridLayout(400, 400, GRID_WIDTH, GRID_HEIGHT)
   );
@@ -224,12 +228,12 @@ const WorldView: React.FC = () => {
       const pixelY = event.clientY - rect.top;
 
       const tile = viewportPointToTile(pixelX, pixelY, layout, GRID_WIDTH, GRID_HEIGHT);
-      if (tile) setSelectedTile(tile);
+      if (tile) setSelectedTile(selectNearbyLivingTile(tile, extractCreatures(worldState)));
     };
 
     canvas.addEventListener('click', handleCanvasClick);
     return () => canvas.removeEventListener('click', handleCanvasClick);
-  }, [layout, setSelectedTile]);
+  }, [layout, setSelectedTile, worldState]);
 
   /** Paint once when a published visual input changes; remain idle otherwise. */
   useEffect(() => {
@@ -303,6 +307,31 @@ const WorldView: React.FC = () => {
             ctx.fillRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
           }
 
+          if (elevationVisible) {
+            const northElevation = y > 0 ? grid.cellAt(x, y - 1).elevation : cell.elevation;
+            const westElevation = x > 0 ? grid.cellAt(x - 1, y).elevation : cell.elevation;
+            const elevation = elevationAppearance(cell.elevation, northElevation, westElevation);
+            ctx.fillStyle = elevation.tone === 'light'
+              ? `rgba(255, 246, 214, ${elevation.opacity})`
+              : `rgba(15, 22, 28, ${elevation.opacity})`;
+            ctx.fillRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
+
+            ctx.strokeStyle = 'rgba(37, 31, 24, 0.42)';
+            ctx.lineWidth = Math.max(0.45, layout.cellSize * 0.08);
+            if (elevation.contourTop) {
+              ctx.beginPath();
+              ctx.moveTo(pixelX, pixelY);
+              ctx.lineTo(pixelX + layout.cellSize, pixelY);
+              ctx.stroke();
+            }
+            if (elevation.contourLeft) {
+              ctx.beginPath();
+              ctx.moveTo(pixelX, pixelY);
+              ctx.lineTo(pixelX, pixelY + layout.cellSize);
+              ctx.stroke();
+            }
+          }
+
           // Decaying corpses leave a visible, fading violet ecological scar.
           const toxicityOpacity = getToxicityHazard(cell.toxicity).overlayOpacity;
           if (toxicityOpacity > 0) {
@@ -364,7 +393,7 @@ const WorldView: React.FC = () => {
       }
 
     });
-  }, [worldState, layout, constants.baseSolarEnergy, selectedTile]);
+  }, [worldState, layout, constants.baseSolarEnergy, elevationVisible, selectedTile]);
 
   const handleKeyboardNavigation = (event: React.KeyboardEvent<HTMLCanvasElement>) => {
     const navigation = navigateTileSelection(
@@ -384,6 +413,14 @@ const WorldView: React.FC = () => {
 
   return (
     <div className="world-view">
+      <button
+        className={`world-view__elevation-toggle${elevationVisible ? ' world-view__elevation-toggle--active' : ''}`}
+        type="button"
+        aria-pressed={elevationVisible}
+        onClick={() => setElevationVisible((visible) => !visible)}
+      >
+        Elevation {elevationVisible ? 'on' : 'off'}
+      </button>
       <canvas
         ref={canvasRef}
         role="application"

@@ -134,16 +134,26 @@ describe('deterministic terrain', () => {
     }
   });
 
-  it('wraps east and west without an environmental seam', () => {
-    const terrain = generateTerrain(100, 100, 12345);
-    const seamDifference = terrain.reduce((sum, row) =>
-      sum +
-      Math.abs(row[0].elevation - row[row.length - 1].elevation) +
-      Math.abs(row[0].moisture - row[row.length - 1].moisture) +
-      Math.abs(row[0].temperature - row[row.length - 1].temperature),
-    0) / terrain.length;
+  it('wraps east and west without an anomalous environmental seam', () => {
+    for (const seed of [42, 12345, 54321, 99999]) {
+      const terrain = generateTerrain(100, 100, seed);
+      const boundaryDifferences = Array.from({ length: terrain[0].length }, (_, leftX) => {
+        const rightX = (leftX + 1) % terrain[0].length;
+        return terrain.reduce((sum, row) =>
+          sum +
+          Math.abs(row[leftX].elevation - row[rightX].elevation) +
+          Math.abs(row[leftX].moisture - row[rightX].moisture) +
+          Math.abs(row[leftX].temperature - row[rightX].temperature),
+        0) / terrain.length;
+      });
+      const seamDifference = boundaryDifferences[boundaryDifferences.length - 1];
+      const largestInteriorDifference = Math.max(...boundaryDifferences.slice(0, -1));
 
-    expect(seamDifference).toBeLessThan(0.2);
+      expect(seamDifference, `seed ${seed} absolute seam`).toBeLessThan(0.2);
+      expect(seamDifference, `seed ${seed} seam versus interior`).toBeLessThanOrEqual(
+        largestInteriorDifference
+      );
+    }
   });
 
   it('represents every biome across the approved fixture set within budget', () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildDemoEngine } from '../simulation/demoWorld';
 import { tickEngine } from '../simulation/engine';
-import { clearBrowserWorld, loadBrowserWorld, saveBrowserWorld, type StorageLike } from '../state/browserWorldSave';
+import { clearBrowserWorld, loadBrowserWorld, restoreBrowserWorld, saveBrowserWorld, type StorageLike } from '../state/browserWorldSave';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
 
 class MemoryStorage implements StorageLike {
@@ -24,7 +24,13 @@ describe('browser world save', () => {
   it('removes corrupt saves instead of trapping startup', () => {
     const storage = new MemoryStorage();
     storage.setItem('origins.engine-save.v1', 'bad save');
+    const result = restoreBrowserWorld(storage);
+    expect(result).toEqual({ state: null, recoveredFromInvalidSave: true });
     expect(loadBrowserWorld(storage)).toBeNull();
     expect(storage.values.size).toBe(0);
+  });
+
+  it('does not show recovery when no previous browser save exists', () => {
+    expect(restoreBrowserWorld(new MemoryStorage())).toEqual({ state: null, recoveredFromInvalidSave: false });
   });
 });

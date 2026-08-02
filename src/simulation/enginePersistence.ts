@@ -14,21 +14,24 @@ export interface PersistedEngineState {
 }
 
 /** Create a JSON-safe, versioned save payload without changing live state. */
-export function serializeEngineState(state: EngineState): string {
-  const payload: PersistedEngineState = {
+export function createPersistedEngineState(state: EngineState): PersistedEngineState {
+  return {
     version: ENGINE_SAVE_VERSION,
     state: {
       ...state,
       world: state.world.toJSON(),
       creatures: state.creatures.map((creature) => creature.toJSON()),
-      creatureIdCounter: Creature.getIdCounter(),
+      creatureIdCounter: state.creatureIdCounter,
       history: state.history.map((sample) => ({ ...sample })),
       events: state.events.map((event) => ({ ...event })),
       speciesProfiles: state.speciesProfiles.map((profile) => ({ ...profile, founderTraits: { ...profile.founderTraits } })),
       incipientSpecies: state.incipientSpecies.map((candidate) => ({ ...candidate, founderTraits: { ...candidate.founderTraits } })),
     },
   };
-  return JSON.stringify(payload);
+}
+
+export function serializeEngineState(state: EngineState): string {
+  return JSON.stringify(createPersistedEngineState(state));
 }
 
 /** Restore a compatible engine save and reject corrupt or future versions safely. */
@@ -49,13 +52,16 @@ export function deserializeEngineState(value: string): EngineState {
     throw new Error('Saved world is missing required simulation state');
   }
   const creatures = saved.creatures.map((creature) => Creature.fromJSON(creature));
-  if (Number.isInteger(saved.creatureIdCounter)) {
-    Creature.setIdCounter(saved.creatureIdCounter);
-  } else {
+  const creatureIdCounter = Number.isInteger(saved.creatureIdCounter)
+    ? saved.creatureIdCounter
+    : (() => {
     Creature.syncIdCounter(creatures);
-  }
+    return Creature.getIdCounter();
+  })();
+  Creature.setIdCounter(creatureIdCounter);
   return {
-    world: World.fromJSON(saved.world), creatures, tick: saved.tick, seed: saved.seed,
+    world: World.fromJSON(saved.world), creatures, creatureIdCounter,
+    tick: saved.tick, seed: saved.seed,
     events: saved.events, constants: saved.constants, history: saved.history,
     historyInterval: saved.historyInterval, speciesProfiles: saved.speciesProfiles,
     incipientSpecies: saved.incipientSpecies,

@@ -80,6 +80,33 @@ describe('God Mode species introduction', () => {
     expect(new Set(second.creatureIds).size).toBe(3);
   });
 
+  it('gives every founder the selected inheritable traits and records them', () => {
+    const state = engine();
+    const result = introduceSpecies(
+      state,
+      'herbivore',
+      habitableTile(state),
+      'Cold Grazer',
+      { size: 0.7, metabolism: 0.65, thermalTolerance: 0.8 }
+    );
+    const founders = result.state.creatures.slice(-3);
+
+    expect(founders.every((creature) =>
+      creature.traits.size === 0.7
+      && creature.traits.metabolism === 0.65
+      && creature.traits.thermalTolerance === 0.8
+      && creature.traits.energyStrategy === 'herbivore'
+    )).toBe(true);
+    expect(result.state.events[result.state.events.length - 1]?.introducedTraits).toMatchObject({
+      size: 0.7,
+      metabolism: 0.65,
+      thermalTolerance: 0.8,
+      energyStrategy: 'herbivore',
+    });
+    expect(result.state.speciesProfiles[result.state.speciesProfiles.length - 1]?.founderTraits)
+      .toEqual(founders[0].traits);
+  });
+
   it('records a normalized player name in the stable species identity', () => {
     const state = engine();
     const result = introduceSpecies(

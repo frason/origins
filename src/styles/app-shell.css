@@ -23,6 +23,7 @@
 }
 
 .app-shell__world {
+  position: relative;
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -32,6 +33,17 @@
   box-shadow:
     inset var(--sim-border-thin) var(--sim-border-thin) var(--sim-color-shadow),
     inset calc(var(--sim-border-thin) * -1) calc(var(--sim-border-thin) * -1) var(--sim-color-highlight);
+}
+
+.app-shell__recovery-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sim-space-3);
+  margin: var(--sim-space-2) var(--sim-space-3) 0;
+  padding: var(--sim-space-2) var(--sim-space-3);
+  border: var(--sim-border-thin) solid currentColor;
+  font-size: var(--sim-font-size-sm);
 }
 
 .app-shell__menu-button {
@@ -140,6 +152,7 @@
 .world-legend span { align-items: center; display: flex; gap: 0.4rem; font-size: 0.75rem; }
 .world-legend__swatch { border: 1px solid var(--sim-ink, #2b241b); height: 0.7rem; width: 0.7rem; }
 .world-legend__swatch--life { background: #d89c3d; }
+.world-legend__swatch--elevation { background: linear-gradient(135deg, #26313a 0 45%, #f2e5bd 55% 100%); }
 .world-legend__swatch--biomass { background: #2d8d45; }
 .world-legend__swatch--toxicity { background: #692d78; }
 .world-legend__swatch--miasma { background: #d98a21; }

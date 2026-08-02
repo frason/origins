@@ -5,6 +5,7 @@ import {
   createEngine,
   tickEngine,
   runEngine,
+  hasLocalReproductiveResources,
   EngineState,
   SimEvent,
 } from '../simulation/engine';
@@ -78,6 +79,26 @@ describe('Simulation Engine', () => {
   });
 
   describe('tickEngine', () => {
+    it('requires recurring carrion before starter scavengers reproduce', () => {
+      const scavenger = new Creature({
+        speciesId: 'scavenger', lineageId: 'scavenger', parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'scavenger' },
+        x: 2, y: 2, energy: 180,
+      });
+      const corpse = new Creature({
+        speciesId: 'prey', lineageId: 'scavenger_starter_carrion', parentId: null,
+        traits: { ...DEFAULT_TRAITS }, x: 2, y: 3, energy: 80,
+        lifecycleState: 'dead', corpseDecayTicks: 20,
+      });
+      const world = new World(5, 5);
+
+      expect(hasLocalReproductiveResources(scavenger, [scavenger, corpse], world))
+        .toBe(false);
+      corpse.lineageId = 'naturally_generated_carrion';
+      expect(hasLocalReproductiveResources(scavenger, [scavenger, corpse], world))
+        .toBe(true);
+    });
+
     it('should not crash with zero creatures', () => {
       const engine = createEngine(12345, []);
 
@@ -287,6 +308,35 @@ describe('Simulation Engine', () => {
           deathCause: 'predation',
         })
       );
+    });
+
+    it('does not let a well-fed predator kill surplus prey', () => {
+      const predator = new Creature({
+        speciesId: 'predator',
+        lineageId: 'predator_root',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'carnivore' },
+        x: 50,
+        y: 50,
+        energy: 180,
+      });
+      const prey = new Creature({
+        speciesId: 'prey',
+        lineageId: 'prey_root',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore' },
+        x: 50,
+        y: 50,
+        energy: 50,
+      });
+      const engine = createEngine(12345, [predator, prey], 100, 100, {
+        baseMetabolism: 0,
+        predationHungerThresholdShare: 0.75,
+        monocultureMortalityPenalty: 0,
+      });
+
+      const next = tickEngine(engine);
+      expect(next.events.some((event) => event.deathCause === 'predation')).toBe(false);
     });
 
     it('should be deterministic: same seed produces same results', () => {

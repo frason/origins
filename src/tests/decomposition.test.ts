@@ -318,6 +318,20 @@ describe('Decomposition Functions', () => {
       expect(world.getCell(9, 5).toxicity).toBe(0);
     });
 
+    it('wraps radial toxicity across the east/west seam', () => {
+      const world = new World(5, 5);
+      const creature = new Creature({
+        speciesId: 'species_1', lineageId: 'lineage_1', parentId: null,
+        traits: { ...DEFAULT_TRAITS }, x: 0, y: 2, energy: 100,
+        lifecycleState: 'dead', corpseDecayTicks: 10,
+      });
+
+      decayCorpse(creature, world, 0, 4, 1);
+
+      expect(world.getCell(4, 2).toxicity).toBeGreaterThan(0);
+      expect(world.getCell(1, 2).toxicity).toBeGreaterThan(0);
+    });
+
     it('creates a deterministic peak-miasma stage during decay', () => {
       const stageToxicity = (remainingTicks: number) => {
         const world = new World(3, 3);

@@ -4,10 +4,12 @@ import { CSSProperties } from 'react';
 import { useStore } from '../state/store';
 import { shortLineageId, summarizeSpecies } from './speciesModel';
 import { lineageDisplayName, speciesDisplayName } from '../simulation/speciesNames';
-import { formatPrematureDeathRate, getPrematureDeathMetrics } from './prematureDeathMetrics';
 import { getAdaptiveReproductionTiming } from '../simulation/adaptiveReproduction';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
 import { founderSpeciesDefinition } from '../simulation/founderSpecies';
+import { describeMetabolismTradeoff } from './metabolismTradeoff';
+import type { WorldSnapshot } from '../state/store';
+import { formatReplacementRatio, getReplacementMetrics } from './replacementMetrics';
 
 const panelStyle: CSSProperties = {
   backgroundColor: '#222',
@@ -25,8 +27,7 @@ const strategyColors: Record<string, string> = {
   scavenger: '#a98bd4',
 };
 
-export default function SpeciesPanel() {
-  const worldState = useStore((state) => state.worldState);
+export function SpeciesPanelView({ worldState }: { worldState: WorldSnapshot | null }) {
   const species = summarizeSpecies(
     worldState?.creatures ?? [],
     worldState?.speciesProfiles ?? []
@@ -36,7 +37,15 @@ export default function SpeciesPanel() {
     .slice(-3)
     .reverse();
   const incipientSpecies = worldState?.incipientSpecies ?? [];
-  const prematureDeaths = getPrematureDeathMetrics(worldState?.events ?? []).species;
+  const replacement = getReplacementMetrics(
+    worldState?.events ?? [],
+    worldState?.tick
+      ?? worldState?.events[worldState.events.length - 1]?.tick
+      ?? 0
+  );
+  const replacementBySpecies = new Map(
+    replacement.species.map((metric) => [metric.speciesId, metric])
+  );
 
   return (
     <div style={panelStyle}>
@@ -65,6 +74,8 @@ export default function SpeciesPanel() {
             worldState?.constants ?? SIMULATION_CONSTANTS
           );
           const founder = founderSpeciesDefinition(item.speciesId);
+          const founderMetabolism = founder?.traits.metabolism ?? 1;
+          const founderMetabolismTradeoff = describeMetabolismTradeoff(founderMetabolism);
           return (
           <div
             key={item.speciesId}
@@ -80,10 +91,24 @@ export default function SpeciesPanel() {
               {item.strategy} · {item.speciesId} · {item.lineages.length}{' '}
               {item.lineages.length === 1 ? 'lineage' : 'lineages'}
             </div>
+            <div
+              title={`Births divided by deaths for this species in the last ${replacement.windowTicks} ticks. 1.00× is replacement level; a dash means no deaths have occurred.`}
+              style={{ color: '#9fbdad', fontSize: '0.7rem', marginBottom: '0.35rem' }}
+            >
+              Live replacement · {formatReplacementRatio(
+                replacementBySpecies.get(item.speciesId) ?? { births: 0, deaths: 0, ratio: null }
+              )}
+            </div>
             {founder && (
-              <div style={{ color: '#9fbdad', fontSize: '0.7rem', marginBottom: '0.35rem' }}>
-                Founder habitat · {founder.viableBiomes[0]} primary · {founder.viableBiomes[1]} secondary
-              </div>
+              <>
+                <div style={{ color: '#9fbdad', fontSize: '0.7rem', marginBottom: '0.2rem' }}>
+                  Founder habitat · {founder.viableBiomes[0]} primary · {founder.viableBiomes[1]} secondary
+                </div>
+                <div style={{ color: '#9fbdad', fontSize: '0.7rem', marginBottom: '0.35rem' }}>
+                  Founder metabolism · {founderMetabolism.toFixed(2)}× ·{' '}
+                  {founderMetabolismTradeoff.label}: {founderMetabolismTradeoff.summary}
+                </div>
+              </>
             )}
             {timing.expectedLifespan !== null && (
               <div style={{ color: '#9fbdad', fontSize: '0.7rem', marginBottom: '0.35rem' }}>
@@ -120,6 +145,8 @@ export default function SpeciesPanel() {
                   <span title={lineage.lineageId}>{shortLineageId(lineage.lineageId)}</span> · size{' '}
                   {lineage.representativeTraits.size.toFixed(2)} · speed{' '}
                   {lineage.representativeTraits.speed.toFixed(2)}
+                  {' '}· metabolism {lineage.representativeTraits.metabolism.toFixed(2)}× (
+                  {describeMetabolismTradeoff(lineage.representativeTraits.metabolism).label.toLowerCase()})
                   {' '}· <span style={{ color: strategyColors[lineage.representativeTraits.energyStrategy] ?? '#aaa' }}>
                     {lineage.representativeTraits.energyStrategy}
                   </span>
@@ -161,19 +188,6 @@ export default function SpeciesPanel() {
         </>
       )}
 
-      <div style={{ fontWeight: 600, margin: '0.75rem 0 0.35rem' }}>Premature deaths by species</div>
-      {prematureDeaths.length === 0 ? (
-        <div style={{ color: '#777', fontSize: '0.75rem' }}>-</div>
-      ) : prematureDeaths.map((metric) => (
-        <div
-          key={metric.speciesId}
-          style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', color: '#aaa', fontSize: '0.72rem', padding: '0.15rem 0' }}
-        >
-          <span>{speciesDisplayName(metric.speciesId)}</span>
-          <span>{formatPrematureDeathRate(metric)}</span>
-        </div>
-      ))}
-
       <div style={{ fontWeight: 600, margin: '0.75rem 0 0.35rem' }}>Recent mutations</div>
       {mutations.length === 0 ? (
         <div style={{ color: '#777', fontSize: '0.75rem' }}>No lineage branches yet</div>
@@ -189,4 +203,9 @@ export default function SpeciesPanel() {
       )}
     </div>
   );
+}
+
+export default function SpeciesPanel() {
+  const worldState = useStore((state) => state.worldState);
+  return <SpeciesPanelView worldState={worldState} />;
 }
