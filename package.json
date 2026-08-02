@@ -9,6 +9,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest",
+    "smoke:build": "node scripts/release-smoke-test.mjs",
     "calibrate:population": "vite-node scripts/population-calibration.ts"
   },
   "dependencies": {
