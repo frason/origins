@@ -13,7 +13,9 @@ The migration at
 - `beta_diagnostic_bundles`: immutable diagnostic payloads tied to their owner.
 - `beta_feedback`: short beta reports that can reference an owned diagnostic.
 
-World and diagnostic JSON payloads are capped at 2 MiB. Text fields are bounded,
+World and diagnostic JSON payloads are capped at 8 MiB. A measured tick-12
+diagnostic for the existing 100 by 100 world is 2,598,324 bytes, so the original
+2 MiB assumption could not hold a baseline replay bundle. Text fields are bounded,
 all exposed tables have row-level security enabled and forced, and the `anon`
 database role receives no table access. Anonymous Auth sessions use the
 `authenticated` role and can only select, create, change, or delete rows whose
@@ -55,7 +57,7 @@ Run this matrix against the beta Supabase project before cloud backup ships:
 4. Browser B anonymously signs in and cannot read, update, delete, or attach
    feedback to Browser A's records, even when given their IDs.
 5. A request using the unauthenticated `anon` role cannot access any beta table.
-6. World and diagnostic payloads over 2 MiB are rejected.
+6. World and diagnostic payloads over 8 MiB are rejected.
 7. Clearing Browser A's site data demonstrates the documented loss-of-access
    behavior.
 

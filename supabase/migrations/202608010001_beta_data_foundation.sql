@@ -15,7 +15,7 @@ create table public.beta_world_backups (
   schema_version integer not null check (schema_version > 0),
   app_version text not null check (char_length(app_version) between 1 and 80),
   world_state jsonb not null
-    check (pg_column_size(world_state) <= 2097152),
+    check (pg_column_size(world_state) <= 8388608),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (owner_id, slot)
@@ -30,7 +30,7 @@ create table public.beta_diagnostic_bundles (
   commit_sha text check (commit_sha is null or char_length(commit_sha) between 7 and 64),
   seed bigint,
   tick bigint check (tick is null or tick >= 0),
-  bundle jsonb not null check (pg_column_size(bundle) <= 2097152),
+  bundle jsonb not null check (pg_column_size(bundle) <= 8388608),
   created_at timestamptz not null default now()
 );
 
@@ -141,8 +141,8 @@ on public.beta_feedback for delete to authenticated
 using ((select auth.uid()) = owner_id);
 
 comment on table public.beta_world_backups is
-  'Browser-owned beta world backups. Each payload is capped at 2 MiB.';
+  'Browser-owned beta world backups. Each payload is capped at 8 MiB.';
 comment on table public.beta_diagnostic_bundles is
-  'Browser-owned diagnostic exports. Each payload is capped at 2 MiB.';
+  'Browser-owned diagnostic exports. Each payload is capped at 8 MiB.';
 comment on table public.beta_feedback is
   'Private-beta feedback optionally linked to an owner-accessible diagnostic.';
