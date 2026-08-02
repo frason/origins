@@ -1,4 +1,5 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { useStore } from '../state/store';
 import { buildSessionSummary, hasLivingCreatures } from './sessionSummary';
 import { speciesDisplayName } from '../simulation/speciesNames';
@@ -144,8 +145,45 @@ export default function ExtinctionSummary({
 }: ExtinctionSummaryProps) {
   const worldState = useStore((state) => state.worldState);
   const tick = useStore((state) => state.tick);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const isComplete = Boolean(worldState && tick > 0 && !hasLivingCreatures(worldState));
 
-  if (!worldState || tick === 0 || hasLivingCreatures(worldState)) return null;
+  useEffect(() => {
+    if (!isComplete) return;
+    const app = document.querySelector('.app-shell');
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousAriaHidden = app?.getAttribute('aria-hidden') ?? null;
+    app?.setAttribute('aria-hidden', 'true');
+    app?.setAttribute('inert', '');
+    dialogRef.current?.focus();
+
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), select:not([disabled]), input:not([disabled]), [href]'
+      ));
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', trapFocus);
+    return () => {
+      document.removeEventListener('keydown', trapFocus);
+      app?.removeAttribute('inert');
+      if (previousAriaHidden === null) app?.removeAttribute('aria-hidden');
+      else app?.setAttribute('aria-hidden', previousAriaHidden);
+      previousFocus?.focus();
+    };
+  }, [isComplete]);
+
+  if (!isComplete || !worldState) return null;
   const summary = buildSessionSummary(worldState, tick);
   const metrics = [
     ['Ticks survived', summary.ticksSurvived.toLocaleString()],
@@ -157,8 +195,8 @@ export default function ExtinctionSummary({
     ['Interventions', summary.interventions.toLocaleString()],
   ];
 
-  return (
-    <div style={overlayStyle} role="dialog" aria-modal="true" aria-labelledby="extinction-title">
+  return createPortal(
+    <div ref={dialogRef} tabIndex={-1} style={{ ...overlayStyle, zIndex: 1000 }} role="dialog" aria-modal="true" aria-labelledby="extinction-title">
       <div style={cardStyle}>
         <div style={{ color: '#c49b83', fontSize: '0.75rem', letterSpacing: '0.15em' }}>
           SESSION COMPLETE
@@ -212,6 +250,7 @@ export default function ExtinctionSummary({
           endTick={tick}
         />
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
