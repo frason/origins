@@ -21,7 +21,7 @@ export function createPersistedEngineState(state: EngineState): PersistedEngineS
       ...state,
       world: state.world.toJSON(),
       creatures: state.creatures.map((creature) => creature.toJSON()),
-      creatureIdCounter: Creature.getIdCounter(),
+      creatureIdCounter: state.creatureIdCounter,
       history: state.history.map((sample) => ({ ...sample })),
       events: state.events.map((event) => ({ ...event })),
       speciesProfiles: state.speciesProfiles.map((profile) => ({ ...profile, founderTraits: { ...profile.founderTraits } })),
@@ -52,13 +52,16 @@ export function deserializeEngineState(value: string): EngineState {
     throw new Error('Saved world is missing required simulation state');
   }
   const creatures = saved.creatures.map((creature) => Creature.fromJSON(creature));
-  if (Number.isInteger(saved.creatureIdCounter)) {
-    Creature.setIdCounter(saved.creatureIdCounter);
-  } else {
+  const creatureIdCounter = Number.isInteger(saved.creatureIdCounter)
+    ? saved.creatureIdCounter
+    : (() => {
     Creature.syncIdCounter(creatures);
-  }
+    return Creature.getIdCounter();
+  })();
+  Creature.setIdCounter(creatureIdCounter);
   return {
-    world: World.fromJSON(saved.world), creatures, tick: saved.tick, seed: saved.seed,
+    world: World.fromJSON(saved.world), creatures, creatureIdCounter,
+    tick: saved.tick, seed: saved.seed,
     events: saved.events, constants: saved.constants, history: saved.history,
     historyInterval: saved.historyInterval, speciesProfiles: saved.speciesProfiles,
     incipientSpecies: saved.incipientSpecies,

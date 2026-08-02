@@ -133,6 +133,8 @@ export function hasLocalReproductiveResources(
 export interface EngineState {
   world: World;
   creatures: Creature[];
+  /** Next value for the per-world creature ID allocator. */
+  creatureIdCounter: number;
   tick: number;
   seed: number;
   events: SimEvent[];
@@ -164,6 +166,10 @@ export function introduceSpecies(
   requestedName?: string,
   traitOverrides: FounderTraitOverrides = {}
 ): SpeciesIntroduction {
+  // Creature currently owns the allocator implementation, but its position is
+  // world state. Restore it before creating founders so parallel/replayed
+  // worlds cannot affect one another.
+  Creature.setIdCounter(state.creatureIdCounter);
   if (
     !Number.isInteger(origin.x) || !Number.isInteger(origin.y) ||
     origin.x < 0 || origin.x >= state.world.width ||
@@ -234,6 +240,7 @@ export function introduceSpecies(
   const nextState = {
     ...state,
     creatures: [...state.creatures, ...founders],
+    creatureIdCounter: Creature.getIdCounter(),
     events: [...state.events, event],
     speciesProfiles: state.speciesProfiles.some((profile) => profile.id === speciesId)
       ? state.speciesProfiles
@@ -332,6 +339,7 @@ export function createEngine(
   return {
     world,
     creatures,
+    creatureIdCounter: Creature.getIdCounter(),
     tick: 0,
     seed,
     events: [],
@@ -367,6 +375,9 @@ export function tickEngine(
   state: EngineState,
   constantOverrides: Partial<SimulationConstants> = {}
 ): EngineState {
+  // Keep allocation deterministic per engine state rather than per JS process.
+  // This must happen before cloning because Creature construction consumes IDs.
+  Creature.setIdCounter(state.creatureIdCounter);
   const constants: SimulationConstants = {
     ...SIMULATION_CONSTANTS,
     ...state.constants,
@@ -961,6 +972,7 @@ export function tickEngine(
   return {
     world: newWorld,
     creatures: creaturesAfterDecomposition,
+    creatureIdCounter: Creature.getIdCounter(),
     tick: nextTick,
     seed: state.seed,
     events: completeEvents,
