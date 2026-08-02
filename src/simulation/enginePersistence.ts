@@ -14,8 +14,8 @@ export interface PersistedEngineState {
 }
 
 /** Create a JSON-safe, versioned save payload without changing live state. */
-export function serializeEngineState(state: EngineState): string {
-  const payload: PersistedEngineState = {
+export function createPersistedEngineState(state: EngineState): PersistedEngineState {
+  return {
     version: ENGINE_SAVE_VERSION,
     state: {
       ...state,
@@ -28,7 +28,10 @@ export function serializeEngineState(state: EngineState): string {
       incipientSpecies: state.incipientSpecies.map((candidate) => ({ ...candidate, founderTraits: { ...candidate.founderTraits } })),
     },
   };
-  return JSON.stringify(payload);
+}
+
+export function serializeEngineState(state: EngineState): string {
+  return JSON.stringify(createPersistedEngineState(state));
 }
 
 /** Restore a compatible engine save and reject corrupt or future versions safely. */
