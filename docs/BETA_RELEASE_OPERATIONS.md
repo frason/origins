@@ -5,18 +5,28 @@ data-foundation, and diagnostic-export documents that land with #154, #151, and
 #153. Do not mark the beta ready merely because this file is complete: every unchecked
 live-system item needs dated evidence.
 
-## Access decision
+## Selected beta access and feedback route
 
 Origins must not put a shared password in browser code or a `VITE_` variable.
 
 | Chosen access model | What it protects | Release condition |
 | --- | --- | --- |
-| Vercel Hobby authentication | Preview deployment URLs; testers sign in with approved Vercel accounts | Use the protected preview URL as the private-beta URL. Do not describe the production domain as private. |
-| Vercel paid deployment protection | Preview and production URLs, with the provider-managed method configured in Vercel | Record who owns password rotation and verify a tester can enter without an account. |
+| **Selected: Vercel Hobby authentication** | Preview deployment URL; testers sign in with approved Vercel accounts | Use the protected preview URL as the beta URL. Do not describe the production domain as private. |
+| Not selected: paid deployment protection | Preview and production URLs, with the provider-managed method configured in Vercel | Required only if the beta moves to a password-protected production URL. |
 
 Before inviting anyone, record the selected model, the beta URL, the release owner,
 and the backup release owner below. A production URL on Vercel Hobby cannot satisfy a
 password-protected release requirement by itself.
+
+**Replay decision:** the end-of-run replay menu offers only retained deterministic
+checkpoints. It must not offer arbitrary typed ticks, because replaying an unavailable
+tick would require a hidden reconstruction cost and would make the UI promise a restore
+point that does not exist.
+
+**Feedback decision:** the private, non-production feedback route is the protected
+preview's Supabase `beta_feedback` submission path, optionally linked to the tester's
+diagnostic bundle. The beta owner reviews submissions from the Supabase project dashboard.
+Never route diagnostic bundles through a public GitHub issue.
 
 ## Tester-facing privacy and support copy
 
