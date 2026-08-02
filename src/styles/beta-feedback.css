@@ -1,0 +1,96 @@
+.beta-feedback__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  visibility: hidden;
+  pointer-events: none;
+  background: rgb(20 16 10 / 55%);
+  opacity: 0;
+  transition: opacity 180ms ease, visibility 180ms ease;
+}
+
+.beta-feedback__backdrop--open {
+  visibility: visible;
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.beta-feedback__dialog {
+  position: fixed;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  z-index: 100;
+  width: min(26rem, calc(100vw - var(--sim-space-3) * 2));
+  max-height: calc(100vh - var(--sim-space-3) * 2);
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -48%);
+  transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
+}
+
+.beta-feedback__dialog--open {
+  visibility: visible;
+  pointer-events: auto;
+  opacity: 1;
+  transform: translate(-50%, -50%);
+}
+
+.beta-feedback__content {
+  display: flex;
+  max-height: calc(100vh - 2.75rem - var(--sim-space-3) * 4);
+  flex-direction: column;
+  gap: var(--sim-space-2);
+  padding: var(--sim-space-3);
+  overflow-y: auto;
+  background: var(--sim-color-canvas);
+}
+
+.beta-feedback__notice {
+  margin: 0;
+  padding: var(--sim-space-2);
+  font-size: var(--sim-font-size-sm);
+  background: var(--sim-color-panel-raised);
+  border: var(--sim-border-thin) solid var(--sim-color-border);
+}
+
+.beta-feedback__notice--success {
+  color: var(--sim-color-positive);
+}
+
+.beta-feedback__notice--error {
+  color: var(--sim-color-danger);
+}
+
+.beta-feedback__field-error {
+  font-size: var(--sim-font-size-xs);
+  color: var(--sim-color-danger);
+}
+
+.beta-feedback__help {
+  margin: 0;
+  font-size: var(--sim-font-size-xs);
+  color: var(--sim-color-ink-muted);
+}
+
+.beta-feedback__textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.beta-feedback__attachment {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sim-space-2);
+  padding: var(--sim-space-2);
+  background: var(--sim-color-panel-raised);
+  border: var(--sim-border-thin) solid var(--sim-color-border);
+}
+
+.beta-feedback__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-start: var(--sim-space-3);
+}

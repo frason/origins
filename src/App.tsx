@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import WorldView from './ui/WorldView';
 import ControlPanel from './ui/ControlPanel';
 import SpeciesPanel from './ui/SpeciesPanel';
@@ -32,6 +32,8 @@ import {
 } from './simulation/checkpointTimeline';
 import { loadBrowserWorld, saveBrowserWorld } from './state/browserWorldSave';
 import { deserializeEngineState, serializeEngineState } from './simulation/enginePersistence';
+import BetaFeedbackPanel from './ui/BetaFeedbackPanel';
+import { loadBetaFeedbackBackend, type BetaFeedbackBackend } from './services/betaFeedbackClient';
 
 function browserStorage(): Storage | null {
   return typeof window === 'undefined' ? null : window.localStorage;
@@ -48,6 +50,8 @@ export default function App() {
   const setRunning = useStore((s) => s.setRunning);
   const setSpeed = useStore((s) => s.setSpeed);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const feedbackBackend: BetaFeedbackBackend | null = useMemo(() => loadBetaFeedbackBackend(), []);
   const [worldSeed, setWorldSeed] = useState(DEFAULT_WORLD_SEED);
   const [replayActive, setReplayActive] = useState(false);
   const [replayStatus, setReplayStatus] = useState<string | null>(null);
@@ -286,16 +290,28 @@ export default function App() {
         className="app-shell__window"
         bodyClassName={`app-shell__window-body${selectedTile ? ' app-shell__window-body--inspecting' : ''}`}
         controls={(
-          <button
-            type="button"
-            className="sim-button sim-button--compact"
-            aria-label="Open world controls"
-            aria-controls="settings-drawer"
-            aria-expanded={settingsOpen}
-            onClick={() => setSettingsOpen(true)}
-          >
-            ⚙
-          </button>
+          <>
+            <button
+              type="button"
+              className="sim-button sim-button--compact"
+              aria-label="Send beta feedback"
+              aria-controls="beta-feedback-panel"
+              aria-expanded={feedbackOpen}
+              onClick={() => setFeedbackOpen(true)}
+            >
+              Feedback
+            </button>
+            <button
+              type="button"
+              className="sim-button sim-button--compact"
+              aria-label="Open world controls"
+              aria-controls="settings-drawer"
+              aria-expanded={settingsOpen}
+              onClick={() => setSettingsOpen(true)}
+            >
+              ⚙
+            </button>
+          </>
         )}
         menu={(
           <>
@@ -380,6 +396,11 @@ export default function App() {
         onReplayWorld={replayWorld}
         onReplayFromTick={replayFromTick}
         checkpointTicks={checkpointTicks}
+      />
+      <BetaFeedbackPanel
+        isOpen={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        backend={feedbackBackend}
       />
     </div>
   );
