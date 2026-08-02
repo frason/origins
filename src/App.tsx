@@ -30,7 +30,7 @@ import {
   restoreCheckpoint,
   type SimulationCheckpoint,
 } from './simulation/checkpointTimeline';
-import { loadBrowserWorld, saveBrowserWorld } from './state/browserWorldSave';
+import { restoreBrowserWorld, saveBrowserWorld } from './state/browserWorldSave';
 import { deserializeEngineState, serializeEngineState } from './simulation/enginePersistence';
 
 function browserStorage(): Storage | null {
@@ -52,6 +52,7 @@ export default function App() {
   const [replayActive, setReplayActive] = useState(false);
   const [replayStatus, setReplayStatus] = useState<string | null>(null);
   const [checkpointTicks, setCheckpointTicks] = useState<number[]>([]);
+  const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
   const worldName = worldNameFromSeed(worldSeed);
 
   const publish = useCallback((engine: EngineState) => {
@@ -212,9 +213,13 @@ export default function App() {
     if (!engineRef.current) {
       const store = useStore.getState();
       const storage = browserStorage();
-      const restored = storage ? loadBrowserWorld(storage) : null;
+      const restoreResult = storage ? restoreBrowserWorld(storage) : null;
+      const restored = restoreResult?.state ?? null;
       const engine = restored ?? buildDemoEngine(worldSeed, store.constants);
       engineRef.current = engine;
+      if (restoreResult?.recoveredFromInvalidSave) {
+        setRecoveryNotice('A saved world could not be restored, so Origins started a new world. You can import an exported world save from World controls.');
+      }
       if (restored) {
         store.updateConstants(restored.constants);
         setWorldSeed(restored.seed);
@@ -346,6 +351,12 @@ export default function App() {
           </div>
         )}
       >
+        {recoveryNotice && (
+          <div className="app-shell__recovery-notice sim-status--warning" role="status">
+            <span>{recoveryNotice}</span>
+            <button type="button" className="sim-button sim-button--compact" onClick={() => setRecoveryNotice(null)}>Dismiss</button>
+          </div>
+        )}
         <EvolutionRibbon onOpenLineages={() => setSettingsOpen(true)} />
         <main aria-label="Ecosystem world" className="app-shell__world">
           <WorldView />
