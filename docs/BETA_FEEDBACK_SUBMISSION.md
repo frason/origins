@@ -77,8 +77,11 @@ session is created lazily on first submission and reused after that. Signing
 out or clearing site data creates a new identity with no access to
 previously submitted feedback, matching the documented recovery limitation.
 
-## Out of scope here
+## Related cloud world backup
 
-Cloud world backup/restore (`beta_world_backups`) and uploading diagnostics
-outside of a feedback submission are not part of this change. The schema and
-RLS from #202 are unchanged.
+World controls expose explicit **Cloud backup** and **Restore cloud** actions
+against the same owner-scoped anonymous session. They never upload every tick;
+the browser save remains the default. A saved cloud world is limited to 8 MiB,
+and the UI reminds a tester that clearing browser site data loses access to its
+anonymous cloud records. Uploading standalone diagnostics remains intentionally
+out of scope; diagnostics are attached only when a tester submits feedback.

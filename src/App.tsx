@@ -42,6 +42,12 @@ import {
 import { downloadJsonFile } from './ui/browserDownload';
 import BetaFeedbackPanel from './ui/BetaFeedbackPanel';
 import { loadBetaFeedbackBackend, type BetaFeedbackBackend } from './services/betaFeedbackClient';
+import {
+  loadBetaWorldBackupBackend,
+  restoreBetaWorldBackup,
+  saveBetaWorldBackup,
+  type BetaWorldBackupBackend,
+} from './services/betaWorldBackupClient';
 
 function browserStorage(): Storage | null {
   return typeof window === 'undefined' ? null : window.localStorage;
@@ -60,6 +66,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const feedbackBackend: BetaFeedbackBackend | null = useMemo(() => loadBetaFeedbackBackend(), []);
+  const worldBackupBackend: BetaWorldBackupBackend | null = useMemo(() => loadBetaWorldBackupBackend(), []);
   const [worldSeed, setWorldSeed] = useState(DEFAULT_WORLD_SEED);
   const [replayActive, setReplayActive] = useState(false);
   const [replayStatus, setReplayStatus] = useState<string | null>(null);
@@ -169,6 +176,33 @@ export default function App() {
       return error instanceof Error ? `Could not restore world: ${error.message}` : 'Could not restore world';
     }
   }, [publish, recordCheckpoint]);
+
+  const backupWorld = useCallback(async (): Promise<string> => {
+    const engine = engineRef.current;
+    if (!engine) return 'Could not save cloud backup: no world is loaded';
+    const result = await saveBetaWorldBackup(engine, worldBackupBackend);
+    return result.message;
+  }, [worldBackupBackend]);
+
+  const restoreCloudWorld = useCallback(async (): Promise<string> => {
+    const result = await restoreBetaWorldBackup(worldBackupBackend);
+    if (result.status !== 'success') return result.message;
+    const engine = result.state;
+    const store = useStore.getState();
+    store.setRunning(false);
+    store.setSelectedTile(null);
+    store.clearFollowedLineages();
+    store.updateConstants(engine.constants);
+    recipeReplayRef.current = null;
+    setReplayActive(false);
+    setReplayStatus(null);
+    engineRef.current = engine;
+    checkpointsRef.current = [];
+    recordCheckpoint(engine);
+    setWorldSeed(engine.seed);
+    publish(engine);
+    return result.message;
+  }, [publish, recordCheckpoint, worldBackupBackend]);
 
   const replayWorld = useCallback(() => {
     reset();
@@ -419,6 +453,8 @@ export default function App() {
             onExportWorld={exportWorld}
             onExportDiagnostic={exportDiagnostic}
             onImportWorld={importWorld}
+            onCloudBackup={backupWorld}
+            onCloudRestore={restoreCloudWorld}
             onStartSeed={startWorld}
             worldSeed={worldSeed}
             worldName={worldName}

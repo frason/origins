@@ -25,6 +25,8 @@ interface ControlPanelProps {
   onExportWorld?: () => void;
   onExportDiagnostic?: () => string;
   onImportWorld?: (file: File) => Promise<string | null>;
+  onCloudBackup?: () => Promise<string>;
+  onCloudRestore?: () => Promise<string>;
   onStartSeed?: (seed: number) => void;
   worldSeed?: number;
   worldName?: string;
@@ -164,6 +166,8 @@ export default function ControlPanel({
   onExportWorld,
   onExportDiagnostic,
   onImportWorld,
+  onCloudBackup,
+  onCloudRestore,
   onStartSeed,
   worldSeed = 12345,
   worldName = 'Living World',
@@ -196,6 +200,8 @@ export default function ControlPanel({
   const [openHelpKey, setOpenHelpKey] = useState<string | null>(null);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [diagnosticMessage, setDiagnosticMessage] = useState<string | null>(null);
+  const [cloudMessage, setCloudMessage] = useState<string | null>(null);
+  const [cloudBusy, setCloudBusy] = useState(false);
 
   const recommendations = showGodMode
     ? getGodModeRecommendations(
@@ -289,6 +295,34 @@ export default function ControlPanel({
           setImportMessage(await onImportWorld(file));
           event.target.value = '';
         }} /></label>}
+        {onCloudBackup && (
+          <button
+            className="sim-button"
+            type="button"
+            disabled={cloudBusy}
+            onClick={async () => {
+              setCloudBusy(true);
+              setCloudMessage(await onCloudBackup());
+              setCloudBusy(false);
+            }}
+          >
+            Cloud backup
+          </button>
+        )}
+        {onCloudRestore && (
+          <button
+            className="sim-button"
+            type="button"
+            disabled={cloudBusy}
+            onClick={async () => {
+              setCloudBusy(true);
+              setCloudMessage(await onCloudRestore());
+              setCloudBusy(false);
+            }}
+          >
+            Restore cloud
+          </button>
+        )}
         <output className="control-panel__tick sim-data">Tick {tick.toLocaleString()}</output>
       </div>
       {importMessage && <div className={`control-panel__status ${importMessage.startsWith('Restored') ? 'sim-status--positive' : 'sim-status--danger'}`} role="status">{importMessage}</div>}
@@ -298,6 +332,14 @@ export default function ControlPanel({
           role="status"
         >
           {diagnosticMessage}
+        </div>
+      )}
+      {cloudMessage && (
+        <div
+          className={`control-panel__status ${cloudMessage.startsWith('Cloud backup saved') || cloudMessage.startsWith('Restored cloud') ? 'sim-status--positive' : 'sim-status--warning'}`}
+          role="status"
+        >
+          {cloudMessage}
         </div>
       )}
 

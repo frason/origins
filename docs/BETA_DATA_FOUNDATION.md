@@ -61,9 +61,9 @@ Run this matrix against the beta Supabase project before cloud backup ships:
 7. Clearing Browser A's site data demonstrates the documented loss-of-access
    behavior.
 
-This repository currently verifies the migration's structural security contract
-and browser configuration boundary. Executing the matrix requires the beta
-project and the approved Supabase client integration.
+This repository verifies the migration's structural security contract, browser
+configuration boundary, and explicit owner-scoped cloud backup/restore client.
+Executing the matrix requires the beta project and live Vercel configuration.
 
 ## Private-beta abuse and retention plan
 
