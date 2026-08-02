@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateGridLayout,
   navigateTileSelection,
+  selectNearbyLivingTile,
   viewportPointToTile,
 } from '../ui/worldViewport';
 
@@ -40,6 +41,17 @@ describe('world viewport layout', () => {
     const layout = calculateGridLayout(1000, 600, 100, 100);
     expect(viewportPointToTile(199, 300, layout, 100, 100)).toBeNull();
     expect(viewportPointToTile(801, 300, layout, 100, 100)).toBeNull();
+  });
+
+  it('snaps a sparse-life click to the nearest living tile within two cells', () => {
+    const creatures = [
+      { x: 12, y: 10, lifecycleState: 'alive' as const },
+      { x: 11, y: 11, lifecycleState: 'alive' as const },
+      { x: 10, y: 11, lifecycleState: 'dead' as const },
+    ];
+
+    expect(selectNearbyLivingTile({ x: 10, y: 10 }, creatures)).toEqual({ x: 11, y: 11 });
+    expect(selectNearbyLivingTile({ x: 20, y: 20 }, creatures)).toEqual({ x: 20, y: 20 });
   });
 
   it('moves keyboard selection one tile and clamps every boundary', () => {

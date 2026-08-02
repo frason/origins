@@ -55,6 +55,34 @@ export interface TileSelection {
   y: number;
 }
 
+export interface SelectableCreature {
+  x: number;
+  y: number;
+  lifecycleState: 'alive' | 'dead' | 'corpse';
+}
+
+/**
+ * Make sparse, one-pixel organisms selectable without changing what a normal
+ * tile click means. Exact occupied tiles always win; otherwise the nearest
+ * living creature in a small, deterministic tile radius is selected.
+ */
+export function selectNearbyLivingTile(
+  requested: TileSelection,
+  creatures: readonly SelectableCreature[],
+  radius: number = 2
+): TileSelection {
+  const candidate = creatures
+    .filter((creature) => creature.lifecycleState === 'alive')
+    .map((creature) => ({
+      x: creature.x,
+      y: creature.y,
+      distance: Math.max(Math.abs(creature.x - requested.x), Math.abs(creature.y - requested.y)),
+    }))
+    .filter((creature) => creature.distance <= radius)
+    .sort((a, b) => a.distance - b.distance || a.y - b.y || a.x - b.x)[0];
+  return candidate ? { x: candidate.x, y: candidate.y } : requested;
+}
+
 export interface TileNavigationResult {
   handled: boolean;
   tile: TileSelection | null;
