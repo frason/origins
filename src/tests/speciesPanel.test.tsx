@@ -35,4 +35,19 @@ describe('species metabolism observability', () => {
     expect(html).toContain('higher baseline energy burn');
     expect(html).toContain('metabolism 0.80× (efficient)');
   });
+
+  it('shows live replacement for each species and hides the old headline diagnostic', () => {
+    Creature.resetIdCounter();
+    const engine = buildDemoEngine(12345, { ...SIMULATION_CONSTANTS });
+    engine.tick = 60;
+    engine.events = [
+      { type: 'birth', tick: 40, speciesId: 'meadow_grazer' },
+      { type: 'birth', tick: 41, speciesId: 'meadow_grazer' },
+      { type: 'death', tick: 42, speciesId: 'meadow_grazer' },
+    ];
+    const html = renderToStaticMarkup(<SpeciesPanelView worldState={snapshotEngine(engine)} />);
+
+    expect(html).toContain('Live replacement · 2.00×');
+    expect(html).not.toContain('Premature deaths by species');
+  });
 });

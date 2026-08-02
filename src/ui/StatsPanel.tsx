@@ -18,9 +18,9 @@ import {
 } from './ecosystemTrajectory';
 import { buildEcosystemPoints } from './ecosystemPoints';
 import EcosystemPointsPanel from './EcosystemPointsPanel';
-import { formatPrematureDeathRate, getPrematureDeathMetrics } from './prematureDeathMetrics';
 import { buildLocalBiomassSummary } from './biomassObservability';
 import { buildPopulationGovernanceSummary } from './populationGovernanceModel';
+import { formatReplacementRatio, getReplacementMetrics } from './replacementMetrics';
 
 const panelStyle: CSSProperties = {
   backgroundColor: '#222',
@@ -148,7 +148,7 @@ export default function StatsPanel() {
   const dynamics = getEcosystemDynamics(worldState, tick, maxPopulation);
   const trajectories = getEcosystemTrajectories(worldState, tick);
   const points = buildEcosystemPoints(worldState, tick);
-  const prematureDeaths = getPrematureDeathMetrics(worldState?.events ?? []).ecosystem;
+  const replacement = getReplacementMetrics(worldState?.events ?? [], tick);
   const populationGovernance = buildPopulationGovernanceSummary(
     worldState?.creatures ?? [],
     maxPopulation
@@ -192,7 +192,11 @@ export default function StatsPanel() {
       <Row label="Births" value={births} />
       <Row label="Mutations" value={mutations} />
       <Row label="Corpses" value={corpses} />
-      <Row label="Premature deaths" value={formatPrematureDeathRate(prematureDeaths)} />
+      <HelpRow
+        label="Live replacement"
+        value={formatReplacementRatio(replacement.ecosystem)}
+        help={`Births divided by deaths in the last ${replacement.windowTicks} ticks. 1.00× replaces each death, below 1.00× contracts, and above 1.00× expands. A dash means no deaths have occurred in the window.`}
+      />
       <Row label="Avg energy" value={alive > 0 ? (totalEnergy / alive).toFixed(1) : '—'} />
       <HelpRow
         label="Global biomass"
