@@ -33,6 +33,13 @@ import {
 } from './simulation/checkpointTimeline';
 import { loadBrowserWorld, saveBrowserWorld } from './state/browserWorldSave';
 import { deserializeEngineState, serializeEngineState } from './simulation/enginePersistence';
+import {
+  createDiagnosticBundle,
+  diagnosticBundleByteSize,
+  diagnosticBundleFileName,
+  serializeDiagnosticBundle,
+} from './simulation/diagnosticBundle';
+import { downloadJsonFile } from './ui/browserDownload';
 
 function browserStorage(): Storage | null {
   return typeof window === 'undefined' ? null : window.localStorage;
@@ -110,13 +117,27 @@ export default function App() {
 
   const exportWorld = useCallback(() => {
     const engine = engineRef.current;
-    if (!engine || typeof document === 'undefined') return;
-    const url = URL.createObjectURL(new Blob([serializeEngineState(engine)], { type: 'application/json' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${worldNameFromSeed(engine.seed).toLowerCase().replace(/\s+/g, '-')}-tick-${engine.tick}.origins.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    if (!engine) return;
+    downloadJsonFile(
+      `${worldNameFromSeed(engine.seed).toLowerCase().replace(/\s+/g, '-')}-tick-${engine.tick}.origins.json`,
+      serializeEngineState(engine),
+    );
+  }, []);
+
+  const exportDiagnostic = useCallback((): string => {
+    const engine = engineRef.current;
+    if (!engine) return 'Could not export diagnostic: no world is loaded';
+    try {
+      const bundle = createDiagnosticBundle(engine);
+      const serialized = serializeDiagnosticBundle(bundle);
+      downloadJsonFile(diagnosticBundleFileName(bundle), serialized);
+      const kibibytes = Math.max(1, Math.ceil(diagnosticBundleByteSize(serialized) / 1024));
+      return `Downloaded diagnostic for tick ${engine.tick.toLocaleString()} (${kibibytes.toLocaleString()} KiB)`;
+    } catch (error) {
+      return error instanceof Error
+        ? `Could not export diagnostic: ${error.message}`
+        : 'Could not export diagnostic';
+    }
   }, []);
 
   const importWorld = useCallback(async (file: File): Promise<string | null> => {
@@ -363,6 +384,7 @@ export default function App() {
             onReset={reset}
             onNewWorld={newWorld}
             onExportWorld={exportWorld}
+            onExportDiagnostic={exportDiagnostic}
             onImportWorld={importWorld}
             onStartSeed={startWorld}
             worldSeed={worldSeed}
