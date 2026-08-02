@@ -9,18 +9,33 @@ export interface StorageLike {
   removeItem(key: string): void;
 }
 
+export interface BrowserWorldRestoreResult {
+  state: EngineState | null;
+  /** True when an unusable saved world was removed so startup can continue. */
+  recoveredFromInvalidSave: boolean;
+}
+
 export function saveBrowserWorld(storage: StorageLike, state: EngineState): void {
   storage.setItem(BROWSER_WORLD_SAVE_KEY, serializeEngineState(state));
 }
 
 export function loadBrowserWorld(storage: StorageLike): EngineState | null {
+  return restoreBrowserWorld(storage).state;
+}
+
+/**
+ * Restore the latest browser-owned world without trapping the player on an
+ * unsupported or corrupt payload. Callers can use the recovery flag to
+ * explain that a fresh world was started and point to world import.
+ */
+export function restoreBrowserWorld(storage: StorageLike): BrowserWorldRestoreResult {
   const payload = storage.getItem(BROWSER_WORLD_SAVE_KEY);
-  if (!payload) return null;
+  if (!payload) return { state: null, recoveredFromInvalidSave: false };
   try {
-    return deserializeEngineState(payload);
+    return { state: deserializeEngineState(payload), recoveredFromInvalidSave: false };
   } catch {
     storage.removeItem(BROWSER_WORLD_SAVE_KEY);
-    return null;
+    return { state: null, recoveredFromInvalidSave: true };
   }
 }
 

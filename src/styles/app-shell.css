@@ -34,6 +34,17 @@
     inset calc(var(--sim-border-thin) * -1) calc(var(--sim-border-thin) * -1) var(--sim-color-highlight);
 }
 
+.app-shell__recovery-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sim-space-3);
+  margin: var(--sim-space-2) var(--sim-space-3) 0;
+  padding: var(--sim-space-2) var(--sim-space-3);
+  border: var(--sim-border-thin) solid currentColor;
+  font-size: var(--sim-font-size-sm);
+}
+
 .app-shell__menu-button {
   min-width: auto;
   min-height: auto;
