@@ -362,7 +362,9 @@ describe('Movement and Decision Logic', () => {
       });
 
       expect(decideTick(scavenger, world, [scavenger, predator], rng)).not.toBe('flee');
-      predator.energy = 100;
+      // A size-one predator has a 200-energy capacity. Keep this below the
+      // calibrated 45% hunt threshold so the scavenger correctly flees.
+      predator.energy = 80;
       expect(decideTick(scavenger, world, [scavenger, predator], rng)).toBe('flee');
     });
 

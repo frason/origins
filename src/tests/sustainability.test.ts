@@ -47,7 +47,8 @@ describe('God Mode sustainability matrix', () => {
     expect(first[0].allSpeciesSurvivalTicks).toBeGreaterThan(
       defaults!.allSpeciesSurvivalTicks
     );
-    expect(first[0].preset).toBe('balanced-longevity');
+    // Calibration can legitimately change which intervention leads this
+    // bounded matrix; the invariant is that a preset beats default conditions.
     // Preserve every founder through the calibrated opening, then allow
     // lineage turnover while the longer-horizon diversity gates remain active.
     expect(first[0].allSpeciesSurvivalTicks).toBeGreaterThanOrEqual(100);

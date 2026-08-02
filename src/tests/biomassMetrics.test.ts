@@ -165,28 +165,28 @@ describe('biomass ecology baseline', () => {
     expect(first).toMatchInlineSnapshot(`
       [
         {
-          "averageOccupiedTileBiomass": 25.762,
-          "depletedOccupiedTileShare": 0.636,
-          "occupiedTileCount": 11,
-          "population": 23,
+          "averageOccupiedTileBiomass": 12.589,
+          "depletedOccupiedTileShare": 0.867,
+          "occupiedTileCount": 15,
+          "population": 33,
           "seed": 12345,
-          "totalBiomass": 601887,
+          "totalBiomass": 598832,
         },
         {
-          "averageOccupiedTileBiomass": 26.67,
-          "depletedOccupiedTileShare": 0.615,
-          "occupiedTileCount": 13,
-          "population": 26,
+          "averageOccupiedTileBiomass": 16.516,
+          "depletedOccupiedTileShare": 0.667,
+          "occupiedTileCount": 18,
+          "population": 35,
           "seed": 54321,
-          "totalBiomass": 626553,
+          "totalBiomass": 625633,
         },
         {
-          "averageOccupiedTileBiomass": 16.293,
-          "depletedOccupiedTileShare": 0.75,
-          "occupiedTileCount": 16,
-          "population": 30,
+          "averageOccupiedTileBiomass": 7.132,
+          "depletedOccupiedTileShare": 0.905,
+          "occupiedTileCount": 21,
+          "population": 48,
           "seed": 99999,
-          "totalBiomass": 653430,
+          "totalBiomass": 652329,
         },
       ]
     `);

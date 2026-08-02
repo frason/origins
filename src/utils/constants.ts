@@ -36,7 +36,7 @@ export const BASE_METABOLISM = 2;
 export const FEEDING_EFFICIENCY = 0.8;
 
 /** Energy-capacity share below which predators are hungry enough to make a kill. */
-export const PREDATION_HUNGER_THRESHOLD_SHARE = 0.7;
+export const PREDATION_HUNGER_THRESHOLD_SHARE = 0.45;
 
 // ============================================================================
 // Reproduction Constants
@@ -249,7 +249,7 @@ export const SIMULATION_CONSTANTS: SimulationConstants = {
   overcrowdingMortalityRate: OVERCROWDING_MORTALITY_RATE,
 };
 
-/** Best bounded preset from the deterministic sustainability matrix in issue #62. */
+/** A bounded long-lived ecosystem intervention for the sustainability matrix. */
 export const BALANCED_LONGEVITY_PRESET: Readonly<Partial<SimulationConstants>> = {
   baseSolarEnergy: 20,
   producerGrowthRate: 0.2,
