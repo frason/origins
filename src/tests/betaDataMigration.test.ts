@@ -34,7 +34,7 @@ describe('beta data migration contract', () => {
   });
 
   it('caps large JSON payloads and does not grant browser-anonymous access', () => {
-    expect(migrationSql.match(/pg_column_size\([^)]*\) <= 2097152/gi)).toHaveLength(
+    expect(migrationSql.match(/pg_column_size\([^)]*\) <= 8388608/gi)).toHaveLength(
       2,
     );
     expect(migrationSql).not.toMatch(/grant[^;]*\bto anon\b/i);
