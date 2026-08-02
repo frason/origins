@@ -2,6 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/store';
 import { getEcosystemTrajectories } from './ecosystemTrajectory';
 import { buildEvolutionTimeline } from './evolutionTimelineModel';
+import {
+  buildReplacementTrend,
+  formatReplacementRatio,
+  getReplacementMetrics,
+} from './replacementMetrics';
 import { selectTurningPoint } from './turningPointModel';
 
 interface EvolutionRibbonProps {
@@ -32,6 +37,8 @@ export default function EvolutionRibbon({ onOpenLineages }: EvolutionRibbonProps
 
   const turningPoint = selectTurningPoint(getEcosystemTrajectories(world, tick));
   const lastPoint = model.points[model.points.length - 1];
+  const replacement = getReplacementMetrics(world?.events ?? [], tick);
+  const replacementTrend = buildReplacementTrend(world?.events ?? [], tick);
 
   return (
     <section className="evolution-ribbon sim-panel" aria-labelledby="evolution-ribbon-heading">
@@ -49,7 +56,8 @@ export default function EvolutionRibbon({ onOpenLineages }: EvolutionRibbonProps
           <polyline className="evolution-ribbon__line evolution-ribbon__line--species" points={model.speciesPolyline} />
         </svg>
         <span className="evolution-ribbon__metric sim-data">
-          Pop. {lastPoint?.population ?? 0} · Species {lastPoint?.speciesCount ?? 0} · Lineages {lastPoint?.lineageCount ?? 0}
+          Pop. {lastPoint?.population ?? 0} · Species {lastPoint?.speciesCount ?? 0} · Replacement{' '}
+          {formatReplacementRatio(replacement.ecosystem)}
         </span>
         <span className="evolution-ribbon__action">Expand</span>
       </button>
@@ -99,6 +107,43 @@ export default function EvolutionRibbon({ onOpenLineages }: EvolutionRibbonProps
               Peak {model.peakPopulation} · {model.dominanceChanges} dominance {model.dominanceChanges === 1 ? 'shift' : 'shifts'} ·{' '}
               {model.currentDominantName ? `${model.currentDominantName} leads now` : 'no living leader'}
             </p>
+            <section className="replacement-history" aria-labelledby="replacement-history-title">
+              <div className="replacement-history__header">
+                <h3 className="replacement-history__title" id="replacement-history-title">Live replacement</h3>
+                <span className="replacement-history__value sim-data">
+                  {formatReplacementRatio(replacement.ecosystem, true)}
+                </span>
+              </div>
+              <svg
+                className="replacement-history__chart sim-panel sim-panel--sunken"
+                viewBox="0 0 100 100"
+                role="img"
+                aria-labelledby="replacement-chart-title replacement-chart-description"
+              >
+                <title id="replacement-chart-title">Birth-to-death replacement history</title>
+                <desc id="replacement-chart-description">{replacementTrend.description}</desc>
+                <line className="replacement-history__axis" x1="0" y1="92" x2="100" y2="92" />
+                <line
+                  className="replacement-history__reference"
+                  x1="0"
+                  y1={replacementTrend.referenceY}
+                  x2="100"
+                  y2={replacementTrend.referenceY}
+                />
+                {replacementTrend.segments.map((segment, index) => (
+                  <polyline
+                    key={`${segment}:${index}`}
+                    className="replacement-history__line"
+                    points={segment}
+                  />
+                ))}
+              </svg>
+              <div className="replacement-history__legend">
+                <span className="replacement-history__legend-series">Replacement ratio</span>
+                <span className="replacement-history__legend-reference">1.00× replacement level</span>
+                <span>{replacementTrend.windowTicks}-tick rolling window</span>
+              </div>
+            </section>
             {turningPoint && (
               <article className={`evolution-story evolution-story--${turningPoint.tone}`}>
                 <p className="evolution-story__eyebrow">{turningPoint.dimension} turning point · tick {tick.toLocaleString()}</p>

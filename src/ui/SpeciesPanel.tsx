@@ -4,12 +4,12 @@ import { CSSProperties } from 'react';
 import { useStore } from '../state/store';
 import { shortLineageId, summarizeSpecies } from './speciesModel';
 import { lineageDisplayName, speciesDisplayName } from '../simulation/speciesNames';
-import { formatPrematureDeathRate, getPrematureDeathMetrics } from './prematureDeathMetrics';
 import { getAdaptiveReproductionTiming } from '../simulation/adaptiveReproduction';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
 import { founderSpeciesDefinition } from '../simulation/founderSpecies';
 import { describeMetabolismTradeoff } from './metabolismTradeoff';
 import type { WorldSnapshot } from '../state/store';
+import { formatReplacementRatio, getReplacementMetrics } from './replacementMetrics';
 
 const panelStyle: CSSProperties = {
   backgroundColor: '#222',
@@ -37,7 +37,15 @@ export function SpeciesPanelView({ worldState }: { worldState: WorldSnapshot | n
     .slice(-3)
     .reverse();
   const incipientSpecies = worldState?.incipientSpecies ?? [];
-  const prematureDeaths = getPrematureDeathMetrics(worldState?.events ?? []).species;
+  const replacement = getReplacementMetrics(
+    worldState?.events ?? [],
+    worldState?.tick
+      ?? worldState?.events[worldState.events.length - 1]?.tick
+      ?? 0
+  );
+  const replacementBySpecies = new Map(
+    replacement.species.map((metric) => [metric.speciesId, metric])
+  );
 
   return (
     <div style={panelStyle}>
@@ -82,6 +90,14 @@ export function SpeciesPanelView({ worldState }: { worldState: WorldSnapshot | n
             <div style={{ color: '#888', fontSize: '0.72rem', margin: '0.15rem 0 0.35rem' }}>
               {item.strategy} · {item.speciesId} · {item.lineages.length}{' '}
               {item.lineages.length === 1 ? 'lineage' : 'lineages'}
+            </div>
+            <div
+              title={`Births divided by deaths for this species in the last ${replacement.windowTicks} ticks. 1.00× is replacement level; a dash means no deaths have occurred.`}
+              style={{ color: '#9fbdad', fontSize: '0.7rem', marginBottom: '0.35rem' }}
+            >
+              Live replacement · {formatReplacementRatio(
+                replacementBySpecies.get(item.speciesId) ?? { births: 0, deaths: 0, ratio: null }
+              )}
             </div>
             {founder && (
               <>
@@ -171,19 +187,6 @@ export function SpeciesPanelView({ worldState }: { worldState: WorldSnapshot | n
           })}
         </>
       )}
-
-      <div style={{ fontWeight: 600, margin: '0.75rem 0 0.35rem' }}>Premature deaths by species</div>
-      {prematureDeaths.length === 0 ? (
-        <div style={{ color: '#777', fontSize: '0.75rem' }}>-</div>
-      ) : prematureDeaths.map((metric) => (
-        <div
-          key={metric.speciesId}
-          style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', color: '#aaa', fontSize: '0.72rem', padding: '0.15rem 0' }}
-        >
-          <span>{speciesDisplayName(metric.speciesId)}</span>
-          <span>{formatPrematureDeathRate(metric)}</span>
-        </div>
-      ))}
 
       <div style={{ fontWeight: 600, margin: '0.75rem 0 0.35rem' }}>Recent mutations</div>
       {mutations.length === 0 ? (
