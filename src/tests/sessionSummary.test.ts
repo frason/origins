@@ -59,13 +59,27 @@ describe('session summary', () => {
       births: 1,
       deaths: 1,
       mutations: 1,
-      extinctions: 1,
+      extinctions: 2,
       interventions: 1,
       speciesObserved: 2,
       remainingBiomass: 12.5,
     });
     expect(summary.finalEvents.map((event) => event.tick)).toEqual([41, 40, 39]);
     expect(summary.recentStories[0]).toMatchObject({ tick: 41, tone: 'intervention' });
+  });
+
+  it('counts a total die-off even though the last corpse has not decomposed yet', () => {
+    const finalWorld = world();
+    // Only "predator" ever got a logged extinction event; "grazer" is the very last
+    // species to die and its lone corpse is still decaying, so the engine has not
+    // (and, in a single-tick session end, cannot) log a matching extinction event yet.
+    expect(finalWorld.creatures).toHaveLength(1);
+    expect(finalWorld.creatures[0].speciesId).toBe('grazer');
+    expect(finalWorld.creatures[0].corpseDecayTicks).toBeGreaterThan(0);
+    expect(finalWorld.events.filter((event) => event.type === 'extinction')).toHaveLength(1);
+
+    const summary = buildSessionSummary(finalWorld, 41);
+    expect(summary.extinctions).toBe(2);
   });
 
   it('detects extinction only when no living creatures remain', () => {
