@@ -170,6 +170,7 @@
 .world-legend__swatch--biomass { background: #2d8d45; }
 .world-legend__swatch--toxicity { background: #692d78; }
 .world-legend__swatch--miasma { background: #d98a21; }
+.world-legend__swatch--followed { background: #6b6558; border: 2px solid #ffffff; border-radius: 50%; }
 
 @media (min-width: 48rem) {
   .world-legend__toggle {
