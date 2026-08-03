@@ -178,7 +178,6 @@ const WorldView: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawSchedulerRef = useRef<DrawScheduler | null>(null);
   const { worldState, tick, selectedTile, setSelectedTile, constants } = useStore();
-  const [elevationVisible, setElevationVisible] = useState(true);
   const [layout, setLayout] = useState<GridLayout>(() =>
     calculateGridLayout(400, 400, GRID_WIDTH, GRID_HEIGHT)
   );
@@ -307,29 +306,27 @@ const WorldView: React.FC = () => {
             ctx.fillRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
           }
 
-          if (elevationVisible) {
-            const northElevation = y > 0 ? grid.cellAt(x, y - 1).elevation : cell.elevation;
-            const westElevation = x > 0 ? grid.cellAt(x - 1, y).elevation : cell.elevation;
-            const elevation = elevationAppearance(cell.elevation, northElevation, westElevation);
-            ctx.fillStyle = elevation.tone === 'light'
-              ? `rgba(255, 246, 214, ${elevation.opacity})`
-              : `rgba(15, 22, 28, ${elevation.opacity})`;
-            ctx.fillRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
+          const northElevation = y > 0 ? grid.cellAt(x, y - 1).elevation : cell.elevation;
+          const westElevation = x > 0 ? grid.cellAt(x - 1, y).elevation : cell.elevation;
+          const elevation = elevationAppearance(cell.elevation, northElevation, westElevation);
+          ctx.fillStyle = elevation.tone === 'light'
+            ? `rgba(255, 246, 214, ${elevation.opacity})`
+            : `rgba(15, 22, 28, ${elevation.opacity})`;
+          ctx.fillRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
 
-            ctx.strokeStyle = 'rgba(37, 31, 24, 0.42)';
-            ctx.lineWidth = Math.max(0.45, layout.cellSize * 0.08);
-            if (elevation.contourTop) {
-              ctx.beginPath();
-              ctx.moveTo(pixelX, pixelY);
-              ctx.lineTo(pixelX + layout.cellSize, pixelY);
-              ctx.stroke();
-            }
-            if (elevation.contourLeft) {
-              ctx.beginPath();
-              ctx.moveTo(pixelX, pixelY);
-              ctx.lineTo(pixelX, pixelY + layout.cellSize);
-              ctx.stroke();
-            }
+          ctx.strokeStyle = 'rgba(37, 31, 24, 0.42)';
+          ctx.lineWidth = Math.max(0.45, layout.cellSize * 0.08);
+          if (elevation.contourTop) {
+            ctx.beginPath();
+            ctx.moveTo(pixelX, pixelY);
+            ctx.lineTo(pixelX + layout.cellSize, pixelY);
+            ctx.stroke();
+          }
+          if (elevation.contourLeft) {
+            ctx.beginPath();
+            ctx.moveTo(pixelX, pixelY);
+            ctx.lineTo(pixelX, pixelY + layout.cellSize);
+            ctx.stroke();
           }
 
           // Decaying corpses leave a visible, fading violet ecological scar.
@@ -393,7 +390,7 @@ const WorldView: React.FC = () => {
       }
 
     });
-  }, [worldState, layout, constants.baseSolarEnergy, elevationVisible, selectedTile]);
+  }, [worldState, layout, constants.baseSolarEnergy, selectedTile]);
 
   const handleKeyboardNavigation = (event: React.KeyboardEvent<HTMLCanvasElement>) => {
     const navigation = navigateTileSelection(
@@ -413,14 +410,6 @@ const WorldView: React.FC = () => {
 
   return (
     <div className="world-view">
-      <button
-        className={`world-view__elevation-toggle${elevationVisible ? ' world-view__elevation-toggle--active' : ''}`}
-        type="button"
-        aria-pressed={elevationVisible}
-        onClick={() => setElevationVisible((visible) => !visible)}
-      >
-        Elevation {elevationVisible ? 'on' : 'off'}
-      </button>
       <canvas
         ref={canvasRef}
         role="application"
