@@ -51,13 +51,24 @@ export function buildSessionSummary(
   let mutations = 0;
   let extinctions = 0;
   let interventions = 0;
+  const loggedExtinctSpecies = new Set<string>();
   for (const event of worldState.events) {
     if (event.speciesId) species.add(event.speciesId);
     if (event.type === 'birth') births++;
     else if (event.type === 'death') deaths++;
     else if (event.type === 'mutation') mutations++;
-    else if (event.type === 'extinction') extinctions++;
-    else if (event.type === 'intervention') interventions++;
+    else if (event.type === 'extinction') {
+      extinctions++;
+      if (event.speciesId) loggedExtinctSpecies.add(event.speciesId);
+    } else if (event.type === 'intervention') interventions++;
+  }
+  // The engine only logs an extinction once a species' last corpse fully decomposes,
+  // so a species that dies out right at session end (its corpse still decaying) never
+  // gets logged. Credit those species here so a total die-off reports every extinction.
+  for (const speciesId of species) {
+    if (!activeSpecies.has(speciesId) && !loggedExtinctSpecies.has(speciesId)) {
+      extinctions++;
+    }
   }
   const peakPopulation = Math.max(
     currentPopulation,
