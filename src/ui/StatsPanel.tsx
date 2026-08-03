@@ -16,8 +16,6 @@ import {
   getEcosystemTrajectories,
   type DynamicsTrajectory,
 } from './ecosystemTrajectory';
-import { buildEcosystemPoints } from './ecosystemPoints';
-import EcosystemPointsPanel from './EcosystemPointsPanel';
 import { buildLocalBiomassSummary } from './biomassObservability';
 import { buildPopulationGovernanceSummary } from './populationGovernanceModel';
 import { formatReplacementRatio, getReplacementMetrics } from './replacementMetrics';
@@ -164,7 +162,6 @@ export default function StatsPanel() {
   const biodiversity = getBiodiversityState(species.size);
   const dynamics = getEcosystemDynamics(worldState, tick, maxPopulation);
   const trajectories = getEcosystemTrajectories(worldState, tick);
-  const points = buildEcosystemPoints(worldState, tick);
   const replacement = getReplacementMetrics(worldState?.events ?? [], tick);
   const populationGovernance = buildPopulationGovernanceSummary(
     worldState?.creatures ?? [],
@@ -191,7 +188,6 @@ export default function StatsPanel() {
       <DynamicsRow label="Order" metric={dynamics.order} trajectory={trajectories.order} />
       <DynamicsRow label="Chaos" metric={dynamics.chaos} trajectory={trajectories.chaos} />
       <DynamicsRow label="Exploration" metric={dynamics.exploration} trajectory={trajectories.exploration} />
-      <EcosystemPointsPanel points={points} />
       <div style={{ borderTop: '1px solid #383838', margin: '0.65rem 0 0.45rem' }} />
       <NoteRow
         label="Population"

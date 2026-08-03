@@ -26,3 +26,14 @@ describe('StatsPanel jargon reduction', () => {
     expect(html.match(/aria-hidden="true">\?</g)?.length).toBe(2);
   });
 });
+
+describe('StatsPanel live ecosystem score', () => {
+  it('shows the live Order/Chaos/Exploration read but never the end-of-run Ecosystem Points tally', () => {
+    const html = renderToStaticMarkup(<StatsPanel />);
+    expect(html).toContain('>Order<');
+    expect(html).toContain('>Chaos<');
+    expect(html).toContain('>Exploration<');
+    expect(html).not.toContain('Open-ended ecosystem points');
+    expect(html).not.toContain('Ecosystem points');
+  });
+});
