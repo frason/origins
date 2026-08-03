@@ -98,6 +98,19 @@
   margin-block-start: var(--sim-space-3);
 }
 
+.control-panel__advanced {
+  margin-block-start: var(--sim-space-3);
+  padding: 0;
+}
+
+.control-panel__advanced[open] {
+  padding-block-end: var(--sim-space-2);
+}
+
+.control-panel__advanced[open] > :not(summary) {
+  margin-inline: var(--sim-space-2);
+}
+
 .control-panel__trait-editor {
   margin-block-start: var(--sim-space-2);
   padding: 0;
