@@ -75,6 +75,23 @@ function HelpRow({ label, value, help }: { label: string; value: string | number
   );
 }
 
+/** Plain label plus value, with an optional always-visible explanation instead of a hover-only tooltip. */
+function NoteRow({ label, value, note }: { label: string; value: string | number; note?: string }) {
+  return (
+    <div style={{ padding: '0.15rem 0' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
+        <span style={{ color: '#bbb' }}>{label}</span>
+        <span>{value}</span>
+      </div>
+      {note && (
+        <div style={{ color: '#888', fontSize: '0.68rem', lineHeight: 1.35, marginTop: '0.1rem' }}>
+          {note}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const trajectorySymbols: Record<DynamicsTrajectory['direction'], string> = {
   rising: '↑', falling: '↓', steady: '→', emerging: '·',
 };
@@ -176,17 +193,17 @@ export default function StatsPanel() {
       <DynamicsRow label="Exploration" metric={dynamics.exploration} trajectory={trajectories.exploration} />
       <EcosystemPointsPanel points={points} />
       <div style={{ borderTop: '1px solid #383838', margin: '0.65rem 0 0.45rem' }} />
-      <HelpRow
-        label="Population / safety limit"
+      <NoteRow
+        label="Population"
         value={populationGovernance.populationLabel}
-        help="The second number is a deterministic performance guard, not the world's ecological carrying capacity. Local food, habitat, and crowding pressure should restrain growth first."
+        note="The second number is an engine performance cap, not the ecosystem's real food-based capacity."
       />
-      <HelpRow
-        label="Breeding pressure"
+      <NoteRow
+        label="Breeding"
         value={populationGovernance.breedingLabel}
-        help={populationGovernance.atSafetyLimit
-          ? 'At the safety limit, new births wait for deaths to create room. Survival, movement, feeding, and selection continue, but birth-driven mutation pauses until turnover.'
-          : 'Local scarcity can raise breeding requirements before the safety limit is reached. This is ecological restraint rather than a hidden population target.'}
+        note={populationGovernance.atSafetyLimit
+          ? 'At the population cap, new births wait for deaths to make room.'
+          : 'Local food scarcity can slow breeding before the population cap is reached.'}
       />
       <Row label="Species" value={species.size} />
       <Row label="Births" value={births} />
@@ -198,24 +215,23 @@ export default function StatsPanel() {
         help={`Births divided by deaths in the last ${replacement.windowTicks} ticks. 1.00× replaces each death, below 1.00× contracts, and above 1.00× expands. A dash means no deaths have occurred in the window.`}
       />
       <Row label="Avg energy" value={alive > 0 ? (totalEnergy / alive).toFixed(1) : '—'} />
-      <HelpRow
-        label="Global biomass"
+      <NoteRow
+        label="Total food (world)"
         value={Math.round(biomass?.totalBiomass ?? 0).toLocaleString()}
-        help="All producer food in the world. A high total can hide shortages where creatures live."
+        note="A high total can still hide shortages where creatures actually live."
       />
-      <HelpRow
-        label="Local food / tile"
+      <Row
+        label="Food where creatures live"
         value={biomass && biomass.occupiedTileCount > 0
           ? biomass.averageOccupiedTileBiomass.toFixed(1)
           : '—'}
-        help="Average producer biomass on tiles occupied by living creatures."
       />
-      <HelpRow
-        label="Depleted habitat"
+      <NoteRow
+        label="Tiles low on food"
         value={biomass && biomass.occupiedTileCount > 0
           ? `${Math.round(biomass.depletedOccupiedTileShare * 100)}%`
           : '—'}
-        help="Share of occupied tiles below 25% of their biome's carrying capacity."
+        note="Share of occupied tiles below 25% of their biome's carrying capacity."
       />
       <HelpRow
         label="Local food trend"
