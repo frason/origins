@@ -12,10 +12,10 @@ import type { WorldSnapshot } from '../state/store';
 import { formatReplacementRatio, getReplacementMetrics } from './replacementMetrics';
 
 const panelStyle: CSSProperties = {
-  backgroundColor: '#222',
+  backgroundColor: 'var(--sim-color-screen)',
   borderRadius: 8,
   padding: '0.75rem 1rem',
-  color: '#eee',
+  color: 'var(--sim-color-screen-ink)',
   fontFamily: 'system-ui, -apple-system, sans-serif',
   fontSize: '0.85rem',
 };
@@ -51,7 +51,7 @@ export function SpeciesPanelView({ worldState }: { worldState: WorldSnapshot | n
     <div style={panelStyle}>
       <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Evolution</div>
       {species.length === 0 ? (
-        <div style={{ color: '#777' }}>No living creatures</div>
+        <div style={{ color: 'var(--sim-color-screen-ink-faint)' }}>No living creatures</div>
       ) : (
         species.map((item) => {
           const livingMembers = (worldState?.creatures ?? []).filter(
@@ -79,15 +79,15 @@ export function SpeciesPanelView({ worldState }: { worldState: WorldSnapshot | n
           return (
           <div
             key={item.speciesId}
-            style={{ borderTop: '1px solid #383838', padding: '0.55rem 0' }}
+            style={{ borderTop: '1px solid var(--sim-color-screen-divider)', padding: '0.55rem 0' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
-              <span style={{ color: strategyColors[item.strategy] ?? '#bbb', fontWeight: 600 }}>
+              <span style={{ color: strategyColors[item.strategy] ?? 'var(--sim-color-screen-ink-dim)', fontWeight: 600 }}>
                 {speciesDisplayName(item.speciesId)}
               </span>
               <span>{item.population}</span>
             </div>
-            <div style={{ color: '#888', fontSize: '0.72rem', margin: '0.15rem 0 0.35rem' }}>
+            <div style={{ color: 'var(--sim-color-screen-ink-muted)', fontSize: '0.72rem', margin: '0.15rem 0 0.35rem' }}>
               {item.strategy} · {item.speciesId} · {item.lineages.length}{' '}
               {item.lineages.length === 1 ? 'lineage' : 'lineages'}
             </div>
@@ -135,7 +135,7 @@ export function SpeciesPanelView({ worldState }: { worldState: WorldSnapshot | n
                   display: 'grid',
                   gridTemplateColumns: '1fr auto',
                   gap: '0.5rem',
-                  color: '#aaa',
+                  color: 'var(--sim-color-screen-ink-soft)',
                   fontSize: '0.72rem',
                   padding: '0.1rem 0 0.1rem 0.5rem',
                 }}
@@ -147,7 +147,7 @@ export function SpeciesPanelView({ worldState }: { worldState: WorldSnapshot | n
                   {lineage.representativeTraits.speed.toFixed(2)}
                   {' '}· metabolism {lineage.representativeTraits.metabolism.toFixed(2)}× (
                   {describeMetabolismTradeoff(lineage.representativeTraits.metabolism).label.toLowerCase()})
-                  {' '}· <span style={{ color: strategyColors[lineage.representativeTraits.energyStrategy] ?? '#aaa' }}>
+                  {' '}· <span style={{ color: strategyColors[lineage.representativeTraits.energyStrategy] ?? 'var(--sim-color-screen-ink-soft)' }}>
                     {lineage.representativeTraits.energyStrategy}
                   </span>
                   {lineage.divergence > 0 && ` · diverging ${(lineage.divergence * 100).toFixed(0)}%`}
@@ -156,7 +156,7 @@ export function SpeciesPanelView({ worldState }: { worldState: WorldSnapshot | n
               </div>
             ))}
             {item.lineages.length > 4 && (
-              <div style={{ color: '#777', fontSize: '0.7rem', paddingLeft: '0.5rem' }}>
+              <div style={{ color: 'var(--sim-color-screen-ink-faint)', fontSize: '0.7rem', paddingLeft: '0.5rem' }}>
                 +{item.lineages.length - 4} more lineages
               </div>
             )}
@@ -190,7 +190,7 @@ export function SpeciesPanelView({ worldState }: { worldState: WorldSnapshot | n
 
       <div style={{ fontWeight: 600, margin: '0.75rem 0 0.35rem' }}>Recent mutations</div>
       {mutations.length === 0 ? (
-        <div style={{ color: '#777', fontSize: '0.75rem' }}>No lineage branches yet</div>
+        <div style={{ color: 'var(--sim-color-screen-ink-faint)', fontSize: '0.75rem' }}>No lineage branches yet</div>
       ) : (
         mutations.map((event, index) => (
           <div

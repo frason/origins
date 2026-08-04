@@ -15,7 +15,7 @@ const overlayStyle: CSSProperties = {
   placeItems: 'center',
   padding: '1rem',
   background: 'rgba(6, 8, 10, 0.86)',
-  color: '#eee',
+  color: 'var(--sim-color-screen-ink)',
   fontFamily: 'system-ui, -apple-system, sans-serif',
 };
 
@@ -24,10 +24,11 @@ const cardStyle: CSSProperties = {
   maxHeight: '90vh',
   overflowY: 'auto',
   padding: '1.5rem',
-  border: '1px solid #555',
+  border: '1px solid var(--sim-color-screen-border)',
   borderRadius: 12,
   background: '#17191c',
   boxShadow: '0 18px 60px rgba(0, 0, 0, 0.6)',
+  colorScheme: 'dark',
 };
 
 function eventText(event: ReturnType<typeof buildSessionSummary>['finalEvents'][number]) {
@@ -204,7 +205,7 @@ export default function ExtinctionSummary({
         <h2 id="extinction-title" style={{ margin: '0.35rem 0 0.4rem', fontSize: '2rem' }}>
           Life has ended{summary.worldName ? ` in ${summary.worldName}` : ''}
         </h2>
-        <p style={{ color: '#aaa', margin: '0 0 1.25rem' }}>
+        <p style={{ color: 'var(--sim-color-screen-ink-soft)', margin: '0 0 1.25rem' }}>
           The last creature is gone, but the world records what happened.
         </p>
 
@@ -214,13 +215,13 @@ export default function ExtinctionSummary({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem' }}>
           {metrics.map(([label, value]) => (
             <div key={label} style={{ background: '#22262a', borderRadius: 7, padding: '0.7rem' }}>
-              <div style={{ color: '#888', fontSize: '0.72rem' }}>{label}</div>
+              <div style={{ color: 'var(--sim-color-screen-ink-muted)', fontSize: '0.72rem' }}>{label}</div>
               <div style={{ fontSize: '1.2rem', marginTop: '0.15rem' }}>{value}</div>
             </div>
           ))}
         </div>
 
-        <div style={{ marginTop: '1.1rem', color: '#aaa' }}>
+        <div style={{ marginTop: '1.1rem', color: 'var(--sim-color-screen-ink-soft)' }}>
           The empty world still holds {Math.round(summary.remainingBiomass).toLocaleString()} units
           of producer biomass.
         </div>
@@ -229,14 +230,14 @@ export default function ExtinctionSummary({
 
         <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '0.9rem' }}>Final events</h3>
         {summary.finalEvents.length === 0 ? (
-          <div style={{ color: '#777' }}>No major events were recorded.</div>
+          <div style={{ color: 'var(--sim-color-screen-ink-faint)' }}>No major events were recorded.</div>
         ) : (
           summary.finalEvents.map((event, index) => (
             <div
               key={`${event.tick}-${event.type}-${event.creatureId ?? event.speciesId ?? index}`}
-              style={{ borderTop: '1px solid #303337', padding: '0.45rem 0', color: '#bbb' }}
+              style={{ borderTop: '1px solid #303337', padding: '0.45rem 0', color: 'var(--sim-color-screen-ink-dim)' }}
             >
-              <span style={{ color: '#777', marginRight: '0.6rem' }}>tick {event.tick}</span>
+              <span style={{ color: 'var(--sim-color-screen-ink-faint)', marginRight: '0.6rem' }}>tick {event.tick}</span>
               {eventText(event)}
             </div>
           ))

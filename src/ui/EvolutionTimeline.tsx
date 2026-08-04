@@ -21,12 +21,12 @@ export default function EvolutionTimeline() {
         <title id="evolution-chart-title">Population and diversity timeline</title>
         <desc id="evolution-chart-description">{model.description}</desc>
         <line x1="0" y1="92" x2="100" y2="92" stroke="#41484b" strokeWidth="0.7" />
-        <polyline points={model.populationPolyline} fill="none" stroke="#79c98a" strokeWidth="1.8" vectorEffect="non-scaling-stroke" />
+        <polyline points={model.populationPolyline} fill="none" stroke="var(--sim-color-screen-positive-soft)" strokeWidth="1.8" vectorEffect="non-scaling-stroke" />
         <polyline points={model.speciesPolyline} fill="none" stroke="#d5b96f" strokeWidth="1.3" vectorEffect="non-scaling-stroke" />
         <polyline points={model.lineagePolyline} fill="none" stroke="#ad91d5" strokeWidth="1.3" vectorEffect="non-scaling-stroke" />
       </svg>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem', marginTop: '0.35rem', color: '#899398', fontSize: '0.65rem' }}>
-        <span style={{ color: '#79c98a' }}>— Population</span>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem', marginTop: '0.35rem', color: 'var(--sim-color-screen-muted-blue)', fontSize: '0.65rem' }}>
+        <span style={{ color: 'var(--sim-color-screen-positive-soft)' }}>— Population</span>
         <span style={{ color: '#d5b96f' }}>— Species</span>
         <span style={{ color: '#ad91d5' }}>— Lineages</span>
       </div>

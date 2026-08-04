@@ -50,7 +50,7 @@ export default function ReplayRecipe({
       <button
         type="button"
         onClick={copy}
-        style={{ marginTop: '0.4rem', border: '1px solid #555', borderRadius: 5, padding: '0.35rem 0.6rem', background: '#30363a', color: '#eee', cursor: 'pointer' }}
+        style={{ marginTop: '0.4rem', border: '1px solid var(--sim-color-screen-border)', borderRadius: 5, padding: '0.35rem 0.6rem', background: '#30363a', color: 'var(--sim-color-screen-ink)', cursor: 'pointer' }}
       >
         Copy recipe
       </button>
@@ -73,7 +73,7 @@ export default function ReplayRecipe({
             style={{ width: '100%', resize: 'vertical', boxSizing: 'border-box', background: '#17191b', color: '#aeb7bb', border: '1px solid #444', borderRadius: 5, padding: '0.45rem', fontSize: '0.65rem' }}
           />
           {parsedImport && !parsedImport.recipe && (
-            <div role="alert" style={{ color: '#e7a16f', fontSize: '0.68rem', marginTop: '0.35rem' }}>
+            <div role="alert" style={{ color: 'var(--sim-color-screen-warning)', fontSize: '0.68rem', marginTop: '0.35rem' }}>
               {parsedImport.error}
             </div>
           )}
@@ -82,7 +82,7 @@ export default function ReplayRecipe({
               <strong style={{ color: '#b8d3dc', fontSize: '0.72rem' }}>
                 {preview.worldName} · seed {preview.seed.toLocaleString()} · through tick {preview.throughTick.toLocaleString()}
               </strong>
-              <div style={{ color: '#899398', fontSize: '0.66rem', marginTop: '0.2rem' }}>
+              <div style={{ color: 'var(--sim-color-screen-muted-blue)', fontSize: '0.66rem', marginTop: '0.2rem' }}>
                 {preview.startingSettings.length > 0
                   ? `Starts with ${preview.startingSettings.join(' · ')}`
                   : 'Starts with shipped simulation settings'}
@@ -108,14 +108,14 @@ export default function ReplayRecipe({
               const error = onReplay(parsedImport.recipe);
               setStatus(error ?? `Replay started for seed ${parsedImport.recipe.seed.toLocaleString()}`);
             }}
-            style={{ marginTop: '0.4rem', border: '1px solid #557267', borderRadius: 5, padding: '0.35rem 0.6rem', background: preview ? '#2b443b' : '#2b3030', color: preview ? '#eee' : '#777', cursor: preview ? 'pointer' : 'not-allowed' }}
+            style={{ marginTop: '0.4rem', border: '1px solid #557267', borderRadius: 5, padding: '0.35rem 0.6rem', background: preview ? '#2b443b' : '#2b3030', color: preview ? 'var(--sim-color-screen-ink)' : 'var(--sim-color-screen-ink-faint)', cursor: preview ? 'pointer' : 'not-allowed' }}
           >
             Start replay
           </button>
         </div>
       )}
       {replayStatus && (
-        <div role="status" style={{ color: replayStatus.includes('complete') ? '#79dc89' : '#9dc6d8', fontSize: '0.68rem', marginTop: '0.45rem' }}>
+        <div role="status" style={{ color: replayStatus.includes('complete') ? 'var(--sim-color-screen-positive)' : '#9dc6d8', fontSize: '0.68rem', marginTop: '0.45rem' }}>
           {replayStatus}
         </div>
       )}

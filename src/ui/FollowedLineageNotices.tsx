@@ -2,10 +2,10 @@ import { useStore } from '../state/store';
 import { buildFollowedLineageNotices, type FollowedNoticeType } from './lineageNoticeModel';
 
 const colors: Record<FollowedNoticeType, string> = {
-  branch: '#bba7e8',
-  rebound: '#79dc89',
+  branch: 'var(--sim-color-screen-accent)',
+  rebound: 'var(--sim-color-screen-positive)',
   dominance: '#d7bd6e',
-  extinction: '#ef8b8b',
+  extinction: 'var(--sim-color-screen-danger)',
 };
 
 export default function FollowedLineageNotices() {
