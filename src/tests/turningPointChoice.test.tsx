@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { TurningPointDialog } from '../ui/TurningPointChoice';
+import { TurningPointToast } from '../ui/TurningPointChoice';
 import type { GodModeRecommendation } from '../ui/godModeRecommendations';
 import type { TurningPointNotice } from '../ui/turningPointModel';
 
@@ -24,44 +24,41 @@ const recommendation: GodModeRecommendation = {
   ],
 };
 
-describe('TurningPointDialog', () => {
-  it('presents the turning point, a stewardship suggestion, and all three explicit choices', () => {
+describe('TurningPointToast', () => {
+  it('presents the turning point and action buttons as a non-blocking toast', () => {
     const html = renderToStaticMarkup(
-      <TurningPointDialog
+      <TurningPointToast
         turningPoint={turningPoint}
         recommendations={[recommendation]}
         onApply={() => undefined}
         onIntroduceSpecies={() => undefined}
         onDoNothing={() => undefined}
+        onDismiss={() => undefined}
       />
     );
 
-    expect(html).toContain('role="dialog"');
-    expect(html).toContain('aria-modal="true"');
+    expect(html).toContain('role="status"');
+    expect(html).toContain('aria-live="assertive"');
     expect(html).toContain('Ecological turnover is intensifying');
     expect(html).toContain('Deaths have outpaced births for several ticks.');
-    expect(html).toContain('The simulation is paused. Choose how to respond.');
-    expect(html).toContain('Ease the energy squeeze');
-    expect(html).toContain('Producer growth');
-    expect(html).toContain('0.1 → 0.125');
-    expect(html).toContain('>Apply<');
-    expect(html).toContain('>Introduce species<');
-    expect(html).toContain('>Do nothing<');
-    expect(html).not.toContain('style=');
+    expect(html).toContain('Introduce');
+    expect(html).toContain('Continue');
+    expect(html).not.toContain('The simulation is paused');
   });
 
-  it('explains when no stewardship suggestion applies, without inventing a fallback', () => {
+  it('shows a compact toast even when no stewardship suggestion applies', () => {
     const html = renderToStaticMarkup(
-      <TurningPointDialog
+      <TurningPointToast
         turningPoint={turningPoint}
         recommendations={[]}
         onApply={() => undefined}
         onIntroduceSpecies={() => undefined}
         onDoNothing={() => undefined}
+        onDismiss={() => undefined}
       />
     );
 
-    expect(html).toContain('No specific stewardship suggestion is available right now.');
-    expect(html).not.toContain('>Apply<');
+    expect(html).toContain('Introduce');
+    expect(html).toContain('Continue');
   });
 });

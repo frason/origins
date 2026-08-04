@@ -7,42 +7,43 @@ import {
 } from '../ui/worldViewport';
 
 describe('world viewport layout', () => {
-  it('fills the entire viewport, stretching cells to a non-square shape when needed', () => {
+  it('keeps cells square, sizing the grid to the limiting viewport axis', () => {
     const wide = calculateGridLayout(1000, 600, 100, 100);
-    expect(wide.cellWidth).toBe(10);
+    expect(wide.cellWidth).toBe(6);
     expect(wide.cellHeight).toBe(6);
-    expect(wide.width).toBe(1000);
+    expect(wide.width).toBe(600);
     expect(wide.height).toBe(600);
 
     const tall = calculateGridLayout(500, 900, 100, 100);
     expect(tall.cellWidth).toBe(5);
-    expect(tall.cellHeight).toBe(9);
+    expect(tall.cellHeight).toBe(5);
     expect(tall.width).toBe(500);
-    expect(tall.height).toBe(900);
+    expect(tall.height).toBe(500);
   });
 
-  it('has no letterboxing offset, since the grid always fills the full viewport', () => {
+  it('centres the grid, splitting leftover space into equal letterbox bars', () => {
     expect(calculateGridLayout(1000, 600, 100, 100)).toMatchObject({
-      offsetX: 0,
+      offsetX: 200,
       offsetY: 0,
     });
     expect(calculateGridLayout(500, 900, 100, 100)).toMatchObject({
       offsetX: 0,
-      offsetY: 0,
+      offsetY: 200,
     });
   });
 
-  it('maps full-viewport coordinates to accurate tiles', () => {
+  it('maps coordinates to accurate tiles, accounting for the letterbox offset', () => {
     const layout = calculateGridLayout(1000, 600, 100, 100);
-    expect(viewportPointToTile(0, 0, layout, 100, 100)).toEqual({ x: 0, y: 0 });
-    expect(viewportPointToTile(997, 597, layout, 100, 100)).toEqual({ x: 99, y: 99 });
-    expect(viewportPointToTile(505, 303, layout, 100, 100)).toEqual({ x: 50, y: 50 });
+    expect(viewportPointToTile(200, 0, layout, 100, 100)).toEqual({ x: 0, y: 0 });
+    expect(viewportPointToTile(797, 597, layout, 100, 100)).toEqual({ x: 99, y: 99 });
+    expect(viewportPointToTile(500, 300, layout, 100, 100)).toEqual({ x: 50, y: 50 });
   });
 
-  it('ignores clicks outside the viewport bounds', () => {
+  it('ignores clicks in the letterbox bars and outside the viewport', () => {
     const layout = calculateGridLayout(1000, 600, 100, 100);
     expect(viewportPointToTile(-1, 300, layout, 100, 100)).toBeNull();
-    expect(viewportPointToTile(1000, 300, layout, 100, 100)).toBeNull();
+    expect(viewportPointToTile(199, 300, layout, 100, 100)).toBeNull();
+    expect(viewportPointToTile(800, 300, layout, 100, 100)).toBeNull();
     expect(viewportPointToTile(300, 600, layout, 100, 100)).toBeNull();
   });
 

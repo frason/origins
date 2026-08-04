@@ -8,12 +8,55 @@
   background: rgb(20 16 10 / 65%);
 }
 
+/* Toast variant: non-blocking notification in corner */
+.turning-point-choice--toast {
+  inset: auto;
+  bottom: var(--sim-space-4);
+  right: var(--sim-space-4);
+  left: auto;
+  padding: 0;
+  background: transparent;
+  display: block;
+  width: auto;
+  max-width: 380px;
+  animation: slideInUp 0.3s ease-out;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 480px) {
+  .turning-point-choice--toast {
+    bottom: var(--sim-space-2);
+    right: var(--sim-space-2);
+    left: var(--sim-space-2);
+    max-width: none;
+  }
+}
+
 .turning-point-choice__card {
   width: min(30rem, 100%);
   max-height: 90vh;
   overflow-y: auto;
   padding: var(--sim-space-4);
   color: var(--sim-color-ink);
+}
+
+.turning-point-choice--toast .turning-point-choice__card {
+  max-width: 380px;
+  padding: var(--sim-space-3);
+  max-height: none;
+  background: rgb(30 26 20 / 95%);
+  border: 1px solid var(--sim-color-border);
+  border-radius: 0.5rem;
 }
 
 .turning-point-choice__eyebrow {
@@ -82,4 +125,50 @@
   .turning-point-choice__actions {
     grid-template-columns: 1fr 1fr;
   }
+}
+
+/* Toast header with close button */
+.turning-point-choice__toast-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--sim-space-2);
+}
+
+.turning-point-choice__close {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--sim-color-ink-muted);
+  cursor: pointer;
+  font-size: 1.2rem;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+.turning-point-choice__close:hover {
+  color: var(--sim-color-ink);
+}
+
+/* Compact buttons for toast */
+.sim-button--compact {
+  padding: 0.4rem 0.8rem;
+  font-size: var(--sim-font-size-xs);
+  white-space: nowrap;
+}
+
+/* Toast action buttons */
+.turning-point-choice__toast-actions {
+  display: flex;
+  gap: var(--sim-space-1);
+  margin-top: var(--sim-space-2);
+  flex-wrap: wrap;
+}
+
+.turning-point-choice--toast .turning-point-choice__detail {
+  margin: var(--sim-space-1) 0 0;
+  font-size: var(--sim-font-size-sm);
 }

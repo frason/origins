@@ -24,6 +24,9 @@
 
 .sim-window__title {
   overflow: hidden;
+  /* min-width:0 lets the title actually truncate instead of forcing the bar
+     wider than the viewport when the transport controls sit beside it. */
+  min-width: 0;
   margin: 0;
   font-family: var(--sim-font-data);
   font-size: var(--sim-font-size-sm);

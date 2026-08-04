@@ -1,7 +1,9 @@
-import { useState } from 'react';
+interface WorldLegendProps {
+  open?: boolean;
+  onToggle?: () => void;
+}
 
-export default function WorldLegend() {
-  const [open, setOpen] = useState(false);
+export default function WorldLegend({ open = false, onToggle }: WorldLegendProps) {
 
   return (
     <aside
@@ -13,7 +15,7 @@ export default function WorldLegend() {
         className="world-legend__toggle"
         aria-expanded={open}
         aria-controls="world-legend-details"
-        onClick={() => setOpen((value) => !value)}
+        onClick={onToggle}
       >
         Map key
       </button>

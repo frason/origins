@@ -11,9 +11,18 @@ import { selectTurningPoint } from './turningPointModel';
 
 interface EvolutionRibbonProps {
   onOpenLineages: () => void;
+  legendOpen?: boolean;
+  onToggleLegend?: () => void;
 }
 
-export default function EvolutionRibbon({ onOpenLineages }: EvolutionRibbonProps) {
+/** Colour replacement by whether the population is holding its own. */
+function replacementTone(ratio: number | null): 'neutral' | 'positive' | 'warning' {
+  if (ratio === null) return 'neutral';
+  if (ratio >= 1) return 'positive';
+  return 'warning';
+}
+
+export default function EvolutionRibbon({ onOpenLineages, legendOpen = false, onToggleLegend }: EvolutionRibbonProps) {
   const world = useStore((state) => state.worldState);
   const tick = useStore((state) => state.tick);
   const [expanded, setExpanded] = useState(false);
@@ -51,16 +60,72 @@ export default function EvolutionRibbon({ onOpenLineages }: EvolutionRibbonProps
         onClick={() => setExpanded(true)}
       >
         <span className="evolution-ribbon__label" id="evolution-ribbon-heading">Evolution over time</span>
-        <svg className="evolution-ribbon__sparkline" viewBox="0 0 100 100" aria-hidden="true">
-          <polyline className="evolution-ribbon__line evolution-ribbon__line--population" points={model.populationPolyline} />
-          <polyline className="evolution-ribbon__line evolution-ribbon__line--species" points={model.speciesPolyline} />
-        </svg>
-        <span className="evolution-ribbon__metric sim-data">
-          Pop. {lastPoint?.population ?? 0} · Species {lastPoint?.speciesCount ?? 0} · Replacement{' '}
-          {formatReplacementRatio(replacement.ecosystem)}
+        <span className="evolution-ribbon__charts">
+          <span className="evolution-ribbon__chart">
+            <svg className="evolution-ribbon__sparkline" viewBox="0 0 100 100" aria-hidden="true">
+              <polyline className="evolution-ribbon__line evolution-ribbon__line--population" points={model.populationPolyline} />
+              <polyline className="evolution-ribbon__line evolution-ribbon__line--species" points={model.speciesPolyline} />
+            </svg>
+            <span className="evolution-ribbon__chart-caption">Population / species</span>
+          </span>
+          <span className="evolution-ribbon__chart">
+            <svg className="evolution-ribbon__sparkline" viewBox="0 0 100 100" aria-hidden="true">
+              <line
+                className="evolution-ribbon__reference"
+                x1="0"
+                y1={replacementTrend.referenceY}
+                x2="100"
+                y2={replacementTrend.referenceY}
+              />
+              {replacementTrend.segments.map((segment, index) => (
+                <polyline
+                  key={`${segment}:${index}`}
+                  className="evolution-ribbon__line evolution-ribbon__line--replacement"
+                  points={segment}
+                />
+              ))}
+            </svg>
+            <span className="evolution-ribbon__chart-caption">Live replacement</span>
+          </span>
+        </span>
+        <span className="evolution-ribbon__stats">
+          <span className="evolution-ribbon__stat">
+            <span className="evolution-ribbon__stat-label">Population</span>
+            <span className="evolution-ribbon__stat-value sim-data">
+              {(lastPoint?.population ?? 0).toLocaleString()}
+            </span>
+          </span>
+          <span className="evolution-ribbon__stat">
+            <span className="evolution-ribbon__stat-label">Species</span>
+            <span className="evolution-ribbon__stat-value sim-data">
+              {(lastPoint?.speciesCount ?? 0).toLocaleString()}
+            </span>
+          </span>
+          <span className="evolution-ribbon__stat">
+            <span className="evolution-ribbon__stat-label">Replacement</span>
+            <span
+              className={`evolution-ribbon__stat-value sim-data evolution-ribbon__stat-value--${replacementTone(replacement.ecosystem.ratio)}`}
+            >
+              {formatReplacementRatio(replacement.ecosystem)}
+            </span>
+          </span>
+          <span className="evolution-ribbon__stat">
+            <span className="evolution-ribbon__stat-label">Tick</span>
+            <span className="evolution-ribbon__stat-value sim-data">{tick.toLocaleString()}</span>
+          </span>
         </span>
         <span className="evolution-ribbon__action">Expand</span>
       </button>
+      {onToggleLegend && (
+        <button
+          type="button"
+          className="evolution-ribbon__map-key"
+          aria-expanded={legendOpen}
+          onClick={onToggleLegend}
+        >
+          Map key
+        </button>
+      )}
 
       {expanded && (
         <aside

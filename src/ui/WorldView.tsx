@@ -20,7 +20,7 @@ import { buildFollowedLineageKeySet, isFollowedLineageMember } from './followedL
 const GRID_WIDTH = 100;
 const GRID_HEIGHT = 100;
 const MAX_BIOMASS = 50; // Maximum producer biomass for green overlay opacity
-const CREATURE_RADIUS = 1; // Radius of creature dots (2px diameter)
+const CREATURE_RADIUS = 3; // Base radius of creature dots; scales with cell size for visibility
 
 const BIOME_COLORS: Record<Biome, [number, number, number]> = {
   ocean: [24, 67, 108],
@@ -378,7 +378,7 @@ const WorldView: React.FC = () => {
         const [r, g, b] = getColorFromSpeciesId(creature.speciesId);
         ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
 
-        const creatureRadius = Math.max(CREATURE_RADIUS, minCellDimension * 0.25);
+        const creatureRadius = Math.max(CREATURE_RADIUS, minCellDimension * 0.35);
         ctx.beginPath();
         ctx.arc(pixelX, pixelY, creatureRadius, 0, 2 * Math.PI);
         ctx.fill();

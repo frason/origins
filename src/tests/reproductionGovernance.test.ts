@@ -3,6 +3,7 @@ import { Creature } from '../simulation/creature';
 import { buildDemoEngine } from '../simulation/demoWorld';
 import { createEngine, hasLocalReproductiveResources, tickEngine } from '../simulation/engine';
 import { World } from '../simulation/world';
+import { CreatureSpatialIndex } from '../simulation/creatureSpatialIndex';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
 import { DEFAULT_TRAITS, type EnergyStrategy } from '../utils/traits';
 
@@ -21,12 +22,15 @@ describe('reproduction governance', () => {
     const world = new World(5, 5);
     const herbivore = animal('herbivore');
     const carnivore = animal('carnivore');
-    expect(hasLocalReproductiveResources(herbivore, [herbivore], world)).toBe(false);
+    let index = new CreatureSpatialIndex([herbivore]);
+    expect(hasLocalReproductiveResources(herbivore, world, index)).toBe(false);
     world.setCell(2, 2, { producerBiomass: 5 });
-    expect(hasLocalReproductiveResources(herbivore, [herbivore], world)).toBe(true);
-    expect(hasLocalReproductiveResources(carnivore, [carnivore], world)).toBe(false);
+    expect(hasLocalReproductiveResources(herbivore, world, index)).toBe(true);
+    index = new CreatureSpatialIndex([carnivore]);
+    expect(hasLocalReproductiveResources(carnivore, world, index)).toBe(false);
     const prey = animal('herbivore', 3, 2);
-    expect(hasLocalReproductiveResources(carnivore, [carnivore, prey], world)).toBe(true);
+    index = new CreatureSpatialIndex([carnivore, prey]);
+    expect(hasLocalReproductiveResources(carnivore, world, index)).toBe(true);
   });
 
   it('keeps the first twelve ticks in an establishment phase', () => {

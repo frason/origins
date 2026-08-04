@@ -1,17 +1,21 @@
 .evolution-ribbon {
+  display: flex;
+  align-items: center;
+  gap: var(--sim-space-2);
   padding: var(--sim-space-1);
 }
 
 .evolution-ribbon__summary {
   display: grid;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   min-height: var(--sim-control-min-size);
-  grid-template-columns: auto minmax(4rem, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
-    "label chart action"
-    "metric metric action";
+    "charts action"
+    "stats stats";
   align-items: center;
-  gap: 0 var(--sim-space-2);
+  gap: var(--sim-space-1) var(--sim-space-2);
   padding: var(--sim-space-1) var(--sim-space-2);
   color: var(--sim-color-ink);
   text-align: start;
@@ -20,7 +24,10 @@
   cursor: pointer;
 }
 
+/* The stat blocks and chart captions carry the meaning on narrow screens, so
+   the heading only appears once there is room for it. */
 .evolution-ribbon__label {
+  display: none;
   grid-area: label;
   font-family: var(--sim-font-data);
   font-size: var(--sim-font-size-xs);
@@ -28,13 +35,79 @@
   text-transform: uppercase;
 }
 
+.evolution-ribbon__charts {
+  display: grid;
+  min-width: 0;
+  grid-area: charts;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: var(--sim-space-2);
+}
+
+.evolution-ribbon__chart {
+  display: grid;
+  min-width: 0;
+  gap: 0.1rem;
+}
+
+.evolution-ribbon__chart-caption {
+  overflow: hidden;
+  color: var(--sim-color-ink-muted);
+  font-family: var(--sim-font-data);
+  font-size: var(--sim-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .evolution-ribbon__sparkline {
   width: 100%;
   height: 2.25rem;
-  grid-area: chart;
   background: var(--sim-color-panel-sunken);
   border: var(--sim-border-thin) solid var(--sim-color-border);
 }
+
+.evolution-ribbon__reference {
+  stroke: var(--sim-color-warning);
+  stroke-width: 1;
+  stroke-dasharray: 3 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.evolution-ribbon__line--replacement {
+  stroke: var(--sim-color-positive);
+}
+
+/* Labelled blocks read faster at a glance than a run-on metric string. */
+.evolution-ribbon__stats {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+  grid-area: stats;
+  align-items: baseline;
+  gap: var(--sim-space-1) var(--sim-space-3);
+}
+
+.evolution-ribbon__stat {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sim-space-1);
+  white-space: nowrap;
+}
+
+.evolution-ribbon__stat-label {
+  color: var(--sim-color-ink-muted);
+  font-family: var(--sim-font-data);
+  font-size: var(--sim-font-size-xs);
+  text-transform: uppercase;
+}
+
+.evolution-ribbon__stat-value {
+  font-size: var(--sim-font-size-md);
+  font-weight: 700;
+}
+
+.evolution-ribbon__stat-value--positive { color: var(--sim-color-positive); }
+.evolution-ribbon__stat-value--warning { color: var(--sim-color-danger); }
 
 .evolution-ribbon__line {
   fill: none;
@@ -52,14 +125,6 @@
 
 .evolution-ribbon__line--lineage {
   stroke: var(--sim-color-focus);
-}
-
-.evolution-ribbon__metric {
-  overflow: hidden;
-  grid-area: metric;
-  font-size: var(--sim-font-size-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .evolution-ribbon__action {
@@ -243,10 +308,32 @@
   margin-block-end: var(--sim-space-2);
 }
 
+.evolution-ribbon__map-key {
+  white-space: nowrap;
+  padding: 0.4rem 0.8rem;
+  font-size: var(--sim-font-size-xs);
+  font-family: var(--sim-font-data);
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--sim-color-ink);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.evolution-ribbon__map-key:hover {
+  color: var(--sim-color-text-strong);
+}
+
 @media (min-width: 48rem) {
   .evolution-ribbon__summary {
     grid-template-columns: auto minmax(12rem, 1fr) auto auto;
-    grid-template-areas: "label chart metric action";
+    grid-template-areas: "label charts stats action";
+  }
+
+  .evolution-ribbon__label {
+    display: block;
   }
 
   .evolution-history {
@@ -256,11 +343,11 @@
 }
 
 @media (orientation: landscape) and (max-height: 32rem) {
-  .evolution-ribbon__summary {
-    grid-template-areas: "label chart action";
+  .evolution-ribbon__sparkline {
+    height: 1.6rem;
   }
 
-  .evolution-ribbon__metric {
+  .evolution-ribbon__chart-caption {
     display: none;
   }
 

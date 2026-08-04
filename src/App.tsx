@@ -6,19 +6,19 @@ import StatsPanel from './ui/StatsPanel';
 import TileInfoPanel from './ui/TileInfoPanel';
 import ExtinctionSummary from './ui/ExtinctionSummary';
 import TurningPointChoice from './ui/TurningPointChoice';
+import FirstRunOnboarding from './ui/FirstRunOnboarding';
 import { useStore } from './state/store';
 import { introduceSpecies, tickEngine, EngineState } from './simulation/engine';
 import type { EnergyStrategy } from './utils/traits';
 import type { FounderTraitOverrides } from './simulation/founderTraits';
 import { buildDemoEngine } from './simulation/demoWorld';
 import { createFreshWorldSeed, DEFAULT_WORLD_SEED } from './ui/worldSeed';
-import SettingsDrawer from './ui/SettingsDrawer';
 import EventTimeline from './ui/EventTimeline';
 import LineageHistory from './ui/LineageHistory';
 import WorldLegend from './ui/WorldLegend';
 import EcosystemPressurePanel from './ui/EcosystemPressurePanel';
 import FollowedLineageNotices from './ui/FollowedLineageNotices';
-import { SETTINGS_TABS, type SettingsTab } from './ui/settingsTabs';
+import { type SettingsTab } from './ui/settingsTabs';
 import {
   advanceRecipeReplay,
   createRecipeReplay,
@@ -29,6 +29,7 @@ import { snapshotEngine } from './state/snapshot';
 import { getUiFrameInterval } from './ui/framePacing';
 import SimWindow from './ui/SimWindow';
 import EvolutionRibbon from './ui/EvolutionRibbon';
+import SettingsPanel from './ui/SettingsPanel';
 import { worldNameFromSeed } from './ui/worldName';
 import {
   captureCheckpoint,
@@ -67,7 +68,6 @@ export default function App() {
   const selectedTile = useStore((s) => s.selectedTile);
   const setRunning = useStore((s) => s.setRunning);
   const setSpeed = useStore((s) => s.setSpeed);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('watch');
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const feedbackBackend: BetaFeedbackBackend | null = useMemo(() => loadBetaFeedbackBackend(), []);
@@ -77,13 +77,13 @@ export default function App() {
   const [replayStatus, setReplayStatus] = useState<string | null>(null);
   const [checkpointTicks, setCheckpointTicks] = useState<number[]>([]);
   const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
+  const [legendOpen, setLegendOpen] = useState(false);
   const worldName = worldNameFromSeed(worldSeed);
 
   const openSettings = useCallback((tab?: SettingsTab) => {
-    // Keep any selected tile intact: Act's Introduce Species flow targets it,
-    // and the drawer overlays the tile inspector rather than competing for space.
+    // Keep any selected tile intact: Act's Introduce Species flow targets it.
+    // The panel is always visible, so this only switches which tab it shows.
     if (tab) setSettingsTab(tab);
-    setSettingsOpen(true);
   }, []);
 
   const publish = useCallback((engine: EngineState) => {
@@ -368,6 +368,33 @@ export default function App() {
         bodyClassName={`app-shell__window-body${selectedTile ? ' app-shell__window-body--inspecting' : ''}`}
         controls={(
           <>
+            <div className="app-shell__transport" aria-label="Simulation transport">
+              <button
+                type="button"
+                className={`sim-button sim-button--compact${isRunning ? ' sim-button--pressed' : ''}`}
+                aria-pressed={isRunning}
+                onClick={() => setRunning(!isRunning)}
+              >
+                {isRunning ? 'Pause' : 'Play'}
+              </button>
+              <button
+                type="button"
+                className="sim-button sim-button--compact"
+                aria-label="Decrease simulation speed"
+                onClick={() => setSpeed(Math.max(0.25, speed / 2))}
+              >
+                −
+              </button>
+              <output className="app-shell__speed sim-data" aria-label="Simulation speed">{speed}×</output>
+              <button
+                type="button"
+                className="sim-button sim-button--compact"
+                aria-label="Increase simulation speed"
+                onClick={() => setSpeed(Math.min(64, speed * 2))}
+              >
+                +
+              </button>
+            </div>
             <button
               type="button"
               className="sim-button sim-button--compact"
@@ -378,69 +405,7 @@ export default function App() {
             >
               Feedback
             </button>
-            <button
-              type="button"
-              className="sim-button sim-button--compact"
-              aria-label="Open world controls"
-              aria-controls="settings-drawer"
-              aria-expanded={settingsOpen}
-              onClick={() => openSettings()}
-            >
-              ⚙
-            </button>
           </>
-        )}
-        menu={(
-          <>
-            {SETTINGS_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                className="app-shell__menu-button"
-                aria-current={settingsOpen && settingsTab === tab.id ? 'page' : undefined}
-                onClick={() => openSettings(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
-            <span className="app-shell__seed">
-              <strong className="app-shell__world-name">{worldName}</strong>
-              {' · '}Seed <span className="sim-data">{worldSeed}</span>
-            </span>
-          </>
-        )}
-        status={(
-          <div className="app-shell__transport" aria-label="Simulation transport">
-            <button
-              type="button"
-              className={`sim-button sim-button--compact${isRunning ? ' sim-button--pressed' : ''}`}
-              aria-pressed={isRunning}
-              onClick={() => setRunning(!isRunning)}
-            >
-              {isRunning ? 'Pause' : 'Play'}
-            </button>
-            <button
-              type="button"
-              className="sim-button sim-button--compact"
-              aria-label="Decrease simulation speed"
-              onClick={() => setSpeed(Math.max(0.25, speed / 2))}
-            >
-              −
-            </button>
-            <output className="app-shell__speed sim-data" aria-label="Simulation speed">{speed}×</output>
-            <button
-              type="button"
-              className="sim-button sim-button--compact"
-              aria-label="Increase simulation speed"
-              onClick={() => setSpeed(Math.min(64, speed * 2))}
-            >
-              +
-            </button>
-            <output className="app-shell__tick sim-data">Tick {tick.toLocaleString()}</output>
-            <span className={`app-shell__run-state ${isRunning ? 'sim-status--positive' : 'sim-status--warning'}`}>
-              {isRunning ? 'Simulation running' : 'Simulation paused'}
-            </span>
-          </div>
         )}
       >
         {recoveryNotice && (
@@ -449,55 +414,59 @@ export default function App() {
             <button type="button" className="sim-button sim-button--compact" onClick={() => setRecoveryNotice(null)}>Dismiss</button>
           </div>
         )}
-        <EvolutionRibbon onOpenLineages={() => openSettings('remember')} />
-        <main aria-label="Ecosystem world" className="app-shell__world">
-          <WorldView />
-          <WorldLegend />
-        </main>
-        <TileInfoPanel onOpenLineages={() => openSettings('remember')} />
-      </SimWindow>
-      <SettingsDrawer
-        isOpen={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        title={SETTINGS_TABS.find((tab) => tab.id === settingsTab)?.label}
-        subtitle={SETTINGS_TABS.find((tab) => tab.id === settingsTab)?.subtitle}
-      >
-        {settingsTab === 'watch' && <StatsPanel />}
-        {settingsTab === 'diagnose' && (
-          <>
-            <EcosystemPressurePanel />
-            <EventTimeline
-              onReplayRecipe={startRecipeReplay}
-              replayStatus={replayStatus}
-            />
-          </>
-        )}
-        {settingsTab === 'act' && (
-          <ControlPanel
-            onReset={reset}
-            onNewWorld={newWorld}
-            onExportWorld={exportWorld}
-            onExportDiagnostic={exportDiagnostic}
-            onImportWorld={importWorld}
-            onCloudBackup={backupWorld}
-            onCloudRestore={restoreCloudWorld}
-            onStartSeed={startWorld}
-            worldSeed={worldSeed}
+        <EvolutionRibbon onOpenLineages={() => openSettings('remember')} legendOpen={legendOpen} onToggleLegend={() => setLegendOpen(!legendOpen)} />
+        <div className="app-shell__stage">
+          <div className="app-shell__stage-main">
+            <main aria-label="Ecosystem world" className="app-shell__world">
+              <WorldView />
+              <WorldLegend open={legendOpen} onToggle={() => setLegendOpen(!legendOpen)} />
+            </main>
+            <TileInfoPanel onOpenLineages={() => openSettings('remember')} />
+          </div>
+          <SettingsPanel
+            activeTab={settingsTab}
+            onTabChange={(tab) => setSettingsTab(tab)}
             worldName={worldName}
-            onIntroduceSpecies={addSpecies}
-            replayActive={replayActive}
-            checkpointTicks={checkpointTicks}
-            onRestoreCheckpoint={restoreToTick}
-          />
-        )}
-        {settingsTab === 'remember' && (
-          <>
-            <FollowedLineageNotices />
-            <SpeciesPanel />
-            <LineageHistory />
-          </>
-        )}
-      </SettingsDrawer>
+            worldSeed={worldSeed}
+          >
+            {settingsTab === 'watch' && <StatsPanel />}
+            {settingsTab === 'diagnose' && (
+              <>
+                <EcosystemPressurePanel />
+                <EventTimeline
+                  onReplayRecipe={startRecipeReplay}
+                  replayStatus={replayStatus}
+                />
+              </>
+            )}
+            {settingsTab === 'act' && (
+              <ControlPanel
+                onReset={reset}
+                onNewWorld={newWorld}
+                onExportWorld={exportWorld}
+                onExportDiagnostic={exportDiagnostic}
+                onImportWorld={importWorld}
+                onCloudBackup={backupWorld}
+                onCloudRestore={restoreCloudWorld}
+                onStartSeed={startWorld}
+                worldSeed={worldSeed}
+                worldName={worldName}
+                onIntroduceSpecies={addSpecies}
+                replayActive={replayActive}
+                checkpointTicks={checkpointTicks}
+                onRestoreCheckpoint={restoreToTick}
+              />
+            )}
+            {settingsTab === 'remember' && (
+              <>
+                <FollowedLineageNotices />
+                <SpeciesPanel />
+                <LineageHistory />
+              </>
+            )}
+          </SettingsPanel>
+        </div>
+      </SimWindow>
       <TurningPointChoice onIntroduceSpecies={() => openSettings('act')} />
       <ExtinctionSummary
         onNewWorld={newWorld}
@@ -510,6 +479,7 @@ export default function App() {
         onClose={() => setFeedbackOpen(false)}
         backend={feedbackBackend}
       />
+      <FirstRunOnboarding />
     </div>
   );
 }

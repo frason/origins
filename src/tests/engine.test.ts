@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Creature } from '../simulation/creature';
 import { World } from '../simulation/world';
+import { CreatureSpatialIndex } from '../simulation/creatureSpatialIndex';
 import {
   createEngine,
   tickEngine,
@@ -91,11 +92,12 @@ describe('Simulation Engine', () => {
         lifecycleState: 'dead', corpseDecayTicks: 20,
       });
       const world = new World(5, 5);
+      const index = new CreatureSpatialIndex([scavenger, corpse]);
 
-      expect(hasLocalReproductiveResources(scavenger, [scavenger, corpse], world))
+      expect(hasLocalReproductiveResources(scavenger, world, index))
         .toBe(false);
       corpse.lineageId = 'naturally_generated_carrion';
-      expect(hasLocalReproductiveResources(scavenger, [scavenger, corpse], world))
+      expect(hasLocalReproductiveResources(scavenger, world, index))
         .toBe(true);
     });
 

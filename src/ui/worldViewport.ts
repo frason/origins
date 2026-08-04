@@ -8,9 +8,9 @@ export interface GridLayout {
 }
 
 /**
- * Fill the entire available viewport rather than letterboxing a square grid
- * inside it: cells stretch to non-square rectangles instead of leaving
- * unused space on wide or tall viewports.
+ * Keep cells square and centre the grid in the viewport, letterboxing the
+ * leftover space. Stretching cells to fill made terrain and creatures read as
+ * distorted on wide viewports, so unused space is preferred over distortion.
  */
 export function calculateGridLayout(
   viewportWidth: number,
@@ -22,13 +22,17 @@ export function calculateGridLayout(
     return { cellWidth: 0, cellHeight: 0, offsetX: 0, offsetY: 0, width: 0, height: 0 };
   }
 
+  const cellSize = Math.min(viewportWidth / columns, viewportHeight / rows);
+  const width = cellSize * columns;
+  const height = cellSize * rows;
+
   return {
-    cellWidth: viewportWidth / columns,
-    cellHeight: viewportHeight / rows,
-    width: viewportWidth,
-    height: viewportHeight,
-    offsetX: 0,
-    offsetY: 0,
+    cellWidth: cellSize,
+    cellHeight: cellSize,
+    width,
+    height,
+    offsetX: (viewportWidth - width) / 2,
+    offsetY: (viewportHeight - height) / 2,
   };
 }
 

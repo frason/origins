@@ -29,9 +29,13 @@ describe('EvolutionRibbon', () => {
 
     const html = renderToStaticMarkup(<EvolutionRibbon onOpenLineages={() => undefined} />);
     expect(html).toContain('Evolution over time');
-    expect(html).toContain('Pop. 1 · Species 1 · Replacement 1.00×');
+    expect(html).toContain('>Population</span><span class="evolution-ribbon__stat-value sim-data">1<');
+    expect(html).toContain('>Species</span><span class="evolution-ribbon__stat-value sim-data">1<');
+    expect(html).toContain('1.00×');
+    expect(html).toContain('>Tick</span><span class="evolution-ribbon__stat-value sim-data">10<');
     expect(html).toContain('aria-controls="evolution-history-panel"');
     expect(html).toContain('class="evolution-ribbon__sparkline"');
+    expect(html).toContain('Live replacement');
     expect(html).not.toContain('style=');
   });
 });

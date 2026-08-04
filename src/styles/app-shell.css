@@ -7,11 +7,16 @@
   background: var(--sim-color-canvas);
 }
 
+/* Title bar then body. Transport lives in the title bar, so there is no
+   status row and the body is the only row that flexes. */
 .app-shell__window {
   display: grid;
   width: 100%;
   height: 100%;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  /* Without an explicit column the implicit one sizes to max-content, letting
+     the title bar push the whole shell wider than the viewport. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .app-shell__window-body {
@@ -20,6 +25,30 @@
   padding: var(--sim-space-1);
   grid-template-rows: auto minmax(0, 1fr);
   gap: var(--sim-space-1);
+}
+
+/* Canvas and the settings panel share one row beneath the full-width ribbon.
+   Stacked, the map keeps a floor so it never collapses to a thin strip. */
+.app-shell__stage {
+  display: grid;
+  min-height: 0;
+  grid-template-rows: minmax(12rem, 1fr) auto;
+  gap: var(--sim-space-1);
+}
+
+.app-shell__stage-main {
+  display: grid;
+  min-height: 0;
+  min-width: 0;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--sim-space-1);
+}
+
+@media (min-width: 64rem) {
+  .app-shell__stage {
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 25rem);
+  }
 }
 
 .app-shell__world {
@@ -74,9 +103,9 @@
   color: var(--sim-color-text-strong);
 }
 
+/* Sits in the title bar next to Feedback. */
 .app-shell__transport {
   display: flex;
-  width: 100%;
   min-width: 0;
   align-items: center;
   gap: var(--sim-space-1);
@@ -84,17 +113,8 @@
 
 .app-shell__speed {
   min-width: 2.5rem;
+  color: var(--sim-color-title-text);
   text-align: center;
-}
-
-.app-shell__tick {
-  margin-inline-start: auto;
-  white-space: nowrap;
-}
-
-.app-shell__run-state {
-  display: none;
-  white-space: nowrap;
 }
 
 @media (min-width: 48rem) {
@@ -105,43 +125,16 @@
   .app-shell__window-body {
     padding: var(--sim-space-2);
   }
-
-  .app-shell__run-state {
-    display: inline;
-  }
 }
 
 @media (orientation: landscape) and (max-height: 32rem) {
-  .app-shell__window > .sim-window__menu-bar {
-    display: none;
-  }
-
   .app-shell__window-body {
     padding: var(--sim-space-1);
   }
-
-  .app-shell__run-state,
-  .app-shell__seed {
-    display: none;
-  }
 }
 
-@media (min-width: 64rem) {
-  .app-shell__window-body--inspecting {
-    grid-template-columns: minmax(0, 1fr) minmax(20rem, 25rem);
-    grid-template-rows: auto minmax(0, 1fr);
-  }
-
-  .app-shell__window-body--inspecting > .evolution-ribbon {
-    grid-column: 1 / -1;
-  }
-
-  .app-shell__window-body--inspecting > .app-shell__world {
-    grid-column: 1;
-    grid-row: 2;
-  }
-}
-
+/* The ribbon's "Map key" button owns the toggle, so the overlay is purely the
+   key itself and is absent — not an empty box — while closed. */
 .world-legend {
   align-self: start;
   margin: 0.5rem;
@@ -153,21 +146,15 @@
   z-index: 2;
 }
 
-.world-legend__toggle {
-  display: block;
-  width: 100%;
-  padding: 0;
-  color: inherit;
-  font: inherit;
-  font-weight: 700;
-  text-align: left;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
+.world-legend:not(.world-legend--open) {
+  display: none;
 }
 
-.world-legend__details { display: none; gap: 0.25rem; }
-.world-legend--open .world-legend__details { display: grid; margin-top: 0.25rem; }
+.world-legend__toggle {
+  display: none;
+}
+
+.world-legend__details { display: grid; gap: 0.25rem; }
 
 .world-legend span { align-items: center; display: flex; gap: 0.4rem; font-size: 0.75rem; }
 .world-legend__swatch { border: 1px solid var(--sim-ink, #2b241b); height: 0.7rem; width: 0.7rem; }
@@ -178,12 +165,3 @@
 .world-legend__swatch--miasma { background: #d98a21; }
 .world-legend__swatch--followed { background: #6b6558; border: 2px solid #ffffff; border-radius: 50%; }
 
-@media (min-width: 48rem) {
-  .world-legend__toggle {
-    display: none;
-  }
-
-  .world-legend__details {
-    display: grid;
-  }
-}

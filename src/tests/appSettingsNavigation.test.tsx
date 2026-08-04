@@ -14,8 +14,8 @@ describe('app settings navigation', () => {
     expect(html).toContain('>Remember<');
     expect(html).not.toContain('>World<');
 
-    // Defaults to the Watch view, matching the drawer's default title/subtitle.
-    expect(html).toContain('class="sim-window__title">Watch<');
-    expect(html).toContain('What&#x27;s happening right now');
+    // The tabs live in the always-visible settings panel and default to Watch.
+    expect(html).toContain('class="settings-panel__tabs"');
+    expect(html).toContain('settings-panel__tab settings-panel__tab--active" aria-current="page">Watch<');
   });
 });

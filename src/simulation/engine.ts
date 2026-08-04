@@ -96,15 +96,17 @@ function ecosystemCheckpoint(world: World, creatures: Creature[]) {
 /** Require a nearby food source before converting stored energy into offspring. */
 export function hasLocalReproductiveResources(
   creature: Creature,
-  creatures: Creature[],
   world: World,
+  spatialIndex: CreatureSpatialIndex,
   supportedEnergy: number = Infinity
 ): boolean {
   const strategy = creature.traits.energyStrategy;
   const cellHasProducers = world.getCell(creature.x, creature.y).producerBiomass >= 5;
-  const nearby = creatures.filter((other) =>
-    other.id !== creature.id
-    && Math.max(Math.abs(other.x - creature.x), Math.abs(other.y - creature.y)) <= 1
+  // querySquare returns bucket candidates, a superset of the requested square,
+  // so the Chebyshev bound still has to be applied here.
+  const nearby = spatialIndex.querySquare(creature.x, creature.y, 1).filter(
+    (other) => other.id !== creature.id
+      && Math.max(Math.abs(other.x - creature.x), Math.abs(other.y - creature.y)) <= 1
   );
   const hasPrey = nearby.some((other) =>
     other.lifecycleState === 'alive'
@@ -700,8 +702,8 @@ export function tickEngine(
         + constants.reproductionEnergyCost * 0.25 * (1 - timing.urgency);
     const hasResources = hasLocalReproductiveResources(
       creature,
-      creatures,
       newWorld,
+      creatureIndex,
       resourceThreshold
     );
     const baseEligible = canReproduce(
@@ -731,10 +733,15 @@ export function tickEngine(
         constants.reproductionEnergyCost * timing.costMultiplier
       );
       const offspringEnergy = Math.min(constants.reproductionEnergyCost, energyPaid);
+      const nearbySources = creatureIndex.querySquare(
+        creature.x,
+        creature.y,
+        constants.corpseToxicityRadius
+      );
       const mutationPressure = getLocalMiasmaMutationPressure(
         creature.x,
         creature.y,
-        creatures,
+        nearbySources,
         constants.corpseToxicityRadius,
         constants.corpseDecayDurationTicks
       );

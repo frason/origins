@@ -2,11 +2,12 @@
 @import './reset.css';
 @import './sim-ui.css';
 @import './app-shell.css';
-@import './settings-drawer.css';
+@import './settings-panel.css';
 @import './world-view.css';
 @import './evolution-ribbon.css';
 @import './tile-inspector.css';
 @import './control-panel.css';
 @import './extinction-summary.css';
 @import './turning-point-choice.css';
+@import './first-run-onboarding.css';
 @import './beta-feedback.css';

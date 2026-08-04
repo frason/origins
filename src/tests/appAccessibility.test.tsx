@@ -13,7 +13,6 @@ describe('app accessibility shell', () => {
     expect(html).toContain('<main aria-label="Ecosystem world"');
     expect(html).toContain('class="app-shell__transport"');
     expect(html).toContain('aria-label="Simulation speed"');
-    expect(html).toContain('aria-controls="settings-drawer"');
     expect(html).toContain('role="application"');
     expect(html).toContain('aria-roledescription="interactive ecosystem grid"');
     expect(html).toContain('aria-describedby="world-keyboard-instructions"');
