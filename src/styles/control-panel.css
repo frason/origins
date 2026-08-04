@@ -38,6 +38,44 @@
   text-transform: uppercase;
 }
 
+.control-panel__mode-presets {
+  display: grid;
+  gap: var(--sim-space-2);
+  margin: var(--sim-space-2) 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.control-panel__mode-presets legend {
+  margin-block-end: var(--sim-space-1);
+  padding: 0;
+  font-family: var(--sim-font-data);
+  font-size: var(--sim-font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.control-panel__mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sim-space-2);
+  cursor: pointer;
+}
+
+.control-panel__mode-option input {
+  margin-block-start: 0.2rem;
+}
+
+.control-panel__mode-option-text {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.control-panel__mode-option-description {
+  color: var(--sim-color-ink-muted);
+  font-size: var(--sim-font-size-xs);
+}
+
 .control-panel__input {
   width: 100%;
   min-width: 0;
