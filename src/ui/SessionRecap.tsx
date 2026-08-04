@@ -15,13 +15,14 @@ import EcosystemPointsPanel from './EcosystemPointsPanel';
 const overlayStyle: CSSProperties = {
   position: 'fixed', inset: 0, zIndex: 300, display: 'grid', placeItems: 'center',
   padding: '1rem', background: 'rgba(6, 8, 10, 0.86)',
-  fontFamily: 'system-ui, -apple-system, sans-serif', color: '#eee',
+  fontFamily: 'system-ui, -apple-system, sans-serif', color: 'var(--sim-color-screen-ink)',
 };
 
 const cardStyle: CSSProperties = {
   width: 'min(720px, 100%)', maxHeight: '90vh', overflowY: 'auto',
   padding: '1.25rem', boxSizing: 'border-box', border: '1px solid #526067',
   borderRadius: 12, background: '#171b1e', boxShadow: '0 18px 60px rgba(0,0,0,.6)',
+  colorScheme: 'dark',
 };
 
 const buttonStyle: CSSProperties = {
@@ -30,8 +31,8 @@ const buttonStyle: CSSProperties = {
 };
 
 const comparisonColors: Record<SessionComparisonTone, string> = {
-  ended: '#ef8b8b', contraction: '#e7a16f', expansion: '#79c98a',
-  evolution: '#bba7e8', mixed: '#c2b58c', steady: '#93a0a6',
+  ended: 'var(--sim-color-screen-danger)', contraction: 'var(--sim-color-screen-warning)', expansion: 'var(--sim-color-screen-positive-soft)',
+  evolution: 'var(--sim-color-screen-accent)', mixed: '#c2b58c', steady: '#93a0a6',
 };
 
 function signed(value: number): string {
@@ -95,13 +96,13 @@ function RecapDialog({
       <div style={cardStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'start' }}>
           <div>
-            <div style={{ color: summary.status === 'living' ? '#79c98a' : '#ef8b8b', fontSize: '0.68rem', letterSpacing: '0.12em' }}>
+            <div style={{ color: summary.status === 'living' ? 'var(--sim-color-screen-positive-soft)' : 'var(--sim-color-screen-danger)', fontSize: '0.68rem', letterSpacing: '0.12em' }}>
               {summary.status === 'living' ? 'LIVING WORLD' : 'SESSION ENDED'}
             </div>
             <h2 id="session-recap-title" style={{ margin: '0.25rem 0 0.2rem' }}>
               {summary.worldName ? `${summary.worldName} — story so far` : 'Story so far'}
             </h2>
-            <div style={{ color: '#899398', fontSize: '0.75rem' }}>
+            <div style={{ color: 'var(--sim-color-screen-muted-blue)', fontSize: '0.75rem' }}>
               Snapshot captured at tick {summary.ticksSurvived.toLocaleString()}; the simulation was not paused.
             </div>
           </div>
@@ -134,7 +135,7 @@ function RecapDialog({
               </button>
             </div>
           </div>
-          <label htmlFor="observation-note" style={{ display: 'block', color: '#899398', fontSize: '0.66rem', marginTop: '0.45rem' }}>
+          <label htmlFor="observation-note" style={{ display: 'block', color: 'var(--sim-color-screen-muted-blue)', fontSize: '0.66rem', marginTop: '0.45rem' }}>
             What did you change or expect? (optional)
           </label>
           <textarea

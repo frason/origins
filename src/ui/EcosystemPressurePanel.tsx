@@ -2,10 +2,10 @@ import { useStore } from '../state/store';
 import { getEcosystemPressures, type PressureTone } from './ecosystemPressures';
 
 const colors: Record<PressureTone, string> = {
-  critical: '#ef8b8b',
+  critical: 'var(--sim-color-screen-danger)',
   warning: '#e1b66d',
   watch: '#9fc3d0',
-  calm: '#79c98a',
+  calm: 'var(--sim-color-screen-positive-soft)',
 };
 
 export default function EcosystemPressurePanel() {
@@ -16,7 +16,7 @@ export default function EcosystemPressurePanel() {
   if (pressures.length === 0) return null;
 
   return (
-    <section aria-labelledby="pressure-title" style={{ borderTop: '1px solid #383838', marginTop: '0.65rem', paddingTop: '0.55rem' }}>
+    <section aria-labelledby="pressure-title" style={{ borderTop: '1px solid var(--sim-color-screen-divider)', marginTop: '0.65rem', paddingTop: '0.55rem' }}>
       <div id="pressure-title" style={{ fontWeight: 600, color: '#c8d2d6', marginBottom: '0.3rem' }}>
         What is shaping the ecosystem?
       </div>

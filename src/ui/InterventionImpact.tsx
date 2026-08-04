@@ -4,8 +4,8 @@ import { buildInterventionImpact } from './interventionImpactModel';
 
 const toneColors = {
   early: '#8aa8b8',
-  positive: '#79dc89',
-  warning: '#e7a16f',
+  positive: 'var(--sim-color-screen-positive)',
+  warning: 'var(--sim-color-screen-warning)',
   neutral: '#c2b58c',
 };
 
@@ -35,17 +35,17 @@ export default function InterventionImpact() {
         <strong id="intervention-impact-title" style={{ color: '#9fd5e0' }}>
           Since intervention
         </strong>
-        <span style={{ color: '#777', fontSize: '0.68rem' }}>{impact.ticksSince} ticks</span>
+        <span style={{ color: 'var(--sim-color-screen-ink-faint)', fontSize: '0.68rem' }}>{impact.ticksSince} ticks</span>
       </div>
       <div style={{ color: toneColors[impact.tone], margin: '0.25rem 0 0.5rem', fontWeight: 600 }}>
         {impact.summary}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.3rem' }}>
-        <div style={itemStyle}><small style={{ color: '#777' }}>Population</small><div>{signed(impact.populationDelta)}</div></div>
-        <div style={itemStyle}><small style={{ color: '#777' }}>Species</small><div>{signed(impact.speciesDelta)}</div></div>
-        <div style={itemStyle}><small style={{ color: '#777' }}>Lineages</small><div>{signed(impact.lineageDelta)}</div></div>
+        <div style={itemStyle}><small style={{ color: 'var(--sim-color-screen-ink-faint)' }}>Population</small><div>{signed(impact.populationDelta)}</div></div>
+        <div style={itemStyle}><small style={{ color: 'var(--sim-color-screen-ink-faint)' }}>Species</small><div>{signed(impact.speciesDelta)}</div></div>
+        <div style={itemStyle}><small style={{ color: 'var(--sim-color-screen-ink-faint)' }}>Lineages</small><div>{signed(impact.lineageDelta)}</div></div>
       </div>
-      <div style={{ color: '#888', fontSize: '0.67rem', marginTop: '0.45rem', lineHeight: 1.4 }}>
+      <div style={{ color: 'var(--sim-color-screen-ink-muted)', fontSize: '0.67rem', marginTop: '0.45rem', lineHeight: 1.4 }}>
         {impact.births} births · {impact.deaths} deaths · {impact.mutations} mutations ·{' '}
         biomass {signed(impact.producerBiomassDelta)}
       </div>

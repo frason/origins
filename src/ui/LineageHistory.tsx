@@ -7,10 +7,10 @@ import {
 } from './lineageHistoryModel';
 
 const panelStyle: CSSProperties = {
-  backgroundColor: '#222',
+  backgroundColor: 'var(--sim-color-screen)',
   borderRadius: 8,
   padding: '0.75rem 1rem',
-  color: '#eee',
+  color: 'var(--sim-color-screen-ink)',
   fontFamily: 'system-ui, -apple-system, sans-serif',
   fontSize: '0.8rem',
 };
@@ -66,7 +66,7 @@ export default function LineageHistory() {
       </div>
       {followedPanel}
       {histories.length === 0 ? (
-        <div style={{ color: '#777' }}>Lineages will appear after life begins evolving.</div>
+        <div style={{ color: 'var(--sim-color-screen-ink-faint)' }}>Lineages will appear after life begins evolving.</div>
       ) : (
         <>
           <div style={{ display: 'flex', gap: '0.35rem', overflowX: 'auto', paddingBottom: '0.45rem' }}>
@@ -80,11 +80,11 @@ export default function LineageHistory() {
                 }}
                 aria-pressed={selected?.speciesId === history.speciesId}
                 style={{
-                  border: '1px solid #555',
+                  border: '1px solid var(--sim-color-screen-border)',
                   borderRadius: 999,
                   padding: '0.25rem 0.5rem',
                   background: selected?.speciesId === history.speciesId ? '#3b4d58' : '#292929',
-                  color: '#ddd',
+                  color: 'var(--sim-color-screen-ink-bright)',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
                   fontSize: '0.68rem',
@@ -94,7 +94,7 @@ export default function LineageHistory() {
               </button>
             ))}
           </div>
-          <div style={{ color: '#888', fontSize: '0.68rem', marginBottom: '0.35rem' }}>
+          <div style={{ color: 'var(--sim-color-screen-ink-muted)', fontSize: '0.68rem', marginBottom: '0.35rem' }}>
             {selected.lineages.length} lineages · {selected.population} living creatures
           </div>
           {selected.lineages.map((lineage) => (
@@ -114,7 +114,7 @@ export default function LineageHistory() {
                   {lineage.name}
                 </strong>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <span style={{ color: '#777', whiteSpace: 'nowrap' }}>
+                  <span style={{ color: 'var(--sim-color-screen-ink-faint)', whiteSpace: 'nowrap' }}>
                     {lineage.status === 'living' ? `${lineage.population} living` : 'extinct'}
                   </span>
                   <button
@@ -125,13 +125,13 @@ export default function LineageHistory() {
                       speciesId: selected.speciesId,
                       lineageId: lineage.lineageId,
                     })}
-                    style={{ border: 0, background: 'transparent', color: followedLineages.some((item) => item.speciesId === selected.speciesId && item.lineageId === lineage.lineageId) ? '#e4c66c' : '#777', cursor: 'pointer', padding: '0.1rem' }}
+                    style={{ border: 0, background: 'transparent', color: followedLineages.some((item) => item.speciesId === selected.speciesId && item.lineageId === lineage.lineageId) ? '#e4c66c' : 'var(--sim-color-screen-ink-faint)', cursor: 'pointer', padding: '0.1rem' }}
                   >
                     {followedLineages.some((item) => item.speciesId === selected.speciesId && item.lineageId === lineage.lineageId) ? '★' : '☆'}
                   </button>
                 </div>
               </div>
-              <div style={{ color: '#777', fontSize: '0.66rem', marginTop: '0.1rem' }}>
+              <div style={{ color: 'var(--sim-color-screen-ink-faint)', fontSize: '0.66rem', marginTop: '0.1rem' }}>
                 {lineage.parentLineageId ? `branched at tick ${lineage.firstSeenTick}` : 'founding lineage'}
               </div>
               {lineage.traitChanges.map((change) => (
