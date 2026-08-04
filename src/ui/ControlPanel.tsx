@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/store';
-import { BALANCED_LONGEVITY_PRESET } from '../utils/constants';
 import { DEFAULT_TRAITS, type EnergyStrategy } from '../utils/traits';
+import { applyWorldModePreset, WORLD_MODE_OPTIONS, type WorldMode } from './worldModePresets';
 import {
   FOUNDER_TRAIT_CONTROLS,
   FOUNDER_TRAIT_PRESETS,
@@ -192,6 +192,7 @@ export default function ControlPanel({
   const updateConstants = useStore((state) => state.updateConstants);
   const resetConstants = useStore((state) => state.resetConstants);
   const [showGodMode, setShowGodMode] = useState(false);
+  const [worldMode, setWorldMode] = useState<WorldMode>('standard');
   const [introductionStrategy, setIntroductionStrategy] = useState<EnergyStrategy>('herbivore');
   const [introductionName, setIntroductionName] = useState('');
   const [founderPreset, setFounderPreset] = useState<FounderTraitPreset | 'custom'>('balanced');
@@ -261,6 +262,7 @@ export default function ControlPanel({
       setSeedMessage(result.message);
       return;
     }
+    applyWorldModePreset(worldMode, resetConstants, updateConstants);
     onStartSeed(result.seed);
     setSeedDraft(String(result.seed));
     setSeedMessage(
@@ -283,7 +285,18 @@ export default function ControlPanel({
           {isRunning ? 'Pause' : 'Play'}
         </button>
         {onReset && <button className="sim-button" type="button" onClick={onReset}>Replay world</button>}
-        {onNewWorld && <button className="sim-button" type="button" onClick={onNewWorld}>New world</button>}
+        {onNewWorld && (
+          <button
+            className="sim-button"
+            type="button"
+            onClick={() => {
+              applyWorldModePreset(worldMode, resetConstants, updateConstants);
+              onNewWorld();
+            }}
+          >
+            New world
+          </button>
+        )}
         {onExportWorld && <button className="sim-button" type="button" onClick={onExportWorld}>Export world</button>}
         {onExportDiagnostic && (
           <button
@@ -356,6 +369,25 @@ export default function ControlPanel({
       {onStartSeed && (
         <section className="control-panel__section" aria-labelledby="world-name-title">
           <h3 className="control-panel__section-title" id="world-name-title">{worldName}</h3>
+          <fieldset className="control-panel__mode-presets">
+            <legend>World mode</legend>
+            {WORLD_MODE_OPTIONS.map((option) => (
+              <label className="control-panel__mode-option" key={option.id}>
+                <input
+                  type="radio"
+                  name="world-mode"
+                  value={option.id}
+                  checked={worldMode === option.id}
+                  onChange={() => setWorldMode(option.id)}
+                />
+                <span className="control-panel__mode-option-text">
+                  <span>{option.label}</span>
+                  <span className="control-panel__mode-option-description">{option.description}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+          <p className="control-panel__help">Applies the next time you start a new world or seed.</p>
           <details>
             <summary>World details</summary>
             <div className="control-panel__field-row">
@@ -435,7 +467,6 @@ export default function ControlPanel({
             {replayActive ? 'Recipe replay controls these values until playback completes.' : 'Changes apply on the next tick and are recorded in world history.'}
           </p>
           <div className="control-panel__field-row">
-            <button className="sim-button" type="button" disabled={replayActive} onClick={() => updateConstants(BALANCED_LONGEVITY_PRESET)}>Apply longevity</button>
             <button className="sim-button" type="button" disabled={replayActive} onClick={resetConstants}>Reset defaults</button>
           </div>
 
