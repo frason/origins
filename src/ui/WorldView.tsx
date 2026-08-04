@@ -280,12 +280,16 @@ const WorldView: React.FC = () => {
         constants.corpseDecayDurationTicks
       );
 
+      // Cell shape can be non-square: the layout fills the full viewport
+      // rather than letterboxing a square grid inside it.
+      const minCellDimension = Math.min(layout.cellWidth, layout.cellHeight);
+
       // Render grid cells
       for (let y = 0; y < grid.height; y++) {
         for (let x = 0; x < grid.width; x++) {
           const cell = grid.cellAt(x, y);
-          const pixelX = layout.offsetX + x * layout.cellSize;
-          const pixelY = layout.offsetY + y * layout.cellSize;
+          const pixelX = layout.offsetX + x * layout.cellWidth;
+          const pixelY = layout.offsetY + y * layout.cellHeight;
 
           // Tint the deterministic biome palette by local energy.
           const energyRatio = Math.min(1, cell.energy / Math.max(1, constants.baseSolarEnergy));
@@ -295,7 +299,7 @@ const WorldView: React.FC = () => {
             255,
             Math.round(baseG * brightness)
           )}, ${Math.min(255, Math.round(baseB * brightness))})`;
-          ctx.fillRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
+          ctx.fillRect(pixelX, pixelY, layout.cellWidth, layout.cellHeight);
 
           // Apply green overlay for producer biomass
           if (cell.producerBiomass > 0) {
@@ -304,7 +308,7 @@ const WorldView: React.FC = () => {
 
             const [producerR, producerG, producerB] = PRODUCER_COLORS[cell.producerArchetype];
             ctx.fillStyle = `rgba(${producerR}, ${producerG}, ${producerB}, ${opacity})`;
-            ctx.fillRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
+            ctx.fillRect(pixelX, pixelY, layout.cellWidth, layout.cellHeight);
           }
 
           if (elevationVisible) {
@@ -314,20 +318,20 @@ const WorldView: React.FC = () => {
             ctx.fillStyle = elevation.tone === 'light'
               ? `rgba(255, 246, 214, ${elevation.opacity})`
               : `rgba(15, 22, 28, ${elevation.opacity})`;
-            ctx.fillRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
+            ctx.fillRect(pixelX, pixelY, layout.cellWidth, layout.cellHeight);
 
             ctx.strokeStyle = 'rgba(37, 31, 24, 0.42)';
-            ctx.lineWidth = Math.max(0.45, layout.cellSize * 0.08);
+            ctx.lineWidth = Math.max(0.45, minCellDimension * 0.08);
             if (elevation.contourTop) {
               ctx.beginPath();
               ctx.moveTo(pixelX, pixelY);
-              ctx.lineTo(pixelX + layout.cellSize, pixelY);
+              ctx.lineTo(pixelX + layout.cellWidth, pixelY);
               ctx.stroke();
             }
             if (elevation.contourLeft) {
               ctx.beginPath();
               ctx.moveTo(pixelX, pixelY);
-              ctx.lineTo(pixelX, pixelY + layout.cellSize);
+              ctx.lineTo(pixelX, pixelY + layout.cellHeight);
               ctx.stroke();
             }
           }
@@ -336,20 +340,20 @@ const WorldView: React.FC = () => {
           const toxicityOpacity = getToxicityHazard(cell.toxicity).overlayOpacity;
           if (toxicityOpacity > 0) {
             ctx.fillStyle = `rgba(105, 45, 120, ${toxicityOpacity})`;
-            ctx.fillRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
+            ctx.fillRect(pixelX, pixelY, layout.cellWidth, layout.cellHeight);
           }
 
           // Mutation pressure is an amber edge, deliberately distinct from violet toxin harm.
           const pressure = miasmaPressure[y * grid.width + x];
           if (pressure > 0) {
             ctx.strokeStyle = `rgba(255, 214, 89, ${0.12 + pressure * 0.42})`;
-            ctx.lineWidth = Math.max(0.5, layout.cellSize * 0.1);
-            const inset = Math.max(0.25, layout.cellSize * 0.14);
+            ctx.lineWidth = Math.max(0.5, minCellDimension * 0.1);
+            const inset = Math.max(0.25, minCellDimension * 0.14);
             ctx.strokeRect(
               pixelX + inset,
               pixelY + inset,
-              Math.max(0, layout.cellSize - inset * 2),
-              Math.max(0, layout.cellSize - inset * 2)
+              Math.max(0, layout.cellWidth - inset * 2),
+              Math.max(0, layout.cellHeight - inset * 2)
             );
           }
         }
@@ -362,11 +366,11 @@ const WorldView: React.FC = () => {
           continue;
         }
 
-        const pixelX = layout.offsetX + creature.x * layout.cellSize + layout.cellSize / 2;
-        const pixelY = layout.offsetY + creature.y * layout.cellSize + layout.cellSize / 2;
+        const pixelX = layout.offsetX + creature.x * layout.cellWidth + layout.cellWidth / 2;
+        const pixelY = layout.offsetY + creature.y * layout.cellHeight + layout.cellHeight / 2;
 
         if (creature.lifecycleState !== 'alive') {
-          const corpseSize = Math.max(1.5, layout.cellSize * 0.45);
+          const corpseSize = Math.max(1.5, minCellDimension * 0.45);
           ctx.fillStyle = '#8b6f55';
           ctx.fillRect(pixelX - corpseSize / 2, pixelY - corpseSize / 2, corpseSize, corpseSize);
           continue;
@@ -376,7 +380,7 @@ const WorldView: React.FC = () => {
         ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
 
         ctx.beginPath();
-        ctx.arc(pixelX, pixelY, Math.max(CREATURE_RADIUS, layout.cellSize * 0.25), 0, 2 * Math.PI);
+        ctx.arc(pixelX, pixelY, Math.max(CREATURE_RADIUS, minCellDimension * 0.25), 0, 2 * Math.PI);
         ctx.fill();
       }
 
@@ -385,11 +389,11 @@ const WorldView: React.FC = () => {
         selectedTile.x >= 0 && selectedTile.x < GRID_WIDTH &&
         selectedTile.y >= 0 && selectedTile.y < GRID_HEIGHT
       ) {
-        const pixelX = layout.offsetX + selectedTile.x * layout.cellSize;
-        const pixelY = layout.offsetY + selectedTile.y * layout.cellSize;
+        const pixelX = layout.offsetX + selectedTile.x * layout.cellWidth;
+        const pixelY = layout.offsetY + selectedTile.y * layout.cellHeight;
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = Math.max(1, layout.cellSize * 0.18);
-        ctx.strokeRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
+        ctx.lineWidth = Math.max(1, minCellDimension * 0.18);
+        ctx.strokeRect(pixelX, pixelY, layout.cellWidth, layout.cellHeight);
       }
 
     });

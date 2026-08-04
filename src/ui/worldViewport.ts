@@ -1,11 +1,17 @@
 export interface GridLayout {
-  cellSize: number;
+  cellWidth: number;
+  cellHeight: number;
   offsetX: number;
   offsetY: number;
   width: number;
   height: number;
 }
 
+/**
+ * Fill the entire available viewport rather than letterboxing a square grid
+ * inside it: cells stretch to non-square rectangles instead of leaving
+ * unused space on wide or tall viewports.
+ */
 export function calculateGridLayout(
   viewportWidth: number,
   viewportHeight: number,
@@ -13,18 +19,16 @@ export function calculateGridLayout(
   rows: number
 ): GridLayout {
   if (viewportWidth <= 0 || viewportHeight <= 0 || columns <= 0 || rows <= 0) {
-    return { cellSize: 0, offsetX: 0, offsetY: 0, width: 0, height: 0 };
+    return { cellWidth: 0, cellHeight: 0, offsetX: 0, offsetY: 0, width: 0, height: 0 };
   }
 
-  const cellSize = Math.min(viewportWidth / columns, viewportHeight / rows);
-  const width = cellSize * columns;
-  const height = cellSize * rows;
   return {
-    cellSize,
-    width,
-    height,
-    offsetX: (viewportWidth - width) / 2,
-    offsetY: (viewportHeight - height) / 2,
+    cellWidth: viewportWidth / columns,
+    cellHeight: viewportHeight / rows,
+    width: viewportWidth,
+    height: viewportHeight,
+    offsetX: 0,
+    offsetY: 0,
   };
 }
 
@@ -36,7 +40,8 @@ export function viewportPointToTile(
   rows: number
 ): { x: number; y: number } | null {
   if (
-    layout.cellSize <= 0 ||
+    layout.cellWidth <= 0 ||
+    layout.cellHeight <= 0 ||
     x < layout.offsetX ||
     y < layout.offsetY ||
     x >= layout.offsetX + layout.width ||
@@ -45,8 +50,8 @@ export function viewportPointToTile(
     return null;
   }
 
-  const tileX = Math.floor((x - layout.offsetX) / layout.cellSize);
-  const tileY = Math.floor((y - layout.offsetY) / layout.cellSize);
+  const tileX = Math.floor((x - layout.offsetX) / layout.cellWidth);
+  const tileY = Math.floor((y - layout.offsetY) / layout.cellHeight);
   return tileX < columns && tileY < rows ? { x: tileX, y: tileY } : null;
 }
 
