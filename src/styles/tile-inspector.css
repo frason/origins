@@ -137,13 +137,16 @@
 }
 
 @media (min-width: 64rem) {
+  /* Float over the canvas rather than taking layout space from it, so
+     selecting a tile never shrinks the map. */
   .tile-inspector {
-    position: static;
-    width: 100%;
-    height: 100%;
-    max-height: none;
-    grid-column: 2;
-    grid-row: 2;
+    position: absolute;
+    inset: auto auto var(--sim-space-2) var(--sim-space-2);
+    z-index: 3;
+    display: flex;
+    width: min(22rem, calc(100% - var(--sim-space-4)));
+    max-height: min(70%, 32rem);
+    flex-direction: column;
   }
 
   .tile-inspector__expand {
@@ -151,7 +154,9 @@
   }
 
   .tile-inspector__body {
-    max-height: calc(100% - 3.5rem);
+    min-height: 0;
+    max-height: none;
+    flex: 1;
   }
 
   .tile-inspector:not(.tile-inspector--expanded) .tile-inspector__section--details {

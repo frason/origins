@@ -36,14 +36,6 @@
   gap: var(--sim-space-1);
 }
 
-.app-shell__stage-main {
-  display: grid;
-  min-height: 0;
-  min-width: 0;
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: var(--sim-space-1);
-}
-
 @media (min-width: 64rem) {
   .app-shell__stage {
     grid-template-rows: minmax(0, 1fr);

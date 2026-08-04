@@ -365,7 +365,7 @@ export default function App() {
         title="Project Origins — Living World"
         titleAs="h1"
         className="app-shell__window"
-        bodyClassName={`app-shell__window-body${selectedTile ? ' app-shell__window-body--inspecting' : ''}`}
+        bodyClassName="app-shell__window-body"
         controls={(
           <>
             <div className="app-shell__transport" aria-label="Simulation transport">
@@ -416,13 +416,11 @@ export default function App() {
         )}
         <EvolutionRibbon onOpenLineages={() => openSettings('remember')} legendOpen={legendOpen} onToggleLegend={() => setLegendOpen(!legendOpen)} />
         <div className="app-shell__stage">
-          <div className="app-shell__stage-main">
-            <main aria-label="Ecosystem world" className="app-shell__world">
-              <WorldView />
-              <WorldLegend open={legendOpen} onToggle={() => setLegendOpen(!legendOpen)} />
-            </main>
+          <main aria-label="Ecosystem world" className="app-shell__world">
+            <WorldView />
+            <WorldLegend open={legendOpen} onToggle={() => setLegendOpen(!legendOpen)} />
             <TileInfoPanel onOpenLineages={() => openSettings('remember')} />
-          </div>
+          </main>
           <SettingsPanel
             activeTab={settingsTab}
             onTabChange={(tab) => setSettingsTab(tab)}
