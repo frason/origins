@@ -19,6 +19,11 @@ import {
 } from '../simulation/speciesNames';
 import { describeFounderSuitability } from './habitatSuitability';
 
+const TOTAL_GOD_MODE_CONTROL_COUNT = GOD_MODE_GROUPS.reduce(
+  (total, group) => total + group.controls.length,
+  0
+);
+
 interface ControlPanelProps {
   onReset?: () => void;
   onNewWorld?: () => void;
@@ -434,11 +439,13 @@ export default function ControlPanel({
             <button className="sim-button" type="button" disabled={replayActive} onClick={resetConstants}>Reset defaults</button>
           </div>
 
-          {recommendations.length > 0 && (
-            <section className="control-panel__section" aria-labelledby="stewardship-title">
-              <h4 className="control-panel__section-title" id="stewardship-title">Stewardship suggestions</h4>
-              <p className="control-panel__help">Optional responses to measured conditions—not automatic fixes.</p>
-              {recommendations.map((recommendation) => (
+          <section className="control-panel__section" aria-labelledby="stewardship-title">
+            <h4 className="control-panel__section-title" id="stewardship-title">Stewardship suggestions</h4>
+            <p className="control-panel__help">Optional responses to measured conditions—not automatic fixes.</p>
+            {recommendations.length === 0 ? (
+              <p className="control-panel__help">No suggestions right now — measured conditions look stable.</p>
+            ) : (
+              recommendations.map((recommendation) => (
                 <article className="control-panel__recommendation sim-panel" key={recommendation.id}>
                   <h5 className="control-panel__recommendation-title">{recommendation.title}</h5>
                   <p>{recommendation.reason}</p>
@@ -462,10 +469,10 @@ export default function ControlPanel({
                     </button>
                   )}
                 </article>
-              ))}
-              <div className="control-panel__status sim-status--positive" role="status">{recommendationMessage}</div>
-            </section>
-          )}
+              ))
+            )}
+            <div className="control-panel__status sim-status--positive" role="status">{recommendationMessage}</div>
+          </section>
 
           {onIntroduceSpecies && (
             <section className="control-panel__section" aria-labelledby="introduce-species-title">
@@ -593,27 +600,36 @@ export default function ControlPanel({
             </section>
           )}
 
-          <div className="control-panel__groups">
-            {GOD_MODE_GROUPS.map((group, index) => (
-              <details className="control-panel__group sim-panel" key={group.id} open={index === 0}>
-                <summary className="control-panel__group-summary">
-                  <span>{group.label}</span>
-                  <span className="control-panel__group-count sim-data">{group.controls.length} controls</span>
-                </summary>
-                <p className="control-panel__help">{group.description}</p>
-                {group.controls.map((config) => (
-                  <GodModeSlider
-                    config={config}
-                    disabled={replayActive}
-                    helpOpen={openHelpKey === config.key}
-                    key={config.key}
-                    onHelpClose={() => setOpenHelpKey(null)}
-                    onHelpToggle={() => setOpenHelpKey((key) => nextOpenHelpKey(key, config.key))}
-                  />
-                ))}
-              </details>
-            ))}
-          </div>
+          <details className="control-panel__advanced sim-panel">
+            <summary className="control-panel__group-summary">
+              <span>Advanced: raw simulation constants</span>
+              <span className="control-panel__group-count sim-data">{TOTAL_GOD_MODE_CONTROL_COUNT} controls</span>
+            </summary>
+            <p className="control-panel__help">
+              Hand-tune the same constants stewardship suggestions adjust for you. Most players won&apos;t need this.
+            </p>
+            <div className="control-panel__groups">
+              {GOD_MODE_GROUPS.map((group) => (
+                <details className="control-panel__group sim-panel" key={group.id}>
+                  <summary className="control-panel__group-summary">
+                    <span>{group.label}</span>
+                    <span className="control-panel__group-count sim-data">{group.controls.length} controls</span>
+                  </summary>
+                  <p className="control-panel__help">{group.description}</p>
+                  {group.controls.map((config) => (
+                    <GodModeSlider
+                      config={config}
+                      disabled={replayActive}
+                      helpOpen={openHelpKey === config.key}
+                      key={config.key}
+                      onHelpClose={() => setOpenHelpKey(null)}
+                      onHelpToggle={() => setOpenHelpKey((key) => nextOpenHelpKey(key, config.key))}
+                    />
+                  ))}
+                </details>
+              ))}
+            </div>
+          </details>
         </section>
       )}
     </section>

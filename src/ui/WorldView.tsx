@@ -13,6 +13,7 @@ import TurningPointNotice from './TurningPointNotice';
 import { createDrawScheduler, type DrawScheduler } from './drawScheduler';
 import { buildMiasmaPressureGrid, getToxicityHazard } from '../simulation/toxicity';
 import { elevationAppearance } from './elevationLayer';
+import { buildFollowedLineageKeySet, isFollowedLineageMember } from './followedLineageMarker';
 
 /**
  * Rendering constants for the canvas grid
@@ -157,6 +158,7 @@ function extractCreatures(worldState: any): Array<{
   x: number;
   y: number;
   speciesId: string;
+  lineageId: string;
   lifecycleState: 'alive' | 'dead' | 'corpse';
   corpseDecayTicks: number;
 }> {
@@ -177,8 +179,7 @@ function extractCreatures(worldState: any): Array<{
 const WorldView: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawSchedulerRef = useRef<DrawScheduler | null>(null);
-  const { worldState, tick, selectedTile, setSelectedTile, constants } = useStore();
-  const [elevationVisible, setElevationVisible] = useState(true);
+  const { worldState, tick, selectedTile, setSelectedTile, constants, followedLineages } = useStore();
   const [layout, setLayout] = useState<GridLayout>(() =>
     calculateGridLayout(400, 400, GRID_WIDTH, GRID_HEIGHT)
   );
@@ -307,29 +308,27 @@ const WorldView: React.FC = () => {
             ctx.fillRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
           }
 
-          if (elevationVisible) {
-            const northElevation = y > 0 ? grid.cellAt(x, y - 1).elevation : cell.elevation;
-            const westElevation = x > 0 ? grid.cellAt(x - 1, y).elevation : cell.elevation;
-            const elevation = elevationAppearance(cell.elevation, northElevation, westElevation);
-            ctx.fillStyle = elevation.tone === 'light'
-              ? `rgba(255, 246, 214, ${elevation.opacity})`
-              : `rgba(15, 22, 28, ${elevation.opacity})`;
-            ctx.fillRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
+          const northElevation = y > 0 ? grid.cellAt(x, y - 1).elevation : cell.elevation;
+          const westElevation = x > 0 ? grid.cellAt(x - 1, y).elevation : cell.elevation;
+          const elevation = elevationAppearance(cell.elevation, northElevation, westElevation);
+          ctx.fillStyle = elevation.tone === 'light'
+            ? `rgba(255, 246, 214, ${elevation.opacity})`
+            : `rgba(15, 22, 28, ${elevation.opacity})`;
+          ctx.fillRect(pixelX, pixelY, layout.cellSize, layout.cellSize);
 
-            ctx.strokeStyle = 'rgba(37, 31, 24, 0.42)';
-            ctx.lineWidth = Math.max(0.45, layout.cellSize * 0.08);
-            if (elevation.contourTop) {
-              ctx.beginPath();
-              ctx.moveTo(pixelX, pixelY);
-              ctx.lineTo(pixelX + layout.cellSize, pixelY);
-              ctx.stroke();
-            }
-            if (elevation.contourLeft) {
-              ctx.beginPath();
-              ctx.moveTo(pixelX, pixelY);
-              ctx.lineTo(pixelX, pixelY + layout.cellSize);
-              ctx.stroke();
-            }
+          ctx.strokeStyle = 'rgba(37, 31, 24, 0.42)';
+          ctx.lineWidth = Math.max(0.45, layout.cellSize * 0.08);
+          if (elevation.contourTop) {
+            ctx.beginPath();
+            ctx.moveTo(pixelX, pixelY);
+            ctx.lineTo(pixelX + layout.cellSize, pixelY);
+            ctx.stroke();
+          }
+          if (elevation.contourLeft) {
+            ctx.beginPath();
+            ctx.moveTo(pixelX, pixelY);
+            ctx.lineTo(pixelX, pixelY + layout.cellSize);
+            ctx.stroke();
           }
 
           // Decaying corpses leave a visible, fading violet ecological scar.
@@ -356,6 +355,7 @@ const WorldView: React.FC = () => {
       }
 
       // Render creatures as colored dots
+      const followedKeys = buildFollowedLineageKeySet(followedLineages);
       for (const creature of creatures) {
         // Ensure coordinates are within bounds
         if (creature.x < 0 || creature.x >= GRID_WIDTH || creature.y < 0 || creature.y >= GRID_HEIGHT) {
@@ -375,9 +375,19 @@ const WorldView: React.FC = () => {
         const [r, g, b] = getColorFromSpeciesId(creature.speciesId);
         ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
 
+        const creatureRadius = Math.max(CREATURE_RADIUS, layout.cellSize * 0.25);
         ctx.beginPath();
-        ctx.arc(pixelX, pixelY, Math.max(CREATURE_RADIUS, layout.cellSize * 0.25), 0, 2 * Math.PI);
+        ctx.arc(pixelX, pixelY, creatureRadius, 0, 2 * Math.PI);
         ctx.fill();
+
+        // Followed lineages get a persistent ring so players can track them on the map.
+        if (isFollowedLineageMember(followedKeys, creature.speciesId, creature.lineageId)) {
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = Math.max(0.6, layout.cellSize * 0.12);
+          ctx.beginPath();
+          ctx.arc(pixelX, pixelY, creatureRadius + ctx.lineWidth, 0, 2 * Math.PI);
+          ctx.stroke();
+        }
       }
 
       if (
@@ -393,7 +403,7 @@ const WorldView: React.FC = () => {
       }
 
     });
-  }, [worldState, layout, constants.baseSolarEnergy, elevationVisible, selectedTile]);
+  }, [worldState, layout, constants.baseSolarEnergy, selectedTile, followedLineages]);
 
   const handleKeyboardNavigation = (event: React.KeyboardEvent<HTMLCanvasElement>) => {
     const navigation = navigateTileSelection(
@@ -413,14 +423,6 @@ const WorldView: React.FC = () => {
 
   return (
     <div className="world-view">
-      <button
-        className={`world-view__elevation-toggle${elevationVisible ? ' world-view__elevation-toggle--active' : ''}`}
-        type="button"
-        aria-pressed={elevationVisible}
-        onClick={() => setElevationVisible((visible) => !visible)}
-      >
-        Elevation {elevationVisible ? 'on' : 'off'}
-      </button>
       <canvas
         ref={canvasRef}
         role="application"
