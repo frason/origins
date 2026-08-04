@@ -1,0 +1,85 @@
+.turning-point-choice {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: var(--sim-space-3);
+  background: rgb(20 16 10 / 65%);
+}
+
+.turning-point-choice__card {
+  width: min(30rem, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: var(--sim-space-4);
+  color: var(--sim-color-ink);
+}
+
+.turning-point-choice__eyebrow {
+  font-family: var(--sim-font-data);
+  font-size: var(--sim-font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--sim-color-warning);
+}
+
+.turning-point-choice__eyebrow--critical { color: var(--sim-color-danger); }
+.turning-point-choice__eyebrow--watch { color: var(--sim-color-focus); }
+.turning-point-choice__eyebrow--positive { color: var(--sim-color-positive); }
+
+.turning-point-choice__title {
+  margin: var(--sim-space-1) 0 0;
+  font-size: 1.3rem;
+}
+
+.turning-point-choice__detail {
+  margin: var(--sim-space-2) 0 0;
+  line-height: 1.4;
+}
+
+.turning-point-choice__paused {
+  margin: var(--sim-space-2) 0 var(--sim-space-3);
+  padding-block-start: var(--sim-space-2);
+  color: var(--sim-color-ink-muted);
+  font-size: var(--sim-font-size-sm);
+  border-block-start: var(--sim-border-thin) solid var(--sim-color-border);
+}
+
+.turning-point-choice__empty {
+  color: var(--sim-color-ink-muted);
+  font-size: var(--sim-font-size-sm);
+}
+
+.turning-point-choice__recommendation {
+  margin-block-end: var(--sim-space-2);
+}
+
+.turning-point-choice__recommendation-title {
+  margin: 0 0 var(--sim-space-1);
+  font-size: var(--sim-font-size-sm);
+}
+
+.turning-point-choice__change {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sim-space-2);
+  font-size: var(--sim-font-size-xs);
+}
+
+.turning-point-choice__wide-button {
+  width: 100%;
+  margin-block-start: var(--sim-space-2);
+}
+
+.turning-point-choice__actions {
+  display: grid;
+  gap: var(--sim-space-2);
+  margin-block-start: var(--sim-space-3);
+}
+
+@media (min-width: 36rem) {
+  .turning-point-choice__actions {
+    grid-template-columns: 1fr 1fr;
+  }
+}

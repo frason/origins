@@ -60,6 +60,12 @@
   text-decoration: underline;
 }
 
+.app-shell__menu-button[aria-current="page"] {
+  color: var(--sim-color-text-strong);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
 .app-shell__seed {
   margin-inline-start: auto;
 }

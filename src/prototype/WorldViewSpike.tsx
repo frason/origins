@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import '../styles/prototype-world-views.css';
 import fixture from './fixtures/default-world-t100.json';
 import PrototypeMap from './PrototypeMap';
 import ThreeWorldView from './ThreeWorldView';

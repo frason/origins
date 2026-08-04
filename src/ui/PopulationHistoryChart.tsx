@@ -47,14 +47,14 @@ export default function PopulationHistoryChart({ world, tick }: { world: WorldSn
               type="button"
               aria-pressed={mode === option}
               onClick={() => setMode(option)}
-              style={{ border: '1px solid #555', background: mode === option ? '#d3b38c' : '#292d30', color: mode === option ? '#18130f' : '#ddd', padding: '0.25rem 0.45rem', textTransform: 'capitalize' }}
+              style={{ border: '1px solid var(--sim-color-screen-border)', background: mode === option ? 'var(--sim-color-screen-highlight)' : '#292d30', color: mode === option ? '#18130f' : 'var(--sim-color-screen-ink-bright)', padding: '0.25rem 0.45rem', textTransform: 'capitalize' }}
             >
               {option}
             </button>
           ))}
         </div>
       </div>
-      <p style={{ color: '#888', fontSize: '0.68rem', margin: '0.3rem 0 0.45rem' }}>
+      <p style={{ color: 'var(--sim-color-screen-ink-muted)', fontSize: '0.68rem', margin: '0.3rem 0 0.45rem' }}>
         Stacked living populations from tick {chart.ticks[0]?.toLocaleString() ?? 0} to {tick.toLocaleString()}.
       </p>
       <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label={`Stacked ${mode} population history`} style={{ display: 'block', width: '100%', aspectRatio: `${WIDTH} / ${HEIGHT}`, background: '#101315', border: '1px solid #3b4144' }}>
@@ -84,7 +84,7 @@ export default function PopulationHistoryChart({ world, tick }: { world: WorldSn
         })}
       </svg>
       {activeAnnotation && (
-        <div aria-live="polite" style={{ borderLeft: '3px solid #d3b38c', padding: '0.4rem 0.55rem', marginTop: '0.5rem', background: '#202427' }}>
+        <div aria-live="polite" style={{ borderLeft: '3px solid var(--sim-color-screen-highlight)', padding: '0.4rem 0.55rem', marginTop: '0.5rem', background: '#202427' }}>
           <strong style={{ fontSize: '0.72rem' }}>{activeAnnotation.title}</strong>
           <div style={{ color: '#8e999f', fontSize: '0.67rem', marginTop: '0.1rem' }}>
             Tick {activeAnnotation.tick.toLocaleString()} · {activeAnnotation.detail}
@@ -93,7 +93,7 @@ export default function PopulationHistoryChart({ world, tick }: { world: WorldSn
       )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))', gap: '0.25rem 0.6rem', marginTop: '0.5rem' }}>
         {chart.series.map((series) => (
-          <div key={series.id} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#aaa', fontSize: '0.67rem' }}>
+          <div key={series.id} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--sim-color-screen-ink-soft)', fontSize: '0.67rem' }}>
             <span aria-hidden="true" style={{ width: '0.65rem', height: '0.65rem', background: series.color, flex: '0 0 auto' }} />
             <span>{series.name} · peak {series.peak.toLocaleString()}</span>
           </div>

@@ -10,7 +10,6 @@ import {
   type DynamicsMetric,
   type HealthTone,
 } from './ecosystemHealth';
-import EcosystemPressurePanel from './EcosystemPressurePanel';
 import { getLiveEventTotals } from './liveEventMetrics';
 import {
   getEcosystemTrajectories,
@@ -21,10 +20,10 @@ import { buildPopulationGovernanceSummary } from './populationGovernanceModel';
 import { formatReplacementRatio, getReplacementMetrics } from './replacementMetrics';
 
 const panelStyle: CSSProperties = {
-  backgroundColor: '#222',
+  backgroundColor: 'var(--sim-color-screen)',
   borderRadius: 8,
   padding: '0.75rem 1rem',
-  color: '#eee',
+  color: 'var(--sim-color-screen-ink)',
   fontFamily: 'system-ui, -apple-system, sans-serif',
   fontSize: '0.85rem',
 };
@@ -33,7 +32,7 @@ const toneColors: Record<HealthTone, { background: string; color: string }> = {
   danger: { background: '#5a2d2d', color: '#ff8a8a' },
   warning: { background: '#5a522d', color: '#eadb78' },
   stable: { background: '#2d4a5a', color: '#79d8e8' },
-  healthy: { background: '#2d5a35', color: '#79dc89' },
+  healthy: { background: '#2d5a35', color: 'var(--sim-color-screen-positive)' },
 };
 
 function Badge({ label, tone }: { label: string; tone: HealthTone }) {
@@ -58,7 +57,7 @@ function Badge({ label, tone }: { label: string; tone: HealthTone }) {
 function Row({ label, value }: { label: string; value: string | number }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.15rem 0' }}>
-      <span style={{ color: '#bbb' }}>{label}</span>
+      <span style={{ color: 'var(--sim-color-screen-ink-dim)' }}>{label}</span>
       <span>{value}</span>
     </div>
   );
@@ -67,7 +66,7 @@ function Row({ label, value }: { label: string; value: string | number }) {
 function HelpRow({ label, value, help }: { label: string; value: string | number; help: string }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', padding: '0.15rem 0' }}>
-      <span style={{ color: '#bbb' }} title={help}>{label} <span aria-hidden="true">?</span></span>
+      <span style={{ color: 'var(--sim-color-screen-ink-dim)' }} title={help}>{label} <span aria-hidden="true">?</span></span>
       <span>{value}</span>
     </div>
   );
@@ -78,11 +77,11 @@ function NoteRow({ label, value, note }: { label: string; value: string | number
   return (
     <div style={{ padding: '0.15rem 0' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
-        <span style={{ color: '#bbb' }}>{label}</span>
+        <span style={{ color: 'var(--sim-color-screen-ink-dim)' }}>{label}</span>
         <span>{value}</span>
       </div>
       {note && (
-        <div style={{ color: '#888', fontSize: '0.68rem', lineHeight: 1.35, marginTop: '0.1rem' }}>
+        <div style={{ color: 'var(--sim-color-screen-ink-muted)', fontSize: '0.68rem', lineHeight: 1.35, marginTop: '0.1rem' }}>
           {note}
         </div>
       )}
@@ -107,7 +106,7 @@ function DynamicsRow({
   return (
     <div style={{ margin: '0.55rem 0' }} title={metric.explanation}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
-        <span style={{ color: '#ddd', fontWeight: 600 }}>{label}</span>
+        <span style={{ color: 'var(--sim-color-screen-ink-bright)', fontWeight: 600 }}>{label}</span>
         <span style={{ color: colors.color }}>{metric.label} · {metric.score}</span>
       </div>
       <div style={{ height: 5, margin: '0.25rem 0', borderRadius: 99, background: '#3a3a3a' }}>
@@ -115,12 +114,12 @@ function DynamicsRow({
           style={{ width: `${metric.score}%`, height: '100%', borderRadius: 99, background: colors.color }}
         />
       </div>
-      <div style={{ color: '#888', fontSize: '0.68rem', lineHeight: 1.35 }}>
+      <div style={{ color: 'var(--sim-color-screen-ink-muted)', fontSize: '0.68rem', lineHeight: 1.35 }}>
         {metric.explanation}
       </div>
       <div
         title={trajectory.explanation}
-        style={{ color: '#aaa', fontSize: '0.68rem', lineHeight: 1.35, marginTop: '0.15rem' }}
+        style={{ color: 'var(--sim-color-screen-ink-soft)', fontSize: '0.68rem', lineHeight: 1.35, marginTop: '0.15rem' }}
       >
         {trajectorySymbols[trajectory.direction]} {trajectory.label} — {trajectory.explanation}
       </div>
@@ -188,7 +187,7 @@ export default function StatsPanel() {
       <DynamicsRow label="Order" metric={dynamics.order} trajectory={trajectories.order} />
       <DynamicsRow label="Chaos" metric={dynamics.chaos} trajectory={trajectories.chaos} />
       <DynamicsRow label="Exploration" metric={dynamics.exploration} trajectory={trajectories.exploration} />
-      <div style={{ borderTop: '1px solid #383838', margin: '0.65rem 0 0.45rem' }} />
+      <div style={{ borderTop: '1px solid var(--sim-color-screen-divider)', margin: '0.65rem 0 0.45rem' }} />
       <NoteRow
         label="Population"
         value={populationGovernance.populationLabel}
@@ -234,7 +233,6 @@ export default function StatsPanel() {
         value={biomass?.recoveryLabel ?? '—'}
         help="Change in occupied-habitat food between bounded history samples."
       />
-      <EcosystemPressurePanel />
     </div>
   );
 }

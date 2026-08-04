@@ -4,24 +4,23 @@ import { buildEventStories, getPopulationTrend, type StoryTone } from './eventTi
 import InterventionImpact from './InterventionImpact';
 import ReplayRecipe from './ReplayRecipe';
 import type { WorldRecipe } from './worldRecipe';
-import FollowedLineageNotices from './FollowedLineageNotices';
 import EvolutionTimeline from './EvolutionTimeline';
 import SessionRecap from './SessionRecap';
 import { worldNameFromSeed } from './worldName';
 
 const panelStyle: CSSProperties = {
-  backgroundColor: '#222',
+  backgroundColor: 'var(--sim-color-screen)',
   borderRadius: 8,
   padding: '0.75rem 1rem',
-  color: '#eee',
+  color: 'var(--sim-color-screen-ink)',
   fontFamily: 'system-ui, -apple-system, sans-serif',
   fontSize: '0.8rem',
 };
 
 const toneColors: Record<StoryTone, string> = {
   growth: '#78cf83',
-  loss: '#e7a16f',
-  evolution: '#bba7e8',
+  loss: 'var(--sim-color-screen-warning)',
+  evolution: 'var(--sim-color-screen-accent)',
   extinction: '#ef7c7c',
   intervention: '#70c7d8',
 };
@@ -53,22 +52,21 @@ export default function EventTimeline({
           <SessionRecap />
         </div>
       </div>
-      <div style={{ color: '#777', fontSize: '0.68rem', margin: '0.2rem 0 0.6rem' }}>
+      <div style={{ color: 'var(--sim-color-screen-ink-faint)', fontSize: '0.68rem', margin: '0.2rem 0 0.6rem' }}>
         {trend.explanation}
       </div>
       <InterventionImpact />
-      <FollowedLineageNotices />
       <EvolutionTimeline />
       <ReplayRecipe onReplay={onReplayRecipe} replayStatus={replayStatus} />
 
       {stories.length === 0 ? (
-        <div style={{ color: '#777' }}>The world is waiting for its first major event.</div>
+        <div style={{ color: 'var(--sim-color-screen-ink-faint)' }}>The world is waiting for its first major event.</div>
       ) : (
         <div aria-live="polite">
           {stories.map((story) => (
             <article
               key={story.id}
-              style={{ borderTop: '1px solid #383838', padding: '0.5rem 0 0.45rem' }}
+              style={{ borderTop: '1px solid var(--sim-color-screen-divider)', padding: '0.5rem 0 0.45rem' }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.6rem' }}>
                 <strong style={{ color: toneColors[story.tone], fontSize: '0.74rem' }}>

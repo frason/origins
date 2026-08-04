@@ -87,3 +87,14 @@ export const GOD_MODE_GROUPS: GodModeControlGroup[] = [
 export function defaultValueFor(config: GodModeSliderConfig): number {
   return SIMULATION_CONSTANTS[config.key];
 }
+
+/**
+ * Once a world has ticked forward, raw constant edits are locked: the only
+ * permitted doorways left are applying a stewardship suggestion and
+ * introducing a species, both already logged, named interventions. Tick 0
+ * (a freshly created, still-paused world) remains editable so a chosen
+ * world-mode preset can still be hand-tuned before play begins.
+ */
+export function isGodModeLocked(tick: number, replayActive: boolean): boolean {
+  return replayActive || tick > 0;
+}

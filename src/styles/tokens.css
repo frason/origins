@@ -17,6 +17,32 @@
   --sim-color-danger: #7d3328;
   --sim-color-focus: #1e4f8c;
 
+  /*
+   * "Screen" tones: the dark, data-dense panels (StatsPanel, SpeciesPanel,
+   * LineageHistory, EventTimeline, and related session/recap screens) are a
+   * deliberately separate surface from the beige instrument chrome above,
+   * not an accident of build order. These extract the hex values that were
+   * already repeated identically across those files into named tokens;
+   * values are unchanged from what already shipped, so this is not a
+   * re-theme.
+   */
+  --sim-color-screen: #222;
+  --sim-color-screen-ink: #eee;
+  --sim-color-screen-ink-bright: #ddd;
+  --sim-color-screen-ink-dim: #bbb;
+  --sim-color-screen-ink-soft: #aaa;
+  --sim-color-screen-ink-muted: #888;
+  --sim-color-screen-ink-faint: #777;
+  --sim-color-screen-border: #555;
+  --sim-color-screen-divider: #383838;
+  --sim-color-screen-positive: #79dc89;
+  --sim-color-screen-positive-soft: #79c98a;
+  --sim-color-screen-warning: #e7a16f;
+  --sim-color-screen-danger: #ef8b8b;
+  --sim-color-screen-accent: #bba7e8;
+  --sim-color-screen-muted-blue: #899398;
+  --sim-color-screen-highlight: #d3b38c;
+
   --sim-font-interface: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --sim-font-data: "Courier New", Courier, monospace;
   --sim-font-size-xs: 0.6875rem;

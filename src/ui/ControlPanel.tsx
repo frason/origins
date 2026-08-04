@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/store';
-import { BALANCED_LONGEVITY_PRESET } from '../utils/constants';
 import { DEFAULT_TRAITS, type EnergyStrategy } from '../utils/traits';
+import { applyWorldModePreset, WORLD_MODE_OPTIONS, type WorldMode } from './worldModePresets';
 import {
   FOUNDER_TRAIT_CONTROLS,
   FOUNDER_TRAIT_PRESETS,
@@ -12,7 +12,7 @@ import { parseWorldSeed } from './worldSeed';
 import { getEcosystemPressures } from './ecosystemPressures';
 import { getEcosystemTrajectories } from './ecosystemTrajectory';
 import { getGodModeRecommendations, recommendationPatch } from './godModeRecommendations';
-import { defaultValueFor, GOD_MODE_GROUPS, type GodModeSliderConfig } from './godModeControls';
+import { defaultValueFor, GOD_MODE_GROUPS, isGodModeLocked, type GodModeSliderConfig } from './godModeControls';
 import {
   MAX_SPECIES_NAME_LENGTH,
   suggestedIntroducedSpeciesName,
@@ -192,6 +192,7 @@ export default function ControlPanel({
   const updateConstants = useStore((state) => state.updateConstants);
   const resetConstants = useStore((state) => state.resetConstants);
   const [showGodMode, setShowGodMode] = useState(false);
+  const [worldMode, setWorldMode] = useState<WorldMode>('standard');
   const [introductionStrategy, setIntroductionStrategy] = useState<EnergyStrategy>('herbivore');
   const [introductionName, setIntroductionName] = useState('');
   const [founderPreset, setFounderPreset] = useState<FounderTraitPreset | 'custom'>('balanced');
@@ -207,6 +208,7 @@ export default function ControlPanel({
   const [diagnosticMessage, setDiagnosticMessage] = useState<string | null>(null);
   const [cloudMessage, setCloudMessage] = useState<string | null>(null);
   const [cloudBusy, setCloudBusy] = useState(false);
+  const godModeLocked = isGodModeLocked(tick, replayActive);
 
   const recommendations = showGodMode
     ? getGodModeRecommendations(
@@ -261,6 +263,7 @@ export default function ControlPanel({
       setSeedMessage(result.message);
       return;
     }
+    applyWorldModePreset(worldMode, resetConstants, updateConstants);
     onStartSeed(result.seed);
     setSeedDraft(String(result.seed));
     setSeedMessage(
@@ -283,7 +286,18 @@ export default function ControlPanel({
           {isRunning ? 'Pause' : 'Play'}
         </button>
         {onReset && <button className="sim-button" type="button" onClick={onReset}>Replay world</button>}
-        {onNewWorld && <button className="sim-button" type="button" onClick={onNewWorld}>New world</button>}
+        {onNewWorld && (
+          <button
+            className="sim-button"
+            type="button"
+            onClick={() => {
+              applyWorldModePreset(worldMode, resetConstants, updateConstants);
+              onNewWorld();
+            }}
+          >
+            New world
+          </button>
+        )}
         {onExportWorld && <button className="sim-button" type="button" onClick={onExportWorld}>Export world</button>}
         {onExportDiagnostic && (
           <button
@@ -356,6 +370,25 @@ export default function ControlPanel({
       {onStartSeed && (
         <section className="control-panel__section" aria-labelledby="world-name-title">
           <h3 className="control-panel__section-title" id="world-name-title">{worldName}</h3>
+          <fieldset className="control-panel__mode-presets">
+            <legend>World mode</legend>
+            {WORLD_MODE_OPTIONS.map((option) => (
+              <label className="control-panel__mode-option" key={option.id}>
+                <input
+                  type="radio"
+                  name="world-mode"
+                  value={option.id}
+                  checked={worldMode === option.id}
+                  onChange={() => setWorldMode(option.id)}
+                />
+                <span className="control-panel__mode-option-text">
+                  <span>{option.label}</span>
+                  <span className="control-panel__mode-option-description">{option.description}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+          <p className="control-panel__help">Applies the next time you start a new world or seed.</p>
           <details>
             <summary>World details</summary>
             <div className="control-panel__field-row">
@@ -432,11 +465,14 @@ export default function ControlPanel({
         <section className="control-panel__god-mode sim-panel sim-panel--sunken" id="god-mode-controls" aria-labelledby="god-mode-title">
           <h3 className="control-panel__section-title" id="god-mode-title">God Mode / Intervention</h3>
           <p className="control-panel__help">
-            {replayActive ? 'Recipe replay controls these values until playback completes.' : 'Changes apply on the next tick and are recorded in world history.'}
+            {replayActive
+              ? 'Recipe replay controls these values until playback completes.'
+              : godModeLocked
+                ? 'Raw constants are locked once a world starts. Respond through a stewardship suggestion below or Introduce species instead.'
+                : 'Changes apply on the next tick and are recorded in world history.'}
           </p>
           <div className="control-panel__field-row">
-            <button className="sim-button" type="button" disabled={replayActive} onClick={() => updateConstants(BALANCED_LONGEVITY_PRESET)}>Apply longevity</button>
-            <button className="sim-button" type="button" disabled={replayActive} onClick={resetConstants}>Reset defaults</button>
+            <button className="sim-button" type="button" disabled={godModeLocked} onClick={resetConstants}>Reset defaults</button>
           </div>
 
           <section className="control-panel__section" aria-labelledby="stewardship-title">
@@ -606,7 +642,9 @@ export default function ControlPanel({
               <span className="control-panel__group-count sim-data">{TOTAL_GOD_MODE_CONTROL_COUNT} controls</span>
             </summary>
             <p className="control-panel__help">
-              Hand-tune the same constants stewardship suggestions adjust for you. Most players won&apos;t need this.
+              {godModeLocked
+                ? 'Locked once a world starts. Respond through a stewardship suggestion or Introduce species instead.'
+                : "Hand-tune the same constants stewardship suggestions adjust for you. Most players won't need this."}
             </p>
             <div className="control-panel__groups">
               {GOD_MODE_GROUPS.map((group) => (
@@ -619,7 +657,7 @@ export default function ControlPanel({
                   {group.controls.map((config) => (
                     <GodModeSlider
                       config={config}
-                      disabled={replayActive}
+                      disabled={godModeLocked}
                       helpOpen={openHelpKey === config.key}
                       key={config.key}
                       onHelpClose={() => setOpenHelpKey(null)}
