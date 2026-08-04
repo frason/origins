@@ -498,7 +498,7 @@ export default function App() {
           </>
         )}
       </SettingsDrawer>
-      <TurningPointChoice onIntroduceSpecies={() => openSettings()} />
+      <TurningPointChoice onIntroduceSpecies={() => openSettings('act')} />
       <ExtinctionSummary
         onNewWorld={newWorld}
         onReplayWorld={replayWorld}
