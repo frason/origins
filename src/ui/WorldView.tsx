@@ -9,7 +9,6 @@ import {
   selectNearbyLivingTile,
   viewportPointToTile,
 } from './worldViewport';
-import TurningPointNotice from './TurningPointNotice';
 import { createDrawScheduler, type DrawScheduler } from './drawScheduler';
 import { buildMiasmaPressureGrid, getToxicityHazard } from '../simulation/toxicity';
 import { elevationAppearance } from './elevationLayer';
@@ -445,7 +444,6 @@ const WorldView: React.FC = () => {
       >
         {selectionStatus}
       </div>
-      <TurningPointNotice />
     </div>
   );
 };

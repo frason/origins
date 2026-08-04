@@ -5,6 +5,7 @@ import SpeciesPanel from './ui/SpeciesPanel';
 import StatsPanel from './ui/StatsPanel';
 import TileInfoPanel from './ui/TileInfoPanel';
 import ExtinctionSummary from './ui/ExtinctionSummary';
+import TurningPointChoice from './ui/TurningPointChoice';
 import { useStore } from './state/store';
 import { introduceSpecies, tickEngine, EngineState } from './simulation/engine';
 import type { EnergyStrategy } from './utils/traits';
@@ -471,6 +472,7 @@ export default function App() {
           <SpeciesPanel />
           <LineageHistory />
       </SettingsDrawer>
+      <TurningPointChoice onIntroduceSpecies={() => openSettings()} />
       <ExtinctionSummary
         onNewWorld={newWorld}
         onReplayWorld={replayWorld}
