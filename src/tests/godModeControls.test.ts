@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GOD_MODE_GROUPS, defaultValueFor } from '../ui/godModeControls';
+import { GOD_MODE_GROUPS, defaultValueFor, isGodModeLocked } from '../ui/godModeControls';
 
 describe('grouped God Mode control schema', () => {
   it('covers each editable constant exactly once in five progressive sections', () => {
@@ -40,5 +40,20 @@ describe('grouped God Mode control schema', () => {
       expect(value).toBeGreaterThanOrEqual(control.min);
       expect(value).toBeLessThanOrEqual(control.max);
     }
+  });
+});
+
+describe('raw constant locking', () => {
+  it('stays editable at tick 0, before the world has actually started', () => {
+    expect(isGodModeLocked(0, false)).toBe(false);
+  });
+
+  it('locks once any tick has elapsed', () => {
+    expect(isGodModeLocked(1, false)).toBe(true);
+    expect(isGodModeLocked(500, false)).toBe(true);
+  });
+
+  it('locks during recipe replay regardless of tick', () => {
+    expect(isGodModeLocked(0, true)).toBe(true);
   });
 });

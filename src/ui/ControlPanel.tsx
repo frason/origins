@@ -12,7 +12,7 @@ import { parseWorldSeed } from './worldSeed';
 import { getEcosystemPressures } from './ecosystemPressures';
 import { getEcosystemTrajectories } from './ecosystemTrajectory';
 import { getGodModeRecommendations, recommendationPatch } from './godModeRecommendations';
-import { defaultValueFor, GOD_MODE_GROUPS, type GodModeSliderConfig } from './godModeControls';
+import { defaultValueFor, GOD_MODE_GROUPS, isGodModeLocked, type GodModeSliderConfig } from './godModeControls';
 import {
   MAX_SPECIES_NAME_LENGTH,
   suggestedIntroducedSpeciesName,
@@ -202,6 +202,7 @@ export default function ControlPanel({
   const [diagnosticMessage, setDiagnosticMessage] = useState<string | null>(null);
   const [cloudMessage, setCloudMessage] = useState<string | null>(null);
   const [cloudBusy, setCloudBusy] = useState(false);
+  const godModeLocked = isGodModeLocked(tick, replayActive);
 
   const recommendations = showGodMode
     ? getGodModeRecommendations(
@@ -427,11 +428,15 @@ export default function ControlPanel({
         <section className="control-panel__god-mode sim-panel sim-panel--sunken" id="god-mode-controls" aria-labelledby="god-mode-title">
           <h3 className="control-panel__section-title" id="god-mode-title">God Mode / Intervention</h3>
           <p className="control-panel__help">
-            {replayActive ? 'Recipe replay controls these values until playback completes.' : 'Changes apply on the next tick and are recorded in world history.'}
+            {replayActive
+              ? 'Recipe replay controls these values until playback completes.'
+              : godModeLocked
+                ? 'Raw constants are locked once a world starts. Respond through a stewardship suggestion below or Introduce species instead.'
+                : 'Changes apply on the next tick and are recorded in world history.'}
           </p>
           <div className="control-panel__field-row">
-            <button className="sim-button" type="button" disabled={replayActive} onClick={() => updateConstants(BALANCED_LONGEVITY_PRESET)}>Apply longevity</button>
-            <button className="sim-button" type="button" disabled={replayActive} onClick={resetConstants}>Reset defaults</button>
+            <button className="sim-button" type="button" disabled={godModeLocked} onClick={() => updateConstants(BALANCED_LONGEVITY_PRESET)}>Apply longevity</button>
+            <button className="sim-button" type="button" disabled={godModeLocked} onClick={resetConstants}>Reset defaults</button>
           </div>
 
           {recommendations.length > 0 && (
@@ -604,7 +609,7 @@ export default function ControlPanel({
                 {group.controls.map((config) => (
                   <GodModeSlider
                     config={config}
-                    disabled={replayActive}
+                    disabled={godModeLocked}
                     helpOpen={openHelpKey === config.key}
                     key={config.key}
                     onHelpClose={() => setOpenHelpKey(null)}
