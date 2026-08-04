@@ -16,6 +16,9 @@ import SettingsDrawer from './ui/SettingsDrawer';
 import EventTimeline from './ui/EventTimeline';
 import LineageHistory from './ui/LineageHistory';
 import WorldLegend from './ui/WorldLegend';
+import EcosystemPressurePanel from './ui/EcosystemPressurePanel';
+import FollowedLineageNotices from './ui/FollowedLineageNotices';
+import { SETTINGS_TABS, type SettingsTab } from './ui/settingsTabs';
 import {
   advanceRecipeReplay,
   createRecipeReplay,
@@ -65,6 +68,7 @@ export default function App() {
   const setRunning = useStore((s) => s.setRunning);
   const setSpeed = useStore((s) => s.setSpeed);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>('watch');
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const feedbackBackend: BetaFeedbackBackend | null = useMemo(() => loadBetaFeedbackBackend(), []);
   const worldBackupBackend: BetaWorldBackupBackend | null = useMemo(() => loadBetaWorldBackupBackend(), []);
@@ -75,9 +79,10 @@ export default function App() {
   const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
   const worldName = worldNameFromSeed(worldSeed);
 
-  const openSettings = useCallback(() => {
-    // A drawer is a focused task, not a second panel competing with tile details.
-    useStore.getState().setSelectedTile(null);
+  const openSettings = useCallback((tab?: SettingsTab) => {
+    // Keep any selected tile intact: Act's Introduce Species flow targets it,
+    // and the drawer overlays the tile inspector rather than competing for space.
+    if (tab) setSettingsTab(tab);
     setSettingsOpen(true);
   }, []);
 
@@ -379,7 +384,7 @@ export default function App() {
               aria-label="Open world controls"
               aria-controls="settings-drawer"
               aria-expanded={settingsOpen}
-              onClick={openSettings}
+              onClick={() => openSettings()}
             >
               ⚙
             </button>
@@ -387,13 +392,17 @@ export default function App() {
         )}
         menu={(
           <>
-            <strong aria-current="page">World</strong>
-            <button type="button" className="app-shell__menu-button" onClick={openSettings}>
-              Simulation
-            </button>
-            <button type="button" className="app-shell__menu-button" onClick={openSettings}>
-              Data
-            </button>
+            {SETTINGS_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                className="app-shell__menu-button"
+                aria-current={settingsOpen && settingsTab === tab.id ? 'page' : undefined}
+                onClick={() => openSettings(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
             <span className="app-shell__seed">
               <strong className="app-shell__world-name">{worldName}</strong>
               {' · '}Seed <span className="sim-data">{worldSeed}</span>
@@ -440,14 +449,30 @@ export default function App() {
             <button type="button" className="sim-button sim-button--compact" onClick={() => setRecoveryNotice(null)}>Dismiss</button>
           </div>
         )}
-        <EvolutionRibbon onOpenLineages={openSettings} />
+        <EvolutionRibbon onOpenLineages={() => openSettings('remember')} />
         <main aria-label="Ecosystem world" className="app-shell__world">
           <WorldView />
           <WorldLegend />
         </main>
-        <TileInfoPanel onOpenLineages={openSettings} />
+        <TileInfoPanel onOpenLineages={() => openSettings('remember')} />
       </SimWindow>
-      <SettingsDrawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}>
+      <SettingsDrawer
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        title={SETTINGS_TABS.find((tab) => tab.id === settingsTab)?.label}
+        subtitle={SETTINGS_TABS.find((tab) => tab.id === settingsTab)?.subtitle}
+      >
+        {settingsTab === 'watch' && <StatsPanel />}
+        {settingsTab === 'diagnose' && (
+          <>
+            <EcosystemPressurePanel />
+            <EventTimeline
+              onReplayRecipe={startRecipeReplay}
+              replayStatus={replayStatus}
+            />
+          </>
+        )}
+        {settingsTab === 'act' && (
           <ControlPanel
             onReset={reset}
             onNewWorld={newWorld}
@@ -464,13 +489,14 @@ export default function App() {
             checkpointTicks={checkpointTicks}
             onRestoreCheckpoint={restoreToTick}
           />
-          <StatsPanel />
-          <EventTimeline
-            onReplayRecipe={startRecipeReplay}
-            replayStatus={replayStatus}
-          />
-          <SpeciesPanel />
-          <LineageHistory />
+        )}
+        {settingsTab === 'remember' && (
+          <>
+            <FollowedLineageNotices />
+            <SpeciesPanel />
+            <LineageHistory />
+          </>
+        )}
       </SettingsDrawer>
       <TurningPointChoice onIntroduceSpecies={() => openSettings()} />
       <ExtinctionSummary

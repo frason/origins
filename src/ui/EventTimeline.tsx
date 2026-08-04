@@ -4,7 +4,6 @@ import { buildEventStories, getPopulationTrend, type StoryTone } from './eventTi
 import InterventionImpact from './InterventionImpact';
 import ReplayRecipe from './ReplayRecipe';
 import type { WorldRecipe } from './worldRecipe';
-import FollowedLineageNotices from './FollowedLineageNotices';
 import EvolutionTimeline from './EvolutionTimeline';
 import SessionRecap from './SessionRecap';
 import { worldNameFromSeed } from './worldName';
@@ -57,7 +56,6 @@ export default function EventTimeline({
         {trend.explanation}
       </div>
       <InterventionImpact />
-      <FollowedLineageNotices />
       <EvolutionTimeline />
       <ReplayRecipe onReplay={onReplayRecipe} replayStatus={replayStatus} />
 
