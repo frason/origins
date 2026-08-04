@@ -40,6 +40,24 @@
   z-index: 1;
 }
 
+.settings-drawer__title-group {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.settings-drawer__subtitle {
+  overflow: hidden;
+  color: var(--sim-color-title-text);
+  font-family: var(--sim-font-interface);
+  font-size: var(--sim-font-size-xs);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.78;
+}
+
 .settings-drawer__content {
   display: flex;
   height: calc(100% - 2.75rem);

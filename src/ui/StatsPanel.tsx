@@ -10,7 +10,6 @@ import {
   type DynamicsMetric,
   type HealthTone,
 } from './ecosystemHealth';
-import EcosystemPressurePanel from './EcosystemPressurePanel';
 import { getLiveEventTotals } from './liveEventMetrics';
 import {
   getEcosystemTrajectories,
@@ -222,7 +221,6 @@ export default function StatsPanel() {
         value={biomass?.recoveryLabel ?? '—'}
         help="Change in occupied-habitat food between bounded history samples."
       />
-      <EcosystemPressurePanel />
     </div>
   );
 }

@@ -4,9 +4,17 @@ interface SettingsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   children: ReactNode;
+  title?: string;
+  subtitle?: string;
 }
 
-export default function SettingsDrawer({ isOpen, onClose, children }: SettingsDrawerProps) {
+export default function SettingsDrawer({
+  isOpen,
+  onClose,
+  children,
+  title = 'World controls',
+  subtitle,
+}: SettingsDrawerProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
@@ -42,7 +50,10 @@ export default function SettingsDrawer({ isOpen, onClose, children }: SettingsDr
         className={`settings-drawer sim-window${isOpen ? ' settings-drawer--open' : ''}`}
       >
         <header className="settings-drawer__header sim-window__title-bar">
-          <strong className="sim-window__title">World controls</strong>
+          <span className="settings-drawer__title-group">
+            <strong className="sim-window__title">{title}</strong>
+            {subtitle && <span className="settings-drawer__subtitle">{subtitle}</span>}
+          </span>
           <button ref={closeButtonRef} type="button" onClick={onClose} className="sim-button sim-button--compact" aria-label="Close settings">
             Close
           </button>
