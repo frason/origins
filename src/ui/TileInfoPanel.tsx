@@ -4,6 +4,7 @@ import { getProducerTraits } from '../simulation/producerTypes';
 import { buildTileLineageSummaries, buildTileMutationContext } from './tileInspectionModel';
 import { buildTileBiomassContext } from './biomassObservability';
 import { getCorpseDecayStage, getToxicityHazard } from '../simulation/toxicity';
+import { creatureColor, rgbToCss } from './creatureColor';
 
 interface TileInfoPanelProps {
   onOpenLineages?: () => void;
@@ -140,7 +141,16 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
                 <div className="tile-lineage__heading">
                   <div>
                     <h4 className="tile-lineage__name">{lineage.name}</h4>
-                    <p className="tile-lineage__strategy">{lineage.strategy} · {lineage.population} present</p>
+                    <p className="tile-lineage__strategy">
+                      {/* Same colour the map draws this lineage with, so the dot
+                          on the canvas is identifiable in the detail panel. */}
+                      <i
+                        className="tile-lineage__swatch"
+                        style={{ background: rgbToCss(creatureColor(lineage.strategy, lineage.speciesId)) }}
+                        aria-hidden="true"
+                      />
+                      {lineage.strategy} · {lineage.population} present
+                    </p>
                   </div>
                   <button
                     type="button"

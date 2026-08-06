@@ -118,8 +118,19 @@
 }
 
 .tile-lineage__strategy {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   margin-block-start: var(--sim-space-1);
   text-transform: capitalize;
+}
+
+.tile-lineage__swatch {
+  flex-shrink: 0;
+  width: 0.65rem;
+  height: 0.65rem;
+  border: 1px solid var(--sim-color-border);
+  border-radius: 50%;
 }
 
 .tile-lineage__metrics {

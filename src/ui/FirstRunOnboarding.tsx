@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../state/store';
+import { rgbToCss, strategyColor } from './creatureColor';
 
 export default function FirstRunOnboarding() {
   const tick = useStore((state) => state.tick);
@@ -37,8 +38,12 @@ export default function FirstRunOnboarding() {
 
           <div className="first-run-onboarding__legend">
             <div className="first-run-onboarding__legend-item">
-              <span className="first-run-onboarding__swatch" style={{ background: '#d89c3d' }} />
-              <span>Different hues = different species</span>
+              <span className="first-run-onboarding__swatch first-run-onboarding__swatch--diet" style={{ background: rgbToCss(strategyColor('herbivore')) }} />
+              <span>Blue = herbivore, red = carnivore</span>
+            </div>
+            <div className="first-run-onboarding__legend-item">
+              <span className="first-run-onboarding__swatch first-run-onboarding__swatch--diet" style={{ background: rgbToCss(strategyColor('scavenger')) }} />
+              <span>Amber = omnivore, violet = scavenger</span>
             </div>
             <div className="first-run-onboarding__legend-item">
               <span className="first-run-onboarding__swatch" style={{ background: 'linear-gradient(135deg, #26313a 0 45%, #f2e5bd 55% 100%)' }} />

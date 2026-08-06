@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useStore } from '../state/store';
 import type { Biome } from '../simulation/world';
 import type { ProducerArchetype } from '../simulation/producerTypes';
+import type { EnergyStrategy } from '../utils/traits';
 import {
   calculateGridLayout,
   GridLayout,
@@ -13,6 +14,7 @@ import { createDrawScheduler, type DrawScheduler } from './drawScheduler';
 import { buildMiasmaPressureGrid, getToxicityHazard } from '../simulation/toxicity';
 import { elevationAppearance } from './elevationLayer';
 import { buildFollowedLineageKeySet, isFollowedLineageMember } from './followedLineageMarker';
+import { creatureColor } from './creatureColor';
 
 /**
  * Rendering constants for the canvas grid
@@ -41,65 +43,6 @@ const PRODUCER_COLORS: Record<ProducerArchetype, [number, number, number]> = {
   'frost-lichen': [155, 205, 182],
   lithotroph: [196, 126, 70],
 };
-
-/**
- * Generate a deterministic color from a species ID using a simple hash function.
- * Returns RGB values for the species color.
- *
- * @param speciesId - unique identifier for the species
- * @returns [r, g, b] color values (0-255)
- */
-function getColorFromSpeciesId(speciesId: string): [number, number, number] {
-  // Simple hash: sum of character codes
-  let hash = 0;
-  for (let i = 0; i < speciesId.length; i++) {
-    hash = (hash << 5) - hash + speciesId.charCodeAt(i);
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-
-  // Use hash to generate HSL values and convert to RGB
-  const hue = Math.abs(hash % 360);
-  const saturation = 0.7;
-  const lightness = 0.5;
-
-  const c = (1 - Math.abs(2 * lightness - 1)) * saturation;
-  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
-  const m = lightness - c / 2;
-
-  let r = 0, g = 0, b = 0;
-
-  if (hue < 60) {
-    r = c;
-    g = x;
-    b = 0;
-  } else if (hue < 120) {
-    r = x;
-    g = c;
-    b = 0;
-  } else if (hue < 180) {
-    r = 0;
-    g = c;
-    b = x;
-  } else if (hue < 240) {
-    r = 0;
-    g = x;
-    b = c;
-  } else if (hue < 300) {
-    r = x;
-    g = 0;
-    b = c;
-  } else {
-    r = c;
-    g = 0;
-    b = x;
-  }
-
-  return [
-    Math.round((r + m) * 255),
-    Math.round((g + m) * 255),
-    Math.round((b + m) * 255),
-  ];
-}
 
 /**
  * Extract grid cells from world state.
@@ -160,6 +103,7 @@ function extractCreatures(worldState: any): Array<{
   lineageId: string;
   lifecycleState: 'alive' | 'dead' | 'corpse';
   corpseDecayTicks: number;
+  traits: { energyStrategy: EnergyStrategy };
 }> {
   if (!worldState) return [];
 
@@ -375,7 +319,7 @@ const WorldView: React.FC = () => {
           continue;
         }
 
-        const [r, g, b] = getColorFromSpeciesId(creature.speciesId);
+        const [r, g, b] = creatureColor(creature.traits.energyStrategy, creature.speciesId);
         ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
 
         const creatureRadius = Math.max(CREATURE_RADIUS, minCellDimension * 0.35);

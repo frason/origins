@@ -229,6 +229,19 @@ export default function App() {
       engineRef.current = introduction.state;
       recordCheckpoint(introduction.state);
       publish(introduction.state);
+      // You introduced it deliberately, so start tracking it: founders are
+      // created with lineageId === speciesId, which is the follow key.
+      const store = useStore.getState();
+      const alreadyFollowed = store.followedLineages.some(
+        (item) => item.speciesId === introduction.speciesId
+          && item.lineageId === introduction.speciesId
+      );
+      if (!alreadyFollowed) {
+        store.toggleFollowedLineage({
+          speciesId: introduction.speciesId,
+          lineageId: introduction.speciesId,
+        });
+      }
       return null;
     } catch (error) {
       return error instanceof Error ? error.message : 'Could not introduce this species';

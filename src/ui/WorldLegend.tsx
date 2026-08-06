@@ -1,3 +1,5 @@
+import { rgbToCss, strategyColor, STRATEGY_LEGEND } from './creatureColor';
+
 interface WorldLegendProps {
   open?: boolean;
   onToggle?: () => void;
@@ -20,7 +22,15 @@ export default function WorldLegend({ open = false, onToggle }: WorldLegendProps
         Map key
       </button>
       <div id="world-legend-details" className="world-legend__details">
-        <span><i className="world-legend__swatch world-legend__swatch--life" />Life / species hue</span>
+        {STRATEGY_LEGEND.map(({ strategy, label }) => (
+          <span key={strategy}>
+            <i
+              className="world-legend__swatch world-legend__swatch--diet"
+              style={{ background: rgbToCss(strategyColor(strategy)) }}
+            />
+            {label}
+          </span>
+        ))}
         <span><i className="world-legend__swatch world-legend__swatch--elevation" />Light / dark contours: elevation</span>
         <span><i className="world-legend__swatch world-legend__swatch--biomass" />Green: producer biomass</span>
         <span><i className="world-legend__swatch world-legend__swatch--toxicity" />Violet: toxicity hazard</span>
