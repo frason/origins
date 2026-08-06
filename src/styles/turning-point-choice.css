@@ -50,13 +50,17 @@
   color: var(--sim-color-ink);
 }
 
+/* The card's text and tone colours (ink, warning, danger, focus) are all dark
+   tones for the beige chrome, so the surface has to stay light — a dark panel
+   here renders the whole toast unreadable. */
 .turning-point-choice--toast .turning-point-choice__card {
   max-width: 380px;
   padding: var(--sim-space-3);
   max-height: none;
-  background: rgb(30 26 20 / 95%);
-  border: 1px solid var(--sim-color-border);
+  background: var(--sim-color-panel-raised);
+  border: var(--sim-border-strong) solid var(--sim-color-border);
   border-radius: 0.5rem;
+  box-shadow: 0 0.25rem 0.75rem rgb(20 16 10 / 45%);
 }
 
 .turning-point-choice__eyebrow {

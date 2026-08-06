@@ -17,7 +17,20 @@ export default function FollowedLineageNotices() {
   if (notices.length === 0) return null;
 
   return (
-    <section aria-labelledby="followed-notices-title" aria-live="polite" style={{ border: '1px solid #43404d', borderRadius: 7, padding: '0.55rem', marginBottom: '0.7rem' }}>
+    <section
+      aria-labelledby="followed-notices-title"
+      aria-live="polite"
+      style={{
+        // Screen-toned text below needs the dark surface to stay legible
+        // against the settings panel's light canvas.
+        backgroundColor: 'var(--sim-color-screen)',
+        color: 'var(--sim-color-screen-ink)',
+        border: '1px solid #43404d',
+        borderRadius: 7,
+        padding: '0.55rem',
+        marginBottom: '0.7rem',
+      }}
+    >
       <div id="followed-notices-title" style={{ color: '#c8bddb', fontWeight: 600, marginBottom: '0.25rem' }}>
         Followed lineage milestones
       </div>

@@ -74,6 +74,13 @@ export default function BetaFeedbackPanel({
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<BetaFeedbackSubmission | null>(null);
 
+  // Read onClose through a ref so this effect depends only on isOpen. Callers
+  // pass an inline arrow, which changes identity on every parent render; with
+  // onClose in the dependency array the effect re-ran on every simulation tick
+  // and stole focus from the field being typed into.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!isOpen) return;
     returnFocusRef.current = document.activeElement instanceof HTMLElement
@@ -81,14 +88,14 @@ export default function BetaFeedbackPanel({
       : null;
     closeButtonRef.current?.focus();
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') onCloseRef.current();
     };
     window.addEventListener('keydown', closeOnEscape);
     return () => {
       window.removeEventListener('keydown', closeOnEscape);
       returnFocusRef.current?.focus();
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   const resetForm = () => {
     setCategory('bug');

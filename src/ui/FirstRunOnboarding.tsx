@@ -3,6 +3,7 @@ import { useStore } from '../state/store';
 
 export default function FirstRunOnboarding() {
   const tick = useStore((state) => state.tick);
+  const setRunning = useStore((state) => state.setRunning);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
@@ -16,9 +17,12 @@ export default function FirstRunOnboarding() {
     return null;
   }
 
+  // "Start simulation" is a promise: dismissing the modal also starts the run,
+  // rather than leaving the world paused behind it.
   const handleDismiss = () => {
     localStorage.setItem('origins_onboarding_dismissed', 'true');
     setDismissed(true);
+    setRunning(true);
   };
 
   return (
