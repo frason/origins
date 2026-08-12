@@ -77,7 +77,7 @@ log() { echo "$(TS) $*" | tee -a "$ACTIVITY"; }
 # whole worktree because client files and a later issue may already be present.
 commit_verified_issue() {
   local number="$1" title="$2" manifest paths path
-  manifest=$(grep '^Changed files:' "$STATE/worker_output.txt" 2>/dev/null | tail -1 | sed 's/^Changed files:[[:space:]]*//')
+  manifest=$(grep '^Changed files:' "$STATE/worker_output_${number}.txt" 2>/dev/null | tail -1 | sed 's/^Changed files:[[:space:]]*//')
   [ -n "$manifest" ] || return 1
   # Do not absorb an operator's already-staged work into an issue commit.
   git diff --cached --quiet || return 1
@@ -118,6 +118,10 @@ gh api user --jq '.login' >/dev/null 2>&1 \
 REPO=$(jq -r '.github.repo // ""' "$SCHEDULE")
 [ -n "$REPO" ] || { log "ERROR: github.repo not set in schedule.json"; exit 1; }
 
+if ! git diff --quiet -- "$SCHEDULE" 2>/dev/null; then
+  log "WARNING: schedule.json has uncommitted changes — commit them (git add schedule.json && git commit) or a git operation (pull/checkout/reset) may silently discard your edits"
+fi
+
 now_epoch=$(date +%s)
 hour=$(( 10#$(date +%H) ))
 minute=$(( 10#$(date +%M) ))
@@ -130,6 +134,8 @@ karen_max_turns=$(  jq -r '.karen_max_turns         // 50'      "$SCHEDULE")
 lead_paused=$(      jq -r '.lead_paused             // false'   "$SCHEDULE")
 soft_budget=$(      jq -r '.soft_budget_usd_per_5h  // 0'       "$SCHEDULE")
 max_worker_attempts=$(jq -r '.max_worker_attempts   // 3'       "$SCHEDULE")
+worker_escalation_model=$(jq -r '.worker_escalation_model // ""' "$SCHEDULE")
+worker_escalation_after=$(jq -r '.worker_escalation_after // 1'  "$SCHEDULE")
 project_num=$(      jq -r '.github.project_number  // ""'       "$SCHEDULE")
 
 # ---- refresh the rolling-budget summary in STATUS.md (token-free, gated) ----
@@ -228,13 +234,17 @@ run_agent() {
   else
     cost=0; subtype=""
   fi
+  LAST_RUN_COST="$cost"
 
   if [ "$rc" -ne 0 ]; then
     if [ "$subtype" = "error_max_turns" ]; then
-      log "ran $agent ($model) cost=\$$cost — hit max-turns; treating as complete"
+      log "MAX-TURNS-EXHAUSTED: ran $agent ($model) cost=\$$cost subtype=error_max_turns — treating as complete (verify output before trusting this run; \$0 cost or missing artifacts usually means it did nothing useful)"
       return 0
     fi
     log "ERROR: claude run failed for agent=$agent rc=$rc (see logs/dispatcher.log)"
+    # stderr already lands in dispatcher.log via 2>>; stdout is where claude's own
+    # error text (auth/session/rate-limit) usually shows up, so surface it too.
+    [ -n "$out" ] && log "claude stdout (truncated): ${out:0:500}"
     return 1
   fi
 
@@ -501,18 +511,26 @@ PROMPT
   record_global_spend
   rm -f "$tmp"
 
-  # Guard: if karen produced no verdict (crash or silent failure), cycle back.
+  # Guard: if karen produced no verdict (crash or silent failure), retry verification
+  # next tick instead of relabeling back to agent-todo — the worker already finished;
+  # only the verifier failed, so bouncing to agent-todo would force a wasteful full
+  # worker redo of already-completed work.
   if [ ! -f "$verdict_file" ]; then
-    if [ "$karen_ok" = "false" ]; then
-      log "  karen run failed (rc non-zero) — cycling #$iss_num back to agent-todo"
-      msg="⚠️ **Verifier run failed** (claude exited non-zero). Cycling back to \`agent-todo\` — check \`logs/dispatcher.log\` for the error."
+    if [ "$(jq -n --argjson c "${LAST_RUN_COST:-0}" '$c == 0')" = "true" ]; then
+      # $0 crash = CLI/subscription outage (same pattern as worker outages) —
+      # don't post a comment, just retry karen next tick.
+      log "  karen crashed at \$0 cost (outage) — retrying verification for #$iss_num next tick, not counted as an attempt"
+    elif [ "$karen_ok" = "false" ]; then
+      log "  karen run failed (rc non-zero) — retrying verification for #$iss_num next tick"
+      gh issue comment "$iss_num" --repo "$REPO" \
+        --body "⚠️ **Verifier run failed** (claude exited non-zero). Worker output is unaffected — retrying verification next tick, check \`logs/dispatcher.log\` for the error." \
+        >/dev/null 2>&1 || true
     else
-      log "  karen did not write verdict.txt — cycling #$iss_num back to agent-todo"
-      msg="⚠️ **Verifier did not produce a verdict.** Cycling back to \`agent-todo\` for retry."
+      log "  karen did not write verdict.txt — retrying verification for #$iss_num next tick"
+      gh issue comment "$iss_num" --repo "$REPO" \
+        --body "⚠️ **Verifier did not produce a verdict.** Worker output is unaffected — retrying verification next tick." \
+        >/dev/null 2>&1 || true
     fi
-    gh issue comment "$iss_num" --repo "$REPO" --body "$msg" >/dev/null 2>&1 || true
-    gh issue edit "$iss_num" --repo "$REPO" \
-      --remove-label "agent-review" --add-label "agent-todo" >/dev/null 2>&1 || true
     exit 0
   fi
 
@@ -536,11 +554,19 @@ ${verdict_text}
     gh issue edit  "$iss_num" --repo "$REPO" \
       --remove-label "agent-review" --add-label "agent-done" >/dev/null 2>&1 || true
     gh issue close "$iss_num" --repo "$REPO" >/dev/null 2>&1 || true
+    rm -f "$STATE/worker_output_${iss_num}.txt"
     log "  issue #$iss_num PASSED — labelled agent-done, closed"
   else
     gh issue edit "$iss_num" --repo "$REPO" \
       --remove-label "agent-review" --add-label "agent-todo" >/dev/null 2>&1 || true
-    log "  issue #$iss_num FAILED — labelled agent-todo for rework"
+    # Fairness cooldown: a FAILed issue keeps its (now oldest) number, so plain
+    # oldest-number selection would let it re-win the very next worker pass and starve
+    # the rest of the queue. Mark it to be skipped for exactly one worker-dispatch pass.
+    cooldown_file="$STATE/cooldown.json"
+    cd_now=$(cat "$cooldown_file" 2>/dev/null || echo '[]')
+    jq --argjson n "$iss_num" '(. // []) + [$n] | unique' <<<"$cd_now" > "$cooldown_file" 2>/dev/null \
+      || echo "[$iss_num]" > "$cooldown_file"
+    log "  issue #$iss_num FAILED — labelled agent-todo for rework (worker-selection cooldown for one pass)"
   fi
   exit 0
 fi
@@ -561,11 +587,30 @@ if [ -n "$force_issue" ] && [ "$force_issue" != "next" ]; then
     log "--force-worker: issue #$force_issue does not have the agent-todo label"; exit 1
   fi
 else
-  # Pick the oldest open agent-todo issue that has the agent-planned marker.
-  todo_json=$(gh issue list --repo "$REPO" --label "agent-todo" --state open \
+  # Fairness: a single issue that keeps failing karen and cycling back to agent-todo
+  # keeps the SAME (lowest) issue number, so plain sort_by(.number) lets it monopolize
+  # every worker pass and starve the rest of the queue. cooldown.json holds issue numbers
+  # that just failed karen verification; they're skipped for exactly one worker-dispatch
+  # pass (cleared below the moment they're seen this pass), then compete normally again.
+  cooldown_file="$STATE/cooldown.json"
+  [ -f "$cooldown_file" ] || echo '[]' > "$cooldown_file"
+  cooldown_ids=$(cat "$cooldown_file" 2>/dev/null || echo '[]')
+
+  todo_all=$(gh issue list --repo "$REPO" --label "agent-todo" --state open \
     --json number,title,body \
-    --jq '[.[] | select(.body | (. != null and contains("<!-- agent-planned -->")))] | sort_by(.number) | first // empty' \
-    2>/dev/null || true)
+    --jq '[.[] | select(.body | (. != null and contains("<!-- agent-planned -->")))] | sort_by(.number)' \
+    2>/dev/null || echo '[]')
+
+  # Pick the oldest candidate not currently in cooldown; if every candidate is in
+  # cooldown (shouldn't normally happen), fall back to the oldest overall so the
+  # queue never stalls completely.
+  todo_json=$(printf '%s' "$todo_all" | jq --argjson cd "$cooldown_ids" \
+    '(map(select(.number as $n | ($cd | index($n)) == null)) | first) // (first) // empty')
+
+  # Any cooldown id present in this pass's candidate list has now served its one skip.
+  new_cooldown=$(printf '%s' "$cooldown_ids" | jq --argjson present "$(printf '%s' "$todo_all" | jq '[.[].number]')" \
+    'map(select(. as $n | ($present | index($n)) == null))')
+  printf '%s' "$new_cooldown" > "$cooldown_file"
 fi
 
 if [ -z "${todo_json:-}" ]; then
@@ -578,13 +623,20 @@ iss_body=$( echo "$todo_json" | jq -r '.body // ""')
 log "WORK issue #$iss_num: $iss_title"
 
 # ---- cycle detection: block issues that have exhausted retry attempts ----
-# Count "## Worker Summary" (worker completed) + "⚠️ **Worker" (worker crashed) comments.
-# Each represents one full worker attempt, regardless of outcome.
-attempt_count=$(gh issue view "$iss_num" --repo "$REPO" --json comments \
-  --jq '[.comments[].body | select(startswith("## Worker Summary") or startswith("⚠️ **Worker"))] | length' \
-  2>/dev/null || echo 0)
+# Count "## Worker Summary" (worker completed) + "⚠️ **Worker" (worker crashed) comments,
+# but only those posted AFTER the most recent "⛔ **Blocked" marker comment (if any). A
+# plain unbounded count across the issue's entire history means a manual
+# agent-blocked -> agent-todo requeue insta-re-blocks on the very next tick with zero new
+# attempts dispatched; anchoring to the last block comment lets a requeue earn fresh tries.
+attempt_json=$(gh issue view "$iss_num" --repo "$REPO" --json comments \
+  --jq '[.comments[] | {body: .body, createdAt: .createdAt}]' 2>/dev/null || echo '[]')
+attempt_count=$(printf '%s' "$attempt_json" | jq '
+  ( [ .[] | select(.body | startswith("⛔ **Blocked")) | .createdAt ] | sort | last ) as $reset
+  | [ .[] | select(.body | startswith("## Worker Summary") or startswith("⚠️ **Worker"))
+           | select($reset == null or .createdAt > $reset) ] | length
+' 2>/dev/null || echo 0)
 if [ "$(jq -n --argjson a "${attempt_count:-0}" --argjson m "$max_worker_attempts" '$a >= $m')" = "true" ]; then
-  log "  issue #$iss_num: ${attempt_count} attempt(s) >= limit ${max_worker_attempts} — blocking"
+  log "  issue #$iss_num: ${attempt_count} attempt(s) since last reset >= limit ${max_worker_attempts} — blocking"
   gh issue edit "$iss_num" --repo "$REPO" \
     --remove-label "agent-todo" --add-label "agent-blocked" >/dev/null 2>&1 || true
   gh issue comment "$iss_num" --repo "$REPO" \
@@ -595,9 +647,17 @@ The lead will review this on its next pass. It may need to be:
 - Unblocked by completing a dependency first
 - Assigned additional context or examples
 
-To retry manually: remove the \`agent-blocked\` label and add \`agent-todo\`." \
+To retry manually: remove the \`agent-blocked\` label and add \`agent-todo\` — this comment marks the reset point, so attempts start counting fresh from here." \
     >/dev/null 2>&1 || true
+  rm -f "$STATE/worker_output_${iss_num}.txt"
   exit 0
+fi
+
+# ---- optional escalation: bump to a stronger model after N failed attempts ----
+effective_worker_model="$worker_model"
+if [ -n "$worker_escalation_model" ] && [ "$(jq -n --argjson a "${attempt_count:-0}" --argjson n "$worker_escalation_after" '$a >= $n')" = "true" ]; then
+  effective_worker_model="$worker_escalation_model"
+  log "  issue #$iss_num: attempt ${attempt_count} >= escalation threshold ${worker_escalation_after} — using $effective_worker_model instead of $worker_model"
 fi
 
 check_global_budget
@@ -606,11 +666,24 @@ check_global_budget
 gh issue edit "$iss_num" --repo "$REPO" \
   --remove-label "agent-todo" --add-label "agent-doing" >/dev/null 2>&1 || true
 
-output_file="$STATE/worker_output.txt"
+# Per-issue output path — NOT a shared file. The dispatcher only runs one worker at a
+# time, but karen may still be retrying verification on an older issue (e.g. crashing
+# repeatedly) while a newer issue's worker runs in the meantime. A shared path would let
+# that newer worker overwrite the file karen is about to read for the older issue,
+# producing a false "wrong output" FAIL unrelated to the older issue's actual code.
+output_file="$STATE/worker_output_${iss_num}.txt"
 rm -f "$output_file"
 
+# Surface karen's most recent verdict, if this issue already failed verification once —
+# otherwise a retry is built from the original issue body only, with zero memory of what
+# was already tried or why it was rejected, so it often repeats the same rejected fix.
+karen_verdict=$(gh issue view "$iss_num" --repo "$REPO" --json comments \
+  --jq '[.comments[] | select(.body | startswith("## Karen"))] | sort_by(.createdAt) | last.body // empty' \
+  2>/dev/null || true)
+
 tmp=$(mktemp)
-cat > "$tmp" <<PROMPT
+{
+cat <<PROMPT
 You are a worker on a background agent team. Complete the task described in GitHub issue #${iss_num}.
 
 Title: ${iss_title}
@@ -621,17 +694,28 @@ ${iss_body}
 Instructions:
 1. Read only the files you actually need — do not explore the entire repository.
 2. Do the work described. Stay strictly in scope; do not expand requirements.
-3. When finished, write a concise technical markdown summary to state/worker_output.txt.
+3. When finished, write a concise technical markdown summary to state/worker_output_${iss_num}.txt.
    Include: what you did, any caveats, and exactly one manifest line formatted
    \`Changed files: path/to/file, path/to/other-file\`. List every changed or created source/test file.
    Keep it under 40 lines — this will be posted as a GitHub issue comment.
-4. If the task is ambiguous or blocked, write what you found to state/worker_output.txt,
+4. If the task is ambiguous or blocked, write what you found to state/worker_output_${iss_num}.txt,
    state the blocker clearly, and stop — do not guess or broaden scope.
 
 Your summary will be posted to the issue and then independently verified by karen.
 PROMPT
+if [ -n "$karen_verdict" ]; then
+cat <<VERDICT
 
-if ! run_agent worker "$worker_model" "$tmp"; then
+## Your previous attempt failed verification
+
+${karen_verdict}
+
+Address every gap listed above before re-submitting — do not repeat the same rejected approach.
+VERDICT
+fi
+} > "$tmp"
+
+if ! run_agent worker "$effective_worker_model" "$tmp"; then
   rm -f "$tmp"
   log "  worker failed — cycling #$iss_num back to agent-todo"
   gh issue comment "$iss_num" --repo "$REPO" \
@@ -647,7 +731,7 @@ rm -f "$tmp"
 if [ -f "$output_file" ]; then
   summary=$(cat "$output_file")
 else
-  summary="_Worker completed issue #${iss_num} but did not write state/worker_output.txt._"
+  summary="_Worker completed issue #${iss_num} but did not write its output file._"
 fi
 
 gh issue comment "$iss_num" --repo "$REPO" \
