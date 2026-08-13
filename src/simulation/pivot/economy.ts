@@ -6,7 +6,22 @@
  * based on the Phase 0 vertical slice design (see SPEC.md)
  */
 
+import type { World } from '../world';
+
 export type ResourceType = 'energy' | 'biomass';
+
+/**
+ * HarvesterState: describes whether a Biomass Harvester building is operational
+ * and where it's located on the world grid.
+ *
+ * A harvester placed at tile (x, y) with operational=true will draw producerBiomass
+ * each tick and convert it to stockpiled Biomass per SPEC.md phase 0 rates.
+ */
+export interface HarvesterState {
+  operational: boolean; // Is the harvester currently active?
+  x: number; // Grid x-coordinate of harvester placement (if operational)
+  y: number; // Grid y-coordinate of harvester placement (if operational)
+}
 
 /**
  * Phase 0 Economy Constants
@@ -135,3 +150,64 @@ export class ResourceLedger {
     this.biomass = PHASE0_ECONOMY_CONSTANTS.biomass.startingValue;
   }
 }
+
+/**
+ * tickPhase0Economy: Main economy tick function for Phase 0
+ *
+ * Pure function that applies one tick's worth of economy changes:
+ * 1. Applies passive Energy drain (floored at 0)
+ * 2. If harvesterState indicates an operational harvester, draws from that tile's
+ *    producerBiomass and converts it to stockpiled Biomass
+ *
+ * The function mutates world (to update tile producerBiomass) and ledger (to apply
+ * drain and credit biomass), but is deterministic: identical inputs always produce
+ * identical outputs.
+ *
+ * @param world - World grid containing cells with producerBiomass values
+ * @param ledger - ResourceLedger tracking global Energy and Biomass balances
+ * @param harvesterState - Current harvester placement and operational status
+ * @param tick - Current simulation tick (for logging/determinism purposes; not used here)
+ *
+ * Per SPEC.md "Core Economy — Phase 0 definition":
+ * - Energy drain: −1/tick (fixed base beachhead survival cost), floored at 0
+ * - Biomass harvest (if operational): 2.0 producerBiomass → 1 stockpiled Biomass per tick
+ *   - Draw never takes cell's producerBiomass below 0
+ *   - Ledger never exceeds its Biomass storage cap (300)
+ *   - No harvester placed/operational → zero Biomass income that tick
+ */
+export function tickPhase0Economy(
+  world: World,
+  ledger: ResourceLedger,
+  harvesterState: HarvesterState,
+  tick: number
+): void {
+  // Step 1: Apply passive Energy drain (floored at 0)
+  ledger.drainPassive();
+
+  // Step 2: If harvester is operational, harvest from that tile
+  if (harvesterState.operational) {
+    const { x, y } = harvesterState;
+
+    // Validate harvester coordinates are within world bounds
+    if (x >= 0 && x < world.width && y >= 0 && y < world.height) {
+      // Get the current cell to read producerBiomass
+      const cell = world.getCell(x, y);
+
+      // Calculate how much producerBiomass we can draw
+      // Conversion rate: 2.0 producerBiomass → 1 stockpiled Biomass
+      const maxDrawPerTick = PHASE0_ECONOMY_CONSTANTS.biomass.harvesterDrawMax; // 2.0
+      const availableToDraw = Math.min(maxDrawPerTick, cell.producerBiomass);
+
+      // Convert: 2.0 producerBiomass → 1 stockpiled Biomass
+      const biomassIncome = availableToDraw / 2;
+
+      // Update the tile: reduce producerBiomass
+      const remainingBiomass = Math.max(0, cell.producerBiomass - availableToDraw);
+      world.setCell(x, y, { producerBiomass: remainingBiomass });
+
+      // Credit the ledger with harvested biomass (respects cap)
+      ledger.credit('biomass', biomassIncome);
+    }
+  }
+}
+
