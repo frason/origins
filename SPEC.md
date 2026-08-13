@@ -3,9 +3,134 @@
 _Living spec. Seeded from CLAUDE.md vision; refined by lead during discovery._
 
 ## Status
-- **Phase:** discovery
-- **Settled slices:** (none yet — lead to identify and scope)
-- **Open questions:** see `questions/`
+- **Phase:** build — post-MVP. The original MVP (below, "Overview" through Phase 7) shipped
+  and has been in a live-beta feedback/hardening loop for many passes (see `state/STATUS.md`
+  for the up-to-date active-issue picture; this file's Phase 1–7 tables are historical/
+  reference, not the current work queue).
+- **Current initiative (2026-08-11):** Pivot — Crisis-Response Reframe. Full requirements in
+  `/Users/frason/.claude/plans/swift-hopping-codd.md` (client-approved). Reframes the game from
+  passive observation to active crisis response: player is a remote alien operator directing
+  scouts, spending scarce resources on interventions. See "Pivot: Crisis-Response Reframe" below
+  for the Phase 0 vertical-slice design (this is now the active build target; the historical
+  MVP sections below remain accurate for the shipped engine they describe, which the pivot
+  extends rather than replaces).
+- **Settled slices:** MVP engine (Phases 1–5), MVP UI (Phase 6, with subsequent beta hardening).
+  Phase 0 of the pivot (below) is settled and issued this pass.
+- **Open questions:** see `questions/` (MVP-era) and open `agent-question` GitHub issues
+  (current).
+
+---
+
+## Pivot: Crisis-Response Reframe
+
+**Source of truth:** `/Users/frason/.claude/plans/swift-hopping-codd.md` — read that document
+for full context, rationale, and everything outside Phase 0. This section only carries the
+concrete design decisions needed to scope Phase 0 issues; it does not restate the whole plan.
+
+**Phase order:** Phase 0 (vertical slice) → Phase A (core systems) → Phase B (rendering
+foundation) → Phase C (art pipeline) → Phase D (full UI) → Phase E (backlog/opportunistic).
+Only Phase 0 is issued so far (this pass). BYOK, Tier 2/3 LLM calls, and the primary 3D view are
+explicitly out of scope for Phase 0.
+
+### Phase 0 scope (vertical slice)
+
+One scout, one comms bubble, one crisis type, template-only Tier 1 response (no LLM anywhere),
+one resource ledger with a real ecological cost/sink, validated `InterventionCommand`s recorded
+into versioned checkpoints, one building with the full operating→dormant→demolished lifecycle,
+an equilibrium progress meter. Bare functional debug UI only — the real StarCraft-style HUD is
+Phase D.
+
+### Core Economy — Phase 0 definition (first real definition; supersedes nothing, this system
+was previously unspecified)
+
+Two resources tracked in Phase 0 (Compute/Bandwidth is Tier 2/3-only, out of scope until Phase
+A). All numbers below are **Phase 0 defaults, tunable via playtesting** — same treatment as
+every other tuning number already flagged this way in the plan (crisis frequency, beachhead
+energy quantity, etc.) — not final balance.
+
+- **Energy** — global stockpile, ledger-tracked (not per-tile).
+  - Starting value: 500. Storage cap: 500 (can't exceed starting reserve in Phase 0 — no
+    infrastructure yet raises it).
+  - Passive drain: −1/tick (base beachhead survival cost), floored at 0.
+  - No income source in Phase 0 (intentional — proves the scarcity pressure the plan calls out;
+    the actual energy-generating building type is Phase A+).
+  - Sinks: building construction cost (100 Energy, fixed), Tier 1 crisis response cost (20
+    Energy per response). Action is rejected outright (no partial spend) if funds insufficient.
+- **Biomass** — global stockpile, but its *income* is a real per-tile ecological draw, not an
+  abstract accrual (this is the "real ecological cost/sink" the plan requires for Phase 0).
+  - Starting value: 0. Storage cap: 300.
+  - Source: the Phase 0 building (a Biomass Harvester, see below) — while operational, each tick
+    it converts up to 2.0 units of its host tile's real `producerBiomass` (existing world-grid
+    field) into +1 stockpiled Biomass. The draw never takes that cell's `producerBiomass` below
+    0 — a depleted tile simply produces less/no income that tick, so bad placement visibly
+    starves the local food web, matching the plan's stated design principle.
+  - Sinks: Harvester recommission cost after dormancy (scales with how long it's been dormant),
+    and the Tier 1 crisis remediation action's Biomass cost is deferred to Phase A (Phase 0's one
+    crisis type spends Energy only, see below) — keep Phase 0 minimal.
+
+### Scout Loop — Phase 0 definition (first real definition)
+
+- One scout entity, positioned on the existing world grid.
+- **Movement authority:** player issues a single-destination waypoint (click-to-move); the scout
+  autonomously paths one tile per tick toward it (no direct real-time steering). Fixed speed: 1
+  tile/tick in Phase 0 (no trait-driven speed — scouts aren't creatures).
+- **Comms bubble:** fixed radius of 15 tiles, centered on the Landing Base tile (not on the
+  scout). Distance metric: Chebyshev (8-directional square bubble) — cheap and deterministic,
+  matches grid movement.
+- **Discovery (Phase 0 definition):** the scout's current tile matching the single Phase 0
+  crisis's trigger condition (see below) generates one Discovery record
+  `{ tick, x, y, type, payload }`.
+- **Battery:** starts at 100. Drains −1/tick only while outside the comms bubble (no drain while
+  docked at the Landing Base tile). Recharges instantly to full only when the scout is exactly
+  on the Landing Base tile (not bubble-wide).
+- **Data sync/loss:** Discoveries accumulate in onboard storage while outside the bubble. The
+  moment the scout re-enters the bubble, onboard discoveries flush in one batch into the
+  persistent synced log, then clear. If battery reaches 0 while outside the bubble, the scout
+  becomes `stranded`: movement stops, and all undumped onboard discoveries are permanently
+  deleted — no warning, by design (see plan's Scout Data Loss section). A stranded scout can
+  later be "found" (informational/narrative closure field only) — no rescue/recovery mechanic in
+  Phase 0.
+
+### Phase 0 crisis type
+
+One crisis for the vertical slice: **Localized Toxicity Spike** — triggers when any grid tile's
+existing `toxicity` field (see `src/simulation/toxicity.ts`) crosses a fixed threshold. Alert is
+canned/templated text (no LLM). Tier 1 response: a fixed heuristic delta reduces that tile's
+toxicity, emitted as a validated `InterventionCommand` against a whitelisted
+`toxicity_reduction` parameter, costing 20 Energy.
+
+### `InterventionCommand` (security architecture, exercised end-to-end at Phase 0 scale)
+
+Every tier's output — Phase 0 only has Tier 1 — must conform to one typed command shape before
+it's eligible to touch simulation state: whitelist (fixed named parameters only) → hard
+min/max bounds per parameter → per-command delta cap, engine-side, all independent of whatever
+produced the command. Only commands that pass all three are applied to state or recorded into
+checkpoints/the diagnostic-export command log. This Phase 0 implementation is exactly what Phase
+A's Tier 2/3 LLM paths will reuse — Phase 0 proves the pipe with a non-LLM source first.
+
+### Equilibrium progress meter (Phase 0)
+
+Reuses `src/ui/ecosystemHealth.ts`'s existing Order/Chaos/Exploration bands as-is, plus a new
+Replacement-ratio criterion (mean 0.95–1.05, coefficient of variation ≤ 0.10) evaluated over a
+trailing 2,000-tick streak. All four conditions must hold simultaneously. The streak resets to
+zero on any applied `InterventionCommand`; pausing freezes it (no advance, no reset); loading a
+checkpoint does not reset it. Phase 0 only needs the tracker + progress readout — the full
+"infrastructure must be demolished" completion gate and fast-forward-to-completion UX are Phase
+A/D concerns.
+
+### Legacy roadmap note
+
+Issues #116–#126 and #155–#180 (Evolution Observatory, Three.js Living World, Engine Scale,
+Knowledge Progression/Scenarios, Evolution Truth — all labeled `pivot-candidate`) predate this
+approved pivot decision and several directly conflict with it (in particular the Observatory
+epics, whose stated goal — richer passive-observation tooling — is the exact thing this pivot
+exists to move away from; and the Scenario/Knowledge epics, which overlap the new crisis/
+checkpoint system). These have been moved to `agent-backlog`, gated on the Phase 0 verify issue,
+so worker time goes to the approved pivot first. See `state/STATUS.md` and the client-facing
+question issue for the full rationale — this is a provisional lead call, flagged to the client,
+not a unilateral cancellation.
+
+---
 
 ## Overview
 
