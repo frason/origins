@@ -75,24 +75,56 @@ log() { echo "$(TS) $*" | tee -a "$ACTIVITY"; }
 
 # A verified issue may commit only the explicit worker manifest; never stage the
 # whole worktree because client files and a later issue may already be present.
+# Three paths: (1) worker leaves changes uncommitted with manifest (primary);
+# (2) worker already committed directly, no manifest — just push (fallback);
+# (3) worker committed AND left manifest for same files — push unpushed commits.
 commit_verified_issue() {
-  local number="$1" title="$2" manifest paths path
+  local number="$1" title="$2" manifest paths path base_branch
   manifest=$(grep '^Changed files:' "$STATE/worker_output_${number}.txt" 2>/dev/null | tail -1 | sed 's/^Changed files:[[:space:]]*//')
-  [ -n "$manifest" ] || return 1
-  # Do not absorb an operator's already-staged work into an issue commit.
-  git diff --cached --quiet || return 1
-  paths=$(printf '%s' "$manifest" | tr ',' '\n')
-  while IFS= read -r path; do
-    path=$(printf '%s' "$path" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-    case "$path" in ''|/*|*'..'* ) return 1 ;; esac
-    [ -e "$path" ] || return 1
-    git add -- "$path"
-  done <<EOF
+
+  if [ -n "$manifest" ]; then
+    # Primary path: worker left changes uncommitted with manifest.
+    # Do not absorb an operator's already-staged work into an issue commit.
+    git diff --cached --quiet || return 1
+    paths=$(printf '%s' "$manifest" | tr ',' '\n')
+    while IFS= read -r path; do
+      path=$(printf '%s' "$path" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+      case "$path" in ''|/*|*'..'* ) return 1 ;; esac
+      [ -e "$path" ] || return 1
+      git add -- "$path"
+    done <<EOF
 $paths
 EOF
-  git diff --cached --quiet && return 1
-  git commit -m "chore(issue): ${title} (closes #${number})" || return 1
-  git push origin HEAD
+    # After staging manifest files, check if anything was actually staged.
+    if git diff --cached --quiet; then
+      # Nothing new staged (already committed) — check if there are unpushed commits.
+      base_branch=$(git rev-parse --abbrev-ref HEAD)
+      if [ -n "$(git rev-list -n1 "origin/${base_branch}..HEAD" 2>/dev/null)" ]; then
+        # Unpushed commits exist — push them.
+        git push origin HEAD || return 1
+      else
+        # No staged changes and no unpushed commits — fail.
+        return 1
+      fi
+    else
+      # Staged changes exist — commit and push as normal.
+      git commit -m "chore(issue): ${title} (closes #${number})" || return 1
+      git push origin HEAD
+    fi
+  else
+    # Fallback path: worker already committed directly (no manifest).
+    # Do not absorb operator's already-staged work.
+    git diff --cached --quiet || return 1
+    # Detect current branch and check for unpushed commits.
+    base_branch=$(git rev-parse --abbrev-ref HEAD)
+    if [ -n "$(git rev-list -n1 "origin/${base_branch}..HEAD" 2>/dev/null)" ]; then
+      # Local commits exist but are not on origin — push them.
+      git push origin HEAD || return 1
+    else
+      # No manifest and no unpushed commits — fail.
+      return 1
+    fi
+  fi
 }
 
 # ---- preflight: required tools ----
