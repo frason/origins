@@ -1,9 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import type { Scout } from '../simulation/pivot/scout';
+import type { Scout, Discovery } from '../simulation/pivot/scout';
 import {
   issueWaypoint,
   tickScoutMovement,
   chebyshevDistance,
+  checkAndRecordDiscovery,
+  syncDiscoveriesToLog,
+  discardOnboardDiscoveries,
 } from '../simulation/pivot/scout';
 
 describe('Scout', () => {
@@ -18,6 +21,7 @@ describe('Scout', () => {
       battery: 100,
       inBubble: true,
       status: 'active',
+      onboardDiscoveries: [],
     };
   });
 
@@ -355,7 +359,7 @@ describe('Scout', () => {
 
       it('clamps battery at 0, does not go negative', () => {
         scout.x = 50;
-        scout.y = 50;
+        scout.y = 70; // Move off base tile so not recharging
         scout.battery = 0;
         scout.status = 'stranded';
         scout.inBubble = false;
@@ -378,6 +382,7 @@ describe('Scout', () => {
           battery: 80,
           inBubble: true,
           status: 'active',
+          onboardDiscoveries: [],
         };
         issueWaypoint(scout1, 65, 70);
         for (let i = 0; i < 25; i++) {
@@ -393,6 +398,7 @@ describe('Scout', () => {
           battery: 80,
           inBubble: true,
           status: 'active',
+          onboardDiscoveries: [],
         };
         issueWaypoint(scout2, 65, 70);
         for (let i = 0; i < 25; i++) {
@@ -419,6 +425,7 @@ describe('Scout', () => {
             battery: 100,
             inBubble: true,
             status: 'active' as const,
+            onboardDiscoveries: [] as Discovery[],
           },
           {
             id: 'scout-b',
@@ -428,6 +435,7 @@ describe('Scout', () => {
             battery: 100,
             inBubble: true,
             status: 'active' as const,
+            onboardDiscoveries: [] as Discovery[],
           },
         ];
 
@@ -502,6 +510,313 @@ describe('Scout', () => {
         }
 
         expect(scout.id).toBe(originalId);
+      });
+    });
+
+    describe('discovery recording and syncing', () => {
+      it('records discovery when outside bubble and predicate matches', () => {
+        const mockWorld = { test: true };
+        const isDiscoveryTile = (world: unknown, x: number, y: number) => {
+          return x === 70 && y === 50;
+        };
+
+        // Start outside bubble
+        scout.x = 70;
+        scout.y = 50;
+        scout.inBubble = false;
+
+        const recorded = checkAndRecordDiscovery(
+          scout,
+          42,
+          isDiscoveryTile,
+          mockWorld,
+          'toxicity_spike',
+          { severity: 'high' }
+        );
+
+        expect(recorded).toBe(true);
+        expect(scout.onboardDiscoveries).toHaveLength(1);
+        expect(scout.onboardDiscoveries[0]).toEqual({
+          tick: 42,
+          x: 70,
+          y: 50,
+          type: 'toxicity_spike',
+          payload: { severity: 'high' },
+        });
+      });
+
+      it('does not record discovery while inside bubble', () => {
+        const mockWorld = { test: true };
+        const isDiscoveryTile = (world: unknown, x: number, y: number) => true;
+
+        scout.x = 50;
+        scout.y = 50;
+        scout.inBubble = true;
+
+        const recorded = checkAndRecordDiscovery(
+          scout,
+          42,
+          isDiscoveryTile,
+          mockWorld,
+          'toxicity_spike'
+        );
+
+        expect(recorded).toBe(false);
+        expect(scout.onboardDiscoveries).toHaveLength(0);
+      });
+
+      it('does not record discovery when predicate returns false', () => {
+        const mockWorld = { test: true };
+        const isDiscoveryTile = (world: unknown, x: number, y: number) => false;
+
+        scout.x = 70;
+        scout.y = 50;
+        scout.inBubble = false;
+
+        const recorded = checkAndRecordDiscovery(
+          scout,
+          42,
+          isDiscoveryTile,
+          mockWorld,
+          'toxicity_spike'
+        );
+
+        expect(recorded).toBe(false);
+        expect(scout.onboardDiscoveries).toHaveLength(0);
+      });
+
+      it('accumulates multiple discoveries', () => {
+        const mockWorld = { test: true };
+        let discoveryCount = 0;
+        const isDiscoveryTile = (world: unknown, x: number, y: number) => {
+          discoveryCount++;
+          return true;
+        };
+
+        scout.x = 70;
+        scout.y = 50;
+        scout.inBubble = false;
+
+        // Record 3 discoveries
+        for (let i = 0; i < 3; i++) {
+          checkAndRecordDiscovery(
+            scout,
+            i + 10,
+            isDiscoveryTile,
+            mockWorld,
+            'toxicity_spike',
+            { tick: i + 10 }
+          );
+        }
+
+        expect(scout.onboardDiscoveries).toHaveLength(3);
+        expect(scout.onboardDiscoveries[0].tick).toBe(10);
+        expect(scout.onboardDiscoveries[1].tick).toBe(11);
+        expect(scout.onboardDiscoveries[2].tick).toBe(12);
+      });
+
+      it('syncs discoveries to persistent log and clears onboard', () => {
+        const syncedDiscoveries: Discovery[] = [];
+
+        scout.onboardDiscoveries = [
+          { tick: 10, x: 70, y: 50, type: 'toxicity_spike', payload: { severity: 'high' } },
+          { tick: 11, x: 71, y: 51, type: 'toxicity_spike', payload: { severity: 'critical' } },
+        ];
+
+        const synced = syncDiscoveriesToLog(scout, syncedDiscoveries);
+
+        expect(synced).toBe(2);
+        expect(scout.onboardDiscoveries).toHaveLength(0);
+        expect(syncedDiscoveries).toHaveLength(2);
+        expect(syncedDiscoveries[0].tick).toBe(10);
+        expect(syncedDiscoveries[1].tick).toBe(11);
+      });
+
+      it('does not double-count discoveries after sync', () => {
+        const syncedDiscoveries: Discovery[] = [];
+
+        // First discovery batch
+        scout.onboardDiscoveries = [
+          { tick: 10, x: 70, y: 50, type: 'toxicity_spike', payload: {} },
+        ];
+        syncDiscoveriesToLog(scout, syncedDiscoveries);
+
+        // Record new discovery (must be outside bubble to record)
+        scout.inBubble = false;
+        checkAndRecordDiscovery(
+          scout,
+          11,
+          () => true,
+          {},
+          'toxicity_spike'
+        );
+
+        // Sync again
+        syncDiscoveriesToLog(scout, syncedDiscoveries);
+
+        expect(syncedDiscoveries).toHaveLength(2);
+        expect(syncedDiscoveries[0].tick).toBe(10);
+        expect(syncedDiscoveries[1].tick).toBe(11);
+      });
+
+      it('discards onboard discoveries on stranding', () => {
+        scout.onboardDiscoveries = [
+          { tick: 10, x: 70, y: 50, type: 'toxicity_spike', payload: {} },
+          { tick: 11, x: 71, y: 51, type: 'toxicity_spike', payload: {} },
+        ];
+
+        const discarded = discardOnboardDiscoveries(scout);
+
+        expect(discarded).toBe(2);
+        expect(scout.onboardDiscoveries).toHaveLength(0);
+      });
+
+      it('syncs discoveries automatically when scout re-enters bubble', () => {
+        const syncedDiscoveries: Discovery[] = [];
+
+        // Start inside bubble
+        scout.x = 50;
+        scout.y = 50;
+        scout.inBubble = true;
+        scout.battery = 100;
+
+        // Move outside bubble
+        issueWaypoint(scout, 50, 70);
+        for (let i = 0; i < 16; i++) {
+          tickScoutMovement(scout, BASE_X, BASE_Y, BUBBLE_RADIUS, syncedDiscoveries);
+        }
+        expect(scout.inBubble).toBe(false);
+
+        // Record discoveries while outside
+        const isDiscoveryTile = (world: unknown, x: number, y: number) => x === scout.x && y === scout.y;
+        checkAndRecordDiscovery(scout, 20, isDiscoveryTile, {}, 'toxicity_spike', { severity: 'high' });
+        checkAndRecordDiscovery(scout, 21, isDiscoveryTile, {}, 'toxicity_spike', { severity: 'critical' });
+
+        expect(scout.onboardDiscoveries).toHaveLength(2);
+        expect(syncedDiscoveries).toHaveLength(0);
+
+        // Move back toward base (inside bubble)
+        issueWaypoint(scout, BASE_X, BASE_Y);
+        let reentered = false;
+        for (let i = 0; i < 20; i++) {
+          const result = tickScoutMovement(scout, BASE_X, BASE_Y, BUBBLE_RADIUS, syncedDiscoveries);
+          if (result) {
+            reentered = true;
+            break;
+          }
+        }
+
+        // Should have synced upon re-entry
+        expect(reentered).toBe(true);
+        expect(syncedDiscoveries).toHaveLength(2);
+        expect(scout.onboardDiscoveries).toHaveLength(0);
+        expect(syncedDiscoveries[0].tick).toBe(20);
+        expect(syncedDiscoveries[1].tick).toBe(21);
+      });
+
+      it('discards onboard discoveries when battery reaches 0', () => {
+        scout.x = 50;
+        scout.y = 50;
+        scout.battery = 1;
+        scout.status = 'active';
+        scout.inBubble = true;
+
+        // Record discoveries
+        checkAndRecordDiscovery(scout, 10, () => true, {}, 'toxicity_spike');
+        checkAndRecordDiscovery(scout, 11, () => true, {}, 'toxicity_spike');
+
+        // Make scout outside bubble with no battery
+        issueWaypoint(scout, 50, 70);
+
+        // Move to outside bubble
+        for (let i = 0; i < 16; i++) {
+          tickScoutMovement(scout, BASE_X, BASE_Y, BUBBLE_RADIUS);
+        }
+        expect(scout.inBubble).toBe(false);
+
+        // One more tick should strand the scout and discard discoveries
+        tickScoutMovement(scout, BASE_X, BASE_Y, BUBBLE_RADIUS);
+        expect(scout.battery).toBe(0);
+        expect(scout.status).toBe('stranded');
+        expect(scout.onboardDiscoveries).toHaveLength(0);
+      });
+
+      it('prevents movement when stranded', () => {
+        scout.x = 50;
+        scout.y = 50;
+        scout.status = 'stranded';
+        scout.waypoint = { x: 60, y: 60 };
+
+        const oldX = scout.x;
+        const oldY = scout.y;
+
+        tickScoutMovement(scout, BASE_X, BASE_Y, BUBBLE_RADIUS);
+
+        expect(scout.x).toBe(oldX);
+        expect(scout.y).toBe(oldY);
+        expect(scout.waypoint).toEqual({ x: 60, y: 60 }); // Waypoint remains set
+      });
+
+      it('returns false from tickScoutMovement when no re-entry', () => {
+        scout.x = 50;
+        scout.y = 50;
+        scout.inBubble = true;
+        scout.battery = 100;
+
+        const result = tickScoutMovement(scout, BASE_X, BASE_Y, BUBBLE_RADIUS);
+        expect(result).toBe(false);
+      });
+
+      it('returns true from tickScoutMovement only on re-entry', () => {
+        scout.x = 50;
+        scout.y = 50;
+        scout.inBubble = true;
+        scout.battery = 100;
+
+        // Move outside
+        issueWaypoint(scout, 50, 70);
+        for (let i = 0; i < 16; i++) {
+          const result = tickScoutMovement(scout, BASE_X, BASE_Y, BUBBLE_RADIUS);
+          expect(result).toBe(false); // Still in bubble or just left
+        }
+        expect(scout.inBubble).toBe(false);
+
+        // Move back toward base
+        issueWaypoint(scout, BASE_X, BASE_Y);
+        let foundReentry = false;
+        for (let i = 0; i < 50; i++) {
+          const result = tickScoutMovement(scout, BASE_X, BASE_Y, BUBBLE_RADIUS);
+          if (result) {
+            foundReentry = true;
+            break;
+          }
+        }
+        expect(foundReentry).toBe(true);
+      });
+
+      it('handles empty payload with default', () => {
+        const mockWorld = {};
+        scout.x = 70;
+        scout.y = 50;
+        scout.inBubble = false;
+
+        checkAndRecordDiscovery(scout, 42, () => true, mockWorld, 'event');
+
+        expect(scout.onboardDiscoveries[0].payload).toEqual({});
+      });
+
+      it('preserves discovery order across sync', () => {
+        const syncedDiscoveries: Discovery[] = [];
+
+        scout.onboardDiscoveries = [
+          { tick: 100, x: 1, y: 1, type: 'type_a', payload: { order: 1 } },
+          { tick: 101, x: 2, y: 2, type: 'type_b', payload: { order: 2 } },
+          { tick: 102, x: 3, y: 3, type: 'type_c', payload: { order: 3 } },
+        ];
+
+        syncDiscoveriesToLog(scout, syncedDiscoveries);
+
+        expect(syncedDiscoveries.map(d => d.payload.order)).toEqual([1, 2, 3]);
       });
     });
   });

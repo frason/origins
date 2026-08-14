@@ -122,13 +122,24 @@ A/D concerns.
 
 Issues #116–#126 and #155–#180 (Evolution Observatory, Three.js Living World, Engine Scale,
 Knowledge Progression/Scenarios, Evolution Truth — all labeled `pivot-candidate`) predate this
-approved pivot decision and several directly conflict with it (in particular the Observatory
-epics, whose stated goal — richer passive-observation tooling — is the exact thing this pivot
-exists to move away from; and the Scenario/Knowledge epics, which overlap the new crisis/
-checkpoint system). These have been moved to `agent-backlog`, gated on the Phase 0 verify issue,
-so worker time goes to the approved pivot first. See `state/STATUS.md` and the client-facing
-question issue for the full rationale — this is a provisional lead call, flagged to the client,
-not a unilateral cancellation.
+approved pivot decision. All are moved to `agent-backlog`, gated on the Phase 0 verify issue
+(#233), so worker time goes to the approved pivot first. Client-confirmed disposition per #234
+(answered 2026-08-13), by category:
+
+- **Evolution Observatory (#159, #169–172, Watch-panel-adjacent items like #223):** client
+  correction to the lead's original framing — the game's loop is **Explore → Fix → Study →
+  Watch**, and Watch is the *last* phase, the win/completion condition (the equilibrium
+  "trophy/observation" state this same pivot section already defines above). Observatory is
+  earned payoff, not the passive-viewer problem this pivot exists to remove — do not treat it as
+  conflicting with the pivot or as a candidate for cancellation/rethink. It stays paused behind
+  Phase 0 purely for sequencing (single-worker dispatch; crisis-response loop must exist before
+  its capstone view matters), not because it's in question.
+- **Evolution Truth (#155, #165–168) and Engine Scale (#158, #173–176):** simulation
+  correctness/performance work, orthogonal to the UI/gameplay reframe. Client confirmed: pause
+  behind Phase 0 same as everything else, no need to run in parallel.
+
+Re-evaluate the full paused list at the Phase 0 checkpoint (#233 close) — resume in whatever
+order makes sense then, informed by what Phase 0 actually teaches about the loop.
 
 ---
 
