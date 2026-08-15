@@ -755,6 +755,15 @@ if ! run_agent worker "$effective_worker_model" "$tmp"; then
     >/dev/null 2>&1 || true
   gh issue edit "$iss_num" --repo "$REPO" \
     --remove-label "agent-doing" --add-label "agent-todo" >/dev/null 2>&1 || true
+  # Fairness cooldown: a crashed worker keeps the issue in agent-todo with its (now oldest)
+  # number, so plain oldest-number selection would let it re-win the very next worker pass
+  # and starve the rest of the queue (same as karen-FAIL path below). Mark it to be skipped
+  # for exactly one worker-dispatch pass.
+  cooldown_file="$STATE/cooldown.json"
+  cd_now=$(cat "$cooldown_file" 2>/dev/null || echo '[]')
+  jq --argjson n "$iss_num" '(. // []) + [$n] | unique' <<<"$cd_now" > "$cooldown_file" 2>/dev/null \
+    || echo "[$iss_num]" > "$cooldown_file"
+  log "  issue #$iss_num crashed — added to worker-selection cooldown for one pass"
   exit 0
 fi
 record_global_spend
