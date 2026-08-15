@@ -1,0 +1,13 @@
+## Summary
+Implemented Phase 0 Biomass Harvester building lifecycle system with full operational → dormant → demolished state machine. Buildings transition through states, accumulate decay over time, can be recommissioned at scaling cost, manually demolished for 40% refund, or auto-demolished once decay threshold (50 ticks) is reached. Includes comprehensive cost calculations, energy ledger integration, and deterministic state tracking for building history.
+
+## Changes
+- `src/simulation/pivot/building.ts` — Core building lifecycle module with Building interface, constants (PHASE0_BUILDING_CONSTANTS), and seven public functions (buildHarvester, setDormant, tickBuildingDecay, recommission, demolishManual, tickAutoDemolish, calculateRecommissionCost)
+- `src/tests/pivot/building.test.ts` — 750-line vitest suite covering all lifecycle functions, edge cases, error conditions, and full scenario testing (62 unit tests, all passing)
+
+## Verification
+✓ 62/62 unit tests passing (vitest)
+✓ `tsc --noEmit` clean (no TypeScript errors)
+✓ Full lifecycle coverage: build → dormant → decay → recommission/manual-demolish/auto-demolish
+
+Changed files: src/simulation/pivot/building.ts, src/tests/pivot/building.test.ts
