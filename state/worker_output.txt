@@ -1,2 +1,16 @@
-PASS — Implemented deterministic spatial indexing for #101 so vision, movement, predation, and corpse lookup query local buckets while preserving original creature order and sequential movement semantics.
-All 411 tests pass, including full-scan equivalence and a deterministic 2,000-creature stress case with more than 10× fewer candidate checks; the production build succeeds.
+## Summary
+- package.json fix confirmed: "test" script is now "vitest run" (was "vitest"); added
+  "test:watch": "vitest" to preserve the old interactive command.
+- Full `npm test` suite non-hang already independently verified by karen in a prior pass
+  (25+ min wall clock, 118 test files, confirmed via `ps aux` not deadlocked).
+- Smoke check below confirms `vitest run` mode exits cleanly on its own.
+
+## Smoke check
+RUN  v1.6.1 /Users/frason/Developer/origins-cron
+
+ ✓ src/tests/pivot/phase0Integration.test.ts  (14 tests) 484ms
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+   Start at  11:40:53
+   Duration  2.74s (transform 529ms, setup 0ms, collect 568ms, tests 484ms, environment 0ms, prepare 1.05s)
