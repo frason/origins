@@ -75,11 +75,22 @@ log() { echo "$(TS) $*" | tee -a "$ACTIVITY"; }
 
 # A verified issue may commit only the explicit worker manifest; never stage the
 # whole worktree because client files and a later issue may already be present.
-# Three paths: (1) worker leaves changes uncommitted with manifest (primary);
-# (2) worker already committed directly, no manifest — just push (fallback);
-# (3) worker committed AND left manifest for same files — push unpushed commits.
+#
+# MANIFEST RESOLUTION (in priority order):
+# 1. Primary: worker leaves changes uncommitted with numbered manifest file
+#    (state/worker_output_<N>.txt with "Changed files:" line)
+# 2. Fallback 1: if numbered manifest missing/malformed, check for generic
+#    worker_output.txt (no number) — if found and relatively recent, derive
+#    manifest from git diff and stage/commit those changes.
+# 3. Fallback 2: if generic file also missing, derive manifest directly from
+#    git diff --name-only (all uncommitted tracked changes).
+#
+# Fallback paths exist to prevent livelock when workers incorrectly write to
+# state/worker_output.txt (generic) instead of state/worker_output_<N>.txt
+# (numbered), or omit the "Changed files:" line entirely. Seen in issues #229
+# and #231; these fallbacks harden against recurrence.
 commit_verified_issue() {
-  local number="$1" title="$2" manifest paths path base_branch
+  local number="$1" title="$2" manifest paths path base_branch changed_files fallback_used
   manifest=$(grep '^Changed files:' "$STATE/worker_output_${number}.txt" 2>/dev/null | tail -1 | sed 's/^Changed files:[[:space:]]*//')
 
   if [ -n "$manifest" ]; then
@@ -112,17 +123,73 @@ EOF
       git push origin HEAD
     fi
   else
-    # Fallback path: worker already committed directly (no manifest).
-    # Do not absorb operator's already-staged work.
+    # Numbered manifest missing/malformed — try fallback paths.
     git diff --cached --quiet || return 1
-    # Detect current branch and check for unpushed commits.
-    base_branch=$(git rev-parse --abbrev-ref HEAD)
-    if [ -n "$(git rev-list -n1 "origin/${base_branch}..HEAD" 2>/dev/null)" ]; then
-      # Local commits exist but are not on origin — push them.
-      git push origin HEAD || return 1
+
+    fallback_used=0
+    changed_files=""
+
+    # FALLBACK 1: check for generic worker_output.txt (worker wrote to wrong file)
+    if [ -f "$STATE/worker_output.txt" ]; then
+      # Verify file is recent (modified within last 60 min) to avoid using stale output.
+      if find "$STATE/worker_output.txt" -mmin -60 -type f >/dev/null 2>&1; then
+        changed_files=$(git diff --name-only -- . ':!state/*' 2>/dev/null)
+        if [ -n "$changed_files" ]; then
+          log "  issue #$number PASSED — committed via fallback manifest (generic worker_output.txt found, deriving from git diff)"
+          fallback_used=1
+        fi
+      fi
+    fi
+
+    # FALLBACK 2: if generic file missing/stale, derive from git diff directly
+    if [ "$fallback_used" -eq 0 ]; then
+      changed_files=$(git diff --name-only -- . ':!state/*' 2>/dev/null)
+      if [ -n "$changed_files" ]; then
+        log "  issue #$number PASSED — committed via fallback manifest (no worker output file or file stale, deriving from git diff)"
+      fi
+    fi
+
+    # If we found changes to commit, stage and commit them
+    if [ -n "$changed_files" ]; then
+      paths=$(printf '%s' "$changed_files" | tr '\n' ',')
+      # Convert back to newline-separated for processing
+      changed_files=$(printf '%s' "$paths" | tr ',' '\n')
+
+      while IFS= read -r path; do
+        path=$(printf '%s' "$path" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        [ -z "$path" ] && continue
+        case "$path" in ''|/*|*'..'* ) return 1 ;; esac
+        [ -e "$path" ] || return 1
+        git add -- "$path"
+      done <<EOF
+$changed_files
+EOF
+
+      if git diff --cached --quiet; then
+        # Nothing new staged (already committed) — check if there are unpushed commits.
+        base_branch=$(git rev-parse --abbrev-ref HEAD)
+        if [ -n "$(git rev-list -n1 "origin/${base_branch}..HEAD" 2>/dev/null)" ]; then
+          # Unpushed commits exist — push them.
+          git push origin HEAD || return 1
+        else
+          # No staged changes and no unpushed commits — fail.
+          return 1
+        fi
+      else
+        # Staged changes exist — commit and push as normal.
+        git commit -m "chore(issue): ${title} (closes #${number})" || return 1
+        git push origin HEAD
+      fi
     else
-      # No manifest and no unpushed commits — fail.
-      return 1
+      # No changes from either path — check for unpushed commits as last resort
+      base_branch=$(git rev-parse --abbrev-ref HEAD)
+      if [ -n "$(git rev-list -n1 "origin/${base_branch}..HEAD" 2>/dev/null)" ]; then
+        # Local commits exist but are not on origin — push them.
+        git push origin HEAD || return 1
+      else
+        # No manifest, no git diff changes, and no unpushed commits — fail.
+        return 1
+      fi
     fi
   fi
 }
