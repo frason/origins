@@ -3,6 +3,9 @@ import {
   InterventionCommand,
   WHITELISTED_PARAMETERS,
   validateInterventionCommand,
+  appendValidatedCommand,
+  type ValidatedCommandLogEntry,
+  type ValidationResult,
 } from '../../simulation/pivot/interventionCommand';
 
 describe('InterventionCommand validation', () => {
@@ -365,6 +368,276 @@ describe('InterventionCommand validation', () => {
       expect(result.valid).toBe(false);
       expect(result.reason).toContain('exceeds maxDeltaPerCommand');
       // Caller must reject this command entirely
+    });
+  });
+
+  describe('appendValidatedCommand - command log validation', () => {
+    const validCommand: InterventionCommand = {
+      id: 'cmd-001',
+      tick: 100,
+      tier: 1,
+      sourceScoutId: 'scout-001',
+      targetX: 50,
+      targetY: 50,
+      parameter: 'toxicity_reduction',
+      value: 10,
+    };
+
+    it('should append a validated command to the log', () => {
+      const log: ValidatedCommandLogEntry[] = [];
+      const validation = validateInterventionCommand(validCommand);
+
+      const entry = appendValidatedCommand(log, validCommand, validation, 100);
+
+      expect(log).toHaveLength(1);
+      expect(entry.command).toBe(validCommand);
+      expect(entry.validationResult.valid).toBe(true);
+      expect(entry.appendedAtTick).toBe(100);
+    });
+
+    it('should record appendedAtTick correctly', () => {
+      const log: ValidatedCommandLogEntry[] = [];
+      const validation = validateInterventionCommand(validCommand);
+
+      appendValidatedCommand(log, validCommand, validation, 42);
+
+      expect(log[0].appendedAtTick).toBe(42);
+    });
+
+    it('should reject appending an unvalidated command (valid: false)', () => {
+      const log: ValidatedCommandLogEntry[] = [];
+      const invalidCommand: InterventionCommand = {
+        ...validCommand,
+        parameter: 'invalid_parameter',
+      };
+      const validation = validateInterventionCommand(invalidCommand);
+
+      expect(() => appendValidatedCommand(log, invalidCommand, validation, 100)).toThrow(
+        /unvalidated command/i
+      );
+      expect(log).toHaveLength(0);
+    });
+
+    it('should throw error with validation failure reason', () => {
+      const log: ValidatedCommandLogEntry[] = [];
+      const invalidCommand: InterventionCommand = {
+        ...validCommand,
+        parameter: 'invalid_parameter',
+      };
+      const validation = validateInterventionCommand(invalidCommand);
+
+      expect(() => appendValidatedCommand(log, invalidCommand, validation, 100)).toThrow(
+        /not whitelisted/
+      );
+    });
+
+    it('should build correct log entry with clamped value in result', () => {
+      const log: ValidatedCommandLogEntry[] = [];
+      const clampedCommand: InterventionCommand = {
+        ...validCommand,
+        value: -5, // will clamp to 0
+      };
+      const validation = validateInterventionCommand(clampedCommand);
+
+      expect(validation.valid).toBe(true);
+      expect(validation.clampedValue).toBe(0);
+
+      const entry = appendValidatedCommand(log, clampedCommand, validation, 100);
+
+      expect(entry.validationResult.clampedValue).toBe(0);
+      expect(entry.command.value).toBe(-5); // original value preserved
+    });
+
+    it('should maintain command history across multiple appends', () => {
+      const log: ValidatedCommandLogEntry[] = [];
+      const cmd1: InterventionCommand = {
+        ...validCommand,
+        id: 'cmd-1',
+        tick: 100,
+      };
+      const cmd2: InterventionCommand = {
+        ...validCommand,
+        id: 'cmd-2',
+        tick: 110,
+      };
+
+      const val1 = validateInterventionCommand(cmd1);
+      const val2 = validateInterventionCommand(cmd2);
+
+      appendValidatedCommand(log, cmd1, val1, 100);
+      appendValidatedCommand(log, cmd2, val2, 110);
+
+      expect(log).toHaveLength(2);
+      expect(log[0].command.id).toBe('cmd-1');
+      expect(log[1].command.id).toBe('cmd-2');
+      expect(log[0].appendedAtTick).toBe(100);
+      expect(log[1].appendedAtTick).toBe(110);
+    });
+
+    it('should reject unvalidated command even if it would pass validation', () => {
+      const log: ValidatedCommandLogEntry[] = [];
+      const goodCommand: InterventionCommand = {
+        ...validCommand,
+        parameter: 'toxicity_reduction',
+        value: 8, // valid value
+      };
+
+      // Simulate passing an invalid/unvalidated result (manually constructed, not from validateInterventionCommand)
+      const fakeInvalidResult = { valid: false, reason: 'Custom failure' };
+
+      expect(() => appendValidatedCommand(log, goodCommand, fakeInvalidResult, 100)).toThrow(
+        /unvalidated command/i
+      );
+      expect(log).toHaveLength(0);
+    });
+
+    it('should store both command and validation result for audit trail', () => {
+      const log: ValidatedCommandLogEntry[] = [];
+      const cmd = validCommand;
+      const validation = validateInterventionCommand(cmd);
+
+      appendValidatedCommand(log, cmd, validation, 100);
+
+      const entry = log[0];
+      expect(entry.command).toBe(cmd);
+      // After self-validation, the stored validationResult is the internal re-validation result
+      // (not necessarily the same object as passed in, but with same valid/reason/clampedValue properties)
+      expect(entry.validationResult.valid).toBe(true);
+      expect(entry.validationResult.valid).toBe(validation.valid);
+    });
+
+    it('should enforce that undefined validation result is rejected', () => {
+      const log: ValidatedCommandLogEntry[] = [];
+      // Simulate passing undefined as validation result
+      const undefinedValidation = undefined as any;
+
+      expect(() => appendValidatedCommand(log, validCommand, undefinedValidation, 100)).toThrow();
+      expect(log).toHaveLength(0);
+    });
+
+    it('should integrate with validateInterventionCommand standard pattern', () => {
+      const log: ValidatedCommandLogEntry[] = [];
+      const cmd = validCommand;
+
+      // Standard pattern: validate first, then conditionally append
+      const validation = validateInterventionCommand(cmd);
+      if (validation.valid) {
+        appendValidatedCommand(log, cmd, validation, 100);
+      }
+
+      expect(log).toHaveLength(1);
+      expect(log[0].validationResult.valid).toBe(true);
+    });
+
+    it('should establish pattern for Phase A Tier 2/3 LLM paths', () => {
+      // This test documents the pattern that Phase A's Tier 2/3 LLM paths will reuse
+      const log: ValidatedCommandLogEntry[] = [];
+
+      // Simulate LLM path receiving a command
+      const llmCommand: InterventionCommand = {
+        id: 'llm-generated-cmd-1',
+        tick: 150,
+        tier: 2,
+        sourceScoutId: 'scout-001',
+        targetX: 50,
+        targetY: 50,
+        parameter: 'toxicity_reduction',
+        value: 12,
+      };
+
+      // Step 1: Always validate before appending
+      const validation = validateInterventionCommand(llmCommand);
+
+      // Step 2: Only append if valid (this is the security boundary)
+      if (validation.valid) {
+        const entry = appendValidatedCommand(log, llmCommand, validation, 150);
+        expect(entry).toBeDefined();
+      } else {
+        // Step 3: Reject unvalidated commands explicitly
+        throw new Error(`LLM command failed validation: ${validation.reason}`);
+      }
+
+      expect(log).toHaveLength(1);
+      expect(log[0].command.tier).toBe(2); // Tier 2 LLM command
+    });
+
+    it('should reject spoofed validation: caller passes {valid:true} for a command that would fail validation', () => {
+      // This is the security test for Karen's spoofing attack:
+      // A caller with bad intent tries to pass a fabricated {valid: true} result
+      // paired with a command that has a parameter not in the whitelist.
+      const log: ValidatedCommandLogEntry[] = [];
+
+      const badCommand: InterventionCommand = {
+        id: 'spoofed-cmd-1',
+        tick: 100,
+        tier: 1,
+        sourceScoutId: 'scout-001',
+        targetX: 50,
+        targetY: 50,
+        parameter: 'totally_not_whitelisted', // Not in WHITELISTED_PARAMETERS
+        value: 99999, // Also way out of bounds
+      };
+
+      // Caller tries to spoof a valid result
+      const spoofedValidation: ValidationResult = {
+        valid: true, // Lying: this command would NOT pass real validation
+      };
+
+      // appendValidatedCommand should detect the mismatch and throw
+      expect(() => appendValidatedCommand(log, badCommand, spoofedValidation, 100)).toThrow(
+        /spoofing|mismatch|internal validation/i
+      );
+      expect(log).toHaveLength(0); // Nothing appended
+    });
+
+    it('should catch spoofing even if real validation would pass for parameter but value is bad', () => {
+      const log: ValidatedCommandLogEntry[] = [];
+
+      // Valid parameter, but value exceeds delta cap
+      const badValueCommand: InterventionCommand = {
+        id: 'bad-value-cmd-1',
+        tick: 100,
+        tier: 1,
+        sourceScoutId: 'scout-001',
+        targetX: 50,
+        targetY: 50,
+        parameter: 'toxicity_reduction', // Whitelisted parameter
+        value: WHITELISTED_PARAMETERS.toxicity_reduction.maxDeltaPerCommand + 100, // Way over delta cap
+      };
+
+      // Caller tries to lie and say it's valid
+      const spoofedValidation: ValidationResult = {
+        valid: true,
+      };
+
+      // appendValidatedCommand must re-validate and catch this
+      expect(() => appendValidatedCommand(log, badValueCommand, spoofedValidation, 100)).toThrow(
+        /validation/i
+      );
+      expect(log).toHaveLength(0);
+    });
+
+    it('should allow honest append when caller passes correct validation result', () => {
+      const log: ValidatedCommandLogEntry[] = [];
+      const validCommand: InterventionCommand = {
+        id: 'honest-cmd-1',
+        tick: 100,
+        tier: 1,
+        sourceScoutId: 'scout-001',
+        targetX: 50,
+        targetY: 50,
+        parameter: 'toxicity_reduction',
+        value: 10, // Valid value
+      };
+
+      const validation = validateInterventionCommand(validCommand);
+      expect(validation.valid).toBe(true);
+
+      // Honest append: caller passes the real validation result
+      const entry = appendValidatedCommand(log, validCommand, validation, 100);
+
+      expect(log).toHaveLength(1);
+      expect(entry.command.id).toBe('honest-cmd-1');
     });
   });
 });

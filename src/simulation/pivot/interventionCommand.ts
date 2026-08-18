@@ -125,3 +125,87 @@ export function validateInterventionCommand(cmd: InterventionCommand): Validatio
     valid: true,
   };
 }
+
+/**
+ * Validated command log entry: a command that has already passed validateInterventionCommand.
+ * This type exists to make it explicit in code that the command is validated (for type safety).
+ * The `validationResult` field stores the validation result for reference.
+ */
+export interface ValidatedCommandLogEntry {
+  command: InterventionCommand;
+  validationResult: ValidationResult;
+  appendedAtTick: number; // tick when command was appended to log
+}
+
+/**
+ * Append a validated command to the command log.
+ *
+ * This function enforces that only commands that have actually passed validateInterventionCommand
+ * are appended. It performs self-validation by re-running validateInterventionCommand internally
+ * and comparing the result with the caller-supplied result. This prevents callers from spoofing
+ * a fake validation result for an invalid command.
+ *
+ * Security enforcement:
+ *   - Always calls validateInterventionCommand(command) internally (re-validation)
+ *   - Compares internal result with caller-supplied result
+ *   - If they differ, throws an error (caller is spoofing validation)
+ *   - Never appends unvalidated commands, even if caller passes {valid: true}
+ *
+ * Usage pattern:
+ *   1. Call validateInterventionCommand(cmd)
+ *   2. Check if result.valid === true
+ *   3. If true, call appendValidatedCommand(log, cmd, validationResult, currentTick)
+ *   4. If false, reject/handle the error
+ *
+ * @param log - The command log array to append to (mutated in-place)
+ * @param command - The InterventionCommand to append (will be re-validated internally)
+ * @param validationResult - The result from validateInterventionCommand; must match internal validation
+ * @param currentTick - Current simulation tick (recorded in appendedAtTick)
+ * @throws Error if caller-supplied validation does not match internal validation (spoofing attempt)
+ * @throws Error if internal validation fails
+ * @returns The appended entry for confirmation
+ */
+export function appendValidatedCommand(
+  log: ValidatedCommandLogEntry[],
+  command: InterventionCommand,
+  validationResult: ValidationResult,
+  currentTick: number
+): ValidatedCommandLogEntry {
+  // Self-validation: re-run validateInterventionCommand internally
+  // This prevents callers from spoofing a fake {valid: true} result for an invalid command
+  const internalValidation = validateInterventionCommand(command);
+
+  // Enforce: internal validation must pass
+  if (!internalValidation.valid) {
+    throw new Error(
+      `Cannot append unvalidated command to log. Internal validation failed: ${internalValidation.reason}`
+    );
+  }
+
+  // Enforce: caller-supplied result must match internal result
+  // This catches attempts to spoof a valid result for a command that would fail validation
+  if (!validationResult.valid) {
+    throw new Error(
+      `Cannot append unvalidated command to log. Validation failed: ${validationResult.reason}`
+    );
+  }
+
+  // Verify both results agree on the outcome
+  // If internal says valid but caller says invalid (or vice versa), it's a spoofing attempt
+  if (internalValidation.valid !== validationResult.valid) {
+    throw new Error(
+      `Cannot append unvalidated command to log. Validation result mismatch: ` +
+        `internal validation ${internalValidation.valid !== validationResult.valid ? 'differs from' : 'matches'} caller supplied. ` +
+        `This indicates a spoofing or calling error.`
+    );
+  }
+
+  const entry: ValidatedCommandLogEntry = {
+    command,
+    validationResult: internalValidation, // Use internal validation result for authoritative record
+    appendedAtTick: currentTick,
+  };
+
+  log.push(entry);
+  return entry;
+}
