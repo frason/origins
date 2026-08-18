@@ -53,12 +53,19 @@ import {
   saveBetaWorldBackup,
   type BetaWorldBackupBackend,
 } from './services/betaWorldBackupClient';
+import Phase0Harness from './prototype/Phase0Harness';
 
 function browserStorage(): Storage | null {
   return typeof window === 'undefined' ? null : window.localStorage;
 }
 
 export default function App() {
+  // Check if we should render Phase 0 Harness instead of main app
+  const phase0Mode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('phase0');
+  if (phase0Mode) {
+    return <Phase0Harness />;
+  }
+
   const engineRef = useRef<EngineState | null>(null);
   const recipeReplayRef = useRef<RecipeReplaySession | null>(null);
   const checkpointsRef = useRef<SimulationCheckpoint<EngineState>[]>([]);

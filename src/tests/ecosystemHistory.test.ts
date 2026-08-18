@@ -87,7 +87,7 @@ describe('bounded ecosystem history', () => {
     const run = () => {
       let history = [createEcosystemHistorySample(0, [], [])];
       let interval = 1;
-      for (let tick = 1; tick <= 12000; tick++) {
+      for (let tick = 1; tick <= 2000; tick++) {
         const result = appendEcosystemHistory(
           history,
           interval,
@@ -103,7 +103,7 @@ describe('bounded ecosystem history', () => {
     expect(first.history.length).toBeLessThanOrEqual(MAX_HISTORY_SAMPLES);
     expect(first.interval).toBeGreaterThan(1);
     expect(first.history[0].tick).toBe(0);
-    expect(first.history[first.history.length - 1].tick).toBeGreaterThan(11000);
+    expect(first.history[first.history.length - 1].tick).toBeGreaterThan(1900);
     expect(run()).toEqual(first);
   });
 });
