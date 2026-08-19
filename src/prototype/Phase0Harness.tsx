@@ -87,26 +87,13 @@ function serializePhase0State(state: Phase0HarnessState): Phase0State {
   };
 }
 
-function restorePhase0State(phase0: Phase0State, world: World): Partial<Phase0HarnessState> {
-  const restored: Partial<Phase0HarnessState> = {};
-
-  if (phase0.ledger) {
-    restored.ledger = new ResourceLedger(phase0.ledger.energy, phase0.ledger.biomass);
-  }
-
-  if (phase0.scout) {
-    restored.scout = phase0.scout;
-  }
-
-  if (phase0.buildings && phase0.buildings.length > 0) {
-    restored.building = phase0.buildings[0];
-  }
-
-  if (phase0.crises) {
-    restored.crises = phase0.crises;
-  }
-
-  return restored;
+/**
+ * Converts Phase0State ledger balances to a ResourceLedger instance.
+ * Used when restoring from checkpoint phase0 data.
+ */
+function restorePhase0LedgerFromState(ledgerState: Phase0State['ledger']): ResourceLedger {
+  if (!ledgerState) return new ResourceLedger();
+  return new ResourceLedger(ledgerState.energy, ledgerState.biomass);
 }
 
 export default function Phase0Harness() {
@@ -256,21 +243,40 @@ export default function Phase0Harness() {
   }, [state.tick, addCheckpoint]);
 
   const loadGame = useCallback((tick: number) => {
-    const checkpoint = checkpointsRef.current.find((c) => c.tick === tick);
-    if (!checkpoint || !checkpoint.phase0) {
-      setMessage('Checkpoint not found or missing Phase 0 state');
-      return;
+    try {
+      // Use shared restoreCheckpoint() to validate version and restore checkpoints list
+      const restored = restoreCheckpoint(checkpointsRef.current, tick);
+      if (!restored) {
+        setMessage('Checkpoint not found');
+        return;
+      }
+
+      // Extract the full checkpoint (with phase0 data) from the restored checkpoints
+      const checkpoint = restored.checkpoints.find((c) => c.tick === tick);
+      if (!checkpoint || !checkpoint.phase0) {
+        setMessage('Checkpoint missing Phase 0 state');
+        return;
+      }
+
+      setState((prev) => {
+        const phase0 = checkpoint.phase0!;
+        const newState: Phase0HarnessState = {
+          ...prev,
+          tick: checkpoint.tick,
+          ledger: restorePhase0LedgerFromState(phase0.ledger),
+          scout: phase0.scout || prev.scout,
+          building: phase0.buildings?.[0] ?? null,
+          crises: phase0.crises || [],
+        };
+        setMessage(`Loaded game from tick ${tick}`);
+        return newState;
+      });
+
+      // Update checkpoints list to only include those up to loaded tick
+      checkpointsRef.current = restored.checkpoints;
+    } catch (e) {
+      setMessage(`Failed to load checkpoint: ${e instanceof Error ? e.message : 'unknown error'}`);
     }
-    setState((prev) => {
-      const restored = restorePhase0State(checkpoint.phase0!, prev.world);
-      const newState = {
-        ...prev,
-        tick: checkpoint.tick,
-        ...restored,
-      };
-      setMessage(`Loaded game from tick ${tick}`);
-      return newState;
-    });
   }, []);
 
   const gridCellSize = 8;
