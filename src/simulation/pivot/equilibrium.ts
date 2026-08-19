@@ -98,6 +98,28 @@ export class EquilibriumTracker {
   }
 
   /**
+   * Serialize the equilibrium tracker state for checkpoints.
+   * Returns the internal state needed to restore the tracker after a reload.
+   */
+  getState() {
+    return {
+      streakLength: this.streakLength,
+      replacementWindow: [...this.replacementWindow], // copy to prevent external mutation
+      lastConditionsState: this.lastConditionsState,
+    };
+  }
+
+  /**
+   * Restore the equilibrium tracker state from a serialized checkpoint.
+   * @param state Previously saved state from getState()
+   */
+  setState(state: { streakLength: number; replacementWindow: number[]; lastConditionsState: boolean }) {
+    this.streakLength = state.streakLength;
+    this.replacementWindow = [...state.replacementWindow]; // copy to prevent external mutation
+    this.lastConditionsState = state.lastConditionsState;
+  }
+
+  /**
    * Check all four equilibrium conditions simultaneously.
    */
   private checkAllConditions(order: number, chaos: number, exploration: number): boolean {

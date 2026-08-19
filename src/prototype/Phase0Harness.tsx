@@ -84,6 +84,8 @@ function serializePhase0State(state: Phase0HarnessState): Phase0State {
     scout: state.scout,
     buildings: state.building ? [state.building] : [],
     crises: state.crises,
+    worldGrid: state.world.toJSON(),
+    equilibrium: state.equilibrium.getState(),
   };
 }
 
@@ -260,6 +262,25 @@ export default function Phase0Harness() {
 
       setState((prev) => {
         const phase0 = checkpoint.phase0!;
+
+        // Restore world grid from checkpoint
+        let restoredWorld = prev.world;
+        if (phase0.worldGrid) {
+          try {
+            restoredWorld = World.fromJSON(phase0.worldGrid);
+          } catch (e) {
+            console.warn('Failed to restore world grid from checkpoint:', e);
+            // Fall back to previous world if restoration fails
+          }
+        }
+
+        // Restore equilibrium tracker state from checkpoint
+        let restoredEquilibrium = prev.equilibrium;
+        if (phase0.equilibrium) {
+          restoredEquilibrium = new EquilibriumTracker();
+          restoredEquilibrium.setState(phase0.equilibrium);
+        }
+
         const newState: Phase0HarnessState = {
           ...prev,
           tick: checkpoint.tick,
@@ -267,6 +288,8 @@ export default function Phase0Harness() {
           scout: phase0.scout || prev.scout,
           building: phase0.buildings?.[0] ?? null,
           crises: phase0.crises || [],
+          world: restoredWorld,
+          equilibrium: restoredEquilibrium,
         };
         setMessage(`Loaded game from tick ${tick}`);
         return newState;

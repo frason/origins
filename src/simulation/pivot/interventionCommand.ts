@@ -72,15 +72,25 @@ export interface ValidationResult {
  *   - { valid: false, reason: string } if any check fails
  *
  * Checks (in order):
- * 1. Parameter must be whitelisted
- * 2. Value outside [min, max] is clamped to the nearest bound (hard limits are soft)
- * 3. Value (absolute) must not exceed maxDeltaPerCommand (delta cap is hard)
+ * 1. Target coordinates must be within world bounds [0, 100)
+ * 2. Parameter must be whitelisted
+ * 3. Value outside [min, max] is clamped to the nearest bound (hard limits are soft)
+ * 4. Value (absolute) must not exceed maxDeltaPerCommand (delta cap is hard)
  *
  * If value is outside [min, max], it's clamped to the nearest bound and clampedValue
  * is returned (valid: true, caller should use clampedValue).
  * If value exceeds maxDeltaPerCommand (even if within [min, max]), validation fails (valid: false).
+ * If targetX or targetY are out of bounds, validation fails (rejected, not clamped).
  */
-export function validateInterventionCommand(cmd: InterventionCommand): ValidationResult {
+export function validateInterventionCommand(cmd: InterventionCommand, worldWidth: number = 100, worldHeight: number = 100): ValidationResult {
+  // Check 0: target coordinates must be within world bounds
+  if (cmd.targetX < 0 || cmd.targetX >= worldWidth || cmd.targetY < 0 || cmd.targetY >= worldHeight) {
+    return {
+      valid: false,
+      reason: `Target coordinates (${cmd.targetX}, ${cmd.targetY}) out of world bounds [0, ${worldWidth}) × [0, ${worldHeight})`,
+    };
+  }
+
   // Check 1: parameter must be whitelisted
   if (!(cmd.parameter in WHITELISTED_PARAMETERS)) {
     return {

@@ -9,7 +9,17 @@ export const MAX_CHECKPOINTS = 30;
 export const CHECKPOINT_FORMAT_VERSION = 1;
 
 /**
- * Phase 0 state snapshot: captures ledger, scout, buildings, and crises.
+ * Serializable EquilibriumTracker state
+ * Captures the internal state needed to restore equilibrium progress after a checkpoint reload
+ */
+export interface EquilibriumTrackerState {
+  streakLength: number;
+  replacementWindow: number[];
+  lastConditionsState: boolean;
+}
+
+/**
+ * Phase 0 state snapshot: captures ledger, scout, buildings, crises, world grid, and equilibrium.
  * This is extracted and stored with each checkpoint for persistent Phase 0 ecosystem state.
  */
 export interface Phase0State {
@@ -20,6 +30,8 @@ export interface Phase0State {
   scout?: Scout;
   buildings?: Building[];
   crises?: Crisis[];
+  worldGrid?: object; // World.toJSON() snapshot
+  equilibrium?: EquilibriumTrackerState;
 }
 
 /**
