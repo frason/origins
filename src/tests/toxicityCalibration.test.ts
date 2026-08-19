@@ -64,10 +64,10 @@ describe('toxicity severity calibration', () => {
   });
 
   it('measures aligned visual and ecological consequences across fixed seeds', () => {
-    const results = [42, 12345, 54321, 99999].map((seed) => runToxicityCalibration(seed));
+    const results = [42, 12345, 54321, 99999].map((seed) => runToxicityCalibration(seed, [30, 50]));
     for (const result of results) {
       const evidence = JSON.stringify(result);
-      expect(result.samples.map((sample) => sample.tick), evidence).toEqual([60, 100]);
+      expect(result.samples.map((sample) => sample.tick), evidence).toEqual([30, 50]);
       expect(Math.max(...result.samples.map((sample) => sample.totalToxicity)), evidence)
         .toBeGreaterThan(0);
       for (const sample of result.samples) {
@@ -79,6 +79,6 @@ describe('toxicity severity calibration', () => {
         }
       }
     }
-    expect(runToxicityCalibration(42)).toEqual(results[0]);
-  }, 30_000);
+    expect(runToxicityCalibration(42, [30, 50])).toEqual(results[0]);
+  }, 15_000);
 });

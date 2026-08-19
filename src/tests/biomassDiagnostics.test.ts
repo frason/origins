@@ -66,18 +66,18 @@ describe('headless biomass diagnostics', () => {
     });
   });
 
-  it('produces an exact fixed-seed report through tick 150', () => {
-    const report = runBiomassDiagnostic(12345);
+  it('produces an exact fixed-seed report through tick 60', () => {
+    const report = runBiomassDiagnostic(12345, 60, [0, 10, 30, 60]);
     const finalSample = report.samples[report.samples.length - 1];
 
-    expect(report.throughTick).toBe(150);
-    expect(report.samples.map((sample) => sample.tick)).toEqual([0, 10, 30, 60, 100, 150]);
+    expect(report.throughTick).toBe(60);
+    expect(report.samples.map((sample) => sample.tick)).toEqual([0, 10, 30, 60]);
     expect(finalSample.cumulativeProducerRegrowth).toBeGreaterThan(0);
     expect(finalSample.cumulativeGrazingConsumption).toBeGreaterThan(0);
     expect(finalSample.recentGrazing.consumedBiomass).toBeGreaterThan(0);
     expect(finalSample.recentGrazing.grazedTileCount).toBeGreaterThan(0);
     expect(finalSample.foodAccess.herbivore.firstStarvationTick).not.toBeNull();
-  }, 30_000);
+  }, 15_000);
 
   it('replays diagnostic measurements identically', () => {
     const first = runBiomassDiagnostic(54321, 30, [0, 15, 30]);

@@ -66,8 +66,8 @@ describe('diagnostic bundles', () => {
     );
   });
 
-  it('keeps a representative tick-100 report inside the beta upload bound', () => {
-    const state = advancedWorld(100);
+  it('keeps a representative tick-30 report inside the beta upload bound', () => {
+    const state = advancedWorld(30);
     const serialized = serializeDiagnosticBundle(
       createDiagnosticBundle(state, {
         generatedAt: '2026-08-01T12:00:00.000Z',

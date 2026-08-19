@@ -48,6 +48,80 @@ describe('InterventionCommand validation', () => {
     });
   });
 
+  describe('validateInterventionCommand - world bounds enforcement', () => {
+    it('should reject command with targetX >= world width (100)', () => {
+      const cmd: InterventionCommand = {
+        ...validCommand,
+        targetX: 100, // Out of bounds: [0, 100)
+      };
+      const result = validateInterventionCommand(cmd, 100, 100);
+      expect(result.valid).toBe(false);
+      expect(result.reason).toContain('out of world bounds');
+    });
+
+    it('should reject command with targetX < 0', () => {
+      const cmd: InterventionCommand = {
+        ...validCommand,
+        targetX: -1,
+      };
+      const result = validateInterventionCommand(cmd, 100, 100);
+      expect(result.valid).toBe(false);
+      expect(result.reason).toContain('out of world bounds');
+    });
+
+    it('should reject command with targetY >= world height (100)', () => {
+      const cmd: InterventionCommand = {
+        ...validCommand,
+        targetY: 150,
+      };
+      const result = validateInterventionCommand(cmd, 100, 100);
+      expect(result.valid).toBe(false);
+      expect(result.reason).toContain('out of world bounds');
+    });
+
+    it('should reject command with targetY < 0', () => {
+      const cmd: InterventionCommand = {
+        ...validCommand,
+        targetY: -5,
+      };
+      const result = validateInterventionCommand(cmd, 100, 100);
+      expect(result.valid).toBe(false);
+      expect(result.reason).toContain('out of world bounds');
+    });
+
+    it('should accept command at world bounds edge [0, 0]', () => {
+      const cmd: InterventionCommand = {
+        ...validCommand,
+        targetX: 0,
+        targetY: 0,
+      };
+      const result = validateInterventionCommand(cmd, 100, 100);
+      expect(result.valid).toBe(true);
+    });
+
+    it('should accept command at world bounds edge [99, 99]', () => {
+      const cmd: InterventionCommand = {
+        ...validCommand,
+        targetX: 99,
+        targetY: 99,
+      };
+      const result = validateInterventionCommand(cmd, 100, 100);
+      expect(result.valid).toBe(true);
+    });
+
+    it('should reject out-of-bounds command even if all other validation passes', () => {
+      const cmd: InterventionCommand = {
+        ...validCommand,
+        targetX: 150, // Way out of bounds
+        parameter: 'toxicity_reduction',
+        value: 5, // Valid value
+      };
+      const result = validateInterventionCommand(cmd, 100, 100);
+      expect(result.valid).toBe(false);
+      expect(result.reason).toContain('out of world bounds');
+    });
+  });
+
   describe('validateInterventionCommand - whitelist enforcement', () => {
     it('should accept whitelisted parameter', () => {
       const result = validateInterventionCommand(validCommand);
@@ -638,6 +712,51 @@ describe('InterventionCommand validation', () => {
 
       expect(log).toHaveLength(1);
       expect(entry.command.id).toBe('honest-cmd-1');
+    });
+
+    it('should reject out-of-bounds command and never append to command log', () => {
+      const log: ValidatedCommandLogEntry[] = [];
+      const outOfBoundsCommand: InterventionCommand = {
+        id: 'oob-cmd-1',
+        tick: 100,
+        tier: 1,
+        sourceScoutId: 'scout-001',
+        targetX: 150, // Out of bounds: [0, 100)
+        targetY: 50,
+        parameter: 'toxicity_reduction',
+        value: 10,
+      };
+
+      // Validate the out-of-bounds command
+      const validation = validateInterventionCommand(outOfBoundsCommand, 100, 100);
+      expect(validation.valid).toBe(false);
+      expect(validation.reason).toContain('out of world bounds');
+
+      // Attempt to append: should fail because validation.valid is false
+      expect(() => appendValidatedCommand(log, outOfBoundsCommand, validation, 100)).toThrow();
+
+      // Verify command was never appended to log
+      expect(log).toHaveLength(0);
+    });
+
+    it('should never append a command with negative targetY to command log', () => {
+      const log: ValidatedCommandLogEntry[] = [];
+      const negativeYCommand: InterventionCommand = {
+        id: 'neg-y-cmd-1',
+        tick: 100,
+        tier: 1,
+        sourceScoutId: 'scout-001',
+        targetX: 50,
+        targetY: -10, // Out of bounds
+        parameter: 'toxicity_reduction',
+        value: 10,
+      };
+
+      const validation = validateInterventionCommand(negativeYCommand, 100, 100);
+      expect(validation.valid).toBe(false);
+
+      expect(() => appendValidatedCommand(log, negativeYCommand, validation, 100)).toThrow();
+      expect(log).toHaveLength(0);
     });
   });
 });

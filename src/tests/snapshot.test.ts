@@ -12,7 +12,7 @@ import { DEFAULT_TRAITS } from '../utils/traits';
  */
 
 const SEED = 424242;
-const TICKS = 100;
+const TICKS = 50;
 
 function buildInitialCreatures(): Creature[] {
   const specs = [

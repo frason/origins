@@ -4,10 +4,12 @@ import {
   restoreCheckpoint,
   CHECKPOINT_FORMAT_VERSION,
   type Phase0State,
+  type EquilibriumTrackerState,
 } from '../simulation/checkpointTimeline';
 import { buildDemoEngine } from '../simulation/demoWorld';
 import { tickEngine, type EngineState } from '../simulation/engine';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
+import { EquilibriumTracker } from '../simulation/pivot/equilibrium';
 
 interface State {
   tick: number;
@@ -245,6 +247,80 @@ describe('bounded deterministic checkpoint timeline', () => {
 
       expect(restored0?.checkpoints[0].phase0).toEqual(phase0_1);
       expect(restored10?.checkpoints[1].phase0).toEqual(phase0_2);
+    });
+
+    it('should preserve EquilibriumTracker state through checkpoint getState/setState round-trip', () => {
+      // Create an EquilibriumTracker and build up a streak
+      const tracker = new EquilibriumTracker();
+
+      // Record ticks with conditions met to build a streak
+      for (let i = 0; i < 10; i++) {
+        tracker.recordTick(60, 50, 50, 1.0, false, false);
+      }
+
+      // Verify the streak was built
+      const preCheckpointProgress = tracker.getProgress();
+      expect(preCheckpointProgress.streakLength).toBe(10);
+
+      // Simulate checkpoint save by calling getState()
+      const savedState = tracker.getState();
+      expect(savedState.streakLength).toBe(10);
+      expect(savedState.replacementWindow).toBeDefined();
+      expect(Array.isArray(savedState.replacementWindow)).toBe(true);
+      expect(savedState.lastConditionsState).toBeDefined();
+
+      // Simulate checkpoint restore by creating a new tracker and calling setState()
+      const restoredTracker = new EquilibriumTracker();
+      restoredTracker.setState(savedState);
+
+      // Verify the restored tracker has the same state
+      const postCheckpointProgress = restoredTracker.getProgress();
+      expect(postCheckpointProgress.streakLength).toBe(10);
+      expect(postCheckpointProgress.allConditionsMet).toBe(preCheckpointProgress.allConditionsMet);
+
+      // Verify the restored tracker continues from where it left off
+      restoredTracker.recordTick(60, 50, 50, 1.0, false, false);
+      const continuedProgress = restoredTracker.getProgress();
+      expect(continuedProgress.streakLength).toBe(11);
+    });
+
+    it('should preserve EquilibriumTracker state in Phase0State checkpoint payload', () => {
+      // Create tracker and build streak
+      const tracker = new EquilibriumTracker();
+      for (let i = 0; i < 5; i++) {
+        tracker.recordTick(60, 50, 50, 1.0, false, false);
+      }
+
+      const trackerState = tracker.getState();
+
+      // Create a Phase0State checkpoint with equilibrium state
+      const phase0State: Phase0State = {
+        ledger: { energy: 400, biomass: 20 },
+        scout: {
+          id: 'scout_0',
+          x: 50,
+          y: 50,
+          waypoint: null,
+          battery: 100,
+          inBubble: true,
+          status: 'active',
+          onboardDiscoveries: [],
+        },
+        equilibrium: trackerState,
+      };
+
+      // Capture checkpoint with equilibrium state
+      let checkpoints: ReturnType<typeof captureCheckpoint<State>> = [];
+      checkpoints = captureCheckpoint(checkpoints, { tick: 10, events: [] }, 10, 10, phase0State);
+
+      expect(checkpoints[0].phase0?.equilibrium).toBeDefined();
+      expect(checkpoints[0].phase0?.equilibrium?.streakLength).toBe(5);
+
+      // Restore and verify
+      const restored = restoreCheckpoint(checkpoints, 10);
+      expect(restored).not.toBeNull();
+      expect(restored?.checkpoints[0].phase0?.equilibrium?.streakLength).toBe(5);
+      expect(restored?.checkpoints[0].phase0?.equilibrium?.replacementWindow).toBeDefined();
     });
   });
 });

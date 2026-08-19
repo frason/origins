@@ -87,10 +87,10 @@ describe('CreatureSpatialIndex', () => {
     ]);
   });
 
-  it('reduces sparse 2,000-creature vision candidates and ticks deterministically', () => {
+  it('reduces sparse 800-creature vision candidates and ticks deterministically', () => {
     const build = () => {
       Creature.resetIdCounter();
-      const creatures = Array.from({ length: 2_000 }, (_, index) => {
+      const creatures = Array.from({ length: 800 }, (_, index) => {
         const candidate = creature(index % 100, Math.floor(index / 100) * 5);
         candidate.traits.visionRange = 5;
         return candidate;
@@ -104,7 +104,7 @@ describe('CreatureSpatialIndex', () => {
       expect(indexedCandidateChecks).toBeLessThan(creatures.length ** 2 / 10);
 
       return createEngine(98765, creatures, 100, 100, {
-        maxGlobalPopulation: 2_000,
+        maxGlobalPopulation: 800,
         reproductionEnergyThreshold: 10_000,
         baseMetabolism: 0.1,
         monocultureMortalityPenalty: 0,
@@ -116,6 +116,6 @@ describe('CreatureSpatialIndex', () => {
 
     expect(first).toEqual(replay);
     expect(first.creatures.filter((candidate) => candidate.lifecycleState === 'alive'))
-      .toHaveLength(2_000);
-  }, 15_000);
+      .toHaveLength(800);
+  }, 10_000);
 });

@@ -325,6 +325,59 @@ describe('Phase 0 Vertical Slice Integration', () => {
       expect(restoredCheckpoint?.phase0?.crises?.[0].status).toBe('resolved');
     });
 
+    it('should preserve world grid tile mutations (toxicity/producerBiomass) through checkpoint round-trip', () => {
+      // Setup: mutate specific tiles and capture checkpoint with world grid
+      const tileX = 45;
+      const tileY = 55;
+      const originalToxicity = world.getCell(tileX, tileY).toxicity;
+      const originalProducerBiomass = world.getCell(tileX, tileY).producerBiomass;
+
+      // Mutate the tile (simulating crisis and harvesting)
+      world.setCell(tileX, tileY, { toxicity: originalToxicity + 2.5 });
+      world.setCell(tileX, tileY, { producerBiomass: originalProducerBiomass - 3.5 });
+
+      const mutatedToxicity = world.getCell(tileX, tileY).toxicity;
+      const mutatedProducerBiomass = world.getCell(tileX, tileY).producerBiomass;
+
+      // Verify mutations are visible before checkpoint
+      expect(mutatedToxicity).not.toBe(originalToxicity);
+      expect(mutatedProducerBiomass).not.toBe(originalProducerBiomass);
+
+      // Capture checkpoint with world grid included
+      const checkpointState = { tick: 15 };
+      const phase0State = {
+        ledger: ledger.getBalances(),
+        scout,
+        buildings: [],
+        crises: [],
+        worldGrid: world.toJSON(),
+      };
+
+      const savedCheckpoints = captureCheckpoint(checkpoints, checkpointState, 1, 10, phase0State);
+      expect(savedCheckpoints).toHaveLength(1);
+      expect(savedCheckpoints[0].phase0?.worldGrid).toBeDefined();
+
+      // Restore checkpoint and verify world grid tile mutations are preserved
+      const restored = restoreCheckpoint(savedCheckpoints, 15);
+      expect(restored).not.toBeNull();
+
+      // Verify the specific tile's mutations survived the round-trip
+      const restoredToxicity = restored!.state.tick; // Just check the checkpoint restored
+      const restoredCheckpoint = savedCheckpoints.find((cp) => cp.tick === 15);
+      expect(restoredCheckpoint?.phase0?.worldGrid).toBeDefined();
+
+      // Manually verify the worldGrid contains the mutated values
+      const gridData = restoredCheckpoint?.phase0?.worldGrid as any;
+      expect(gridData.cells).toBeDefined();
+      expect(Array.isArray(gridData.cells)).toBe(true);
+
+      // Calculate cell index: y * width + x
+      const cellIndex = tileY * 100 + tileX;
+      const restoredCell = gridData.cells[cellIndex];
+      expect(restoredCell.toxicity).toBeCloseTo(mutatedToxicity, 5);
+      expect(restoredCell.producerBiomass).toBeCloseTo(mutatedProducerBiomass, 5);
+    });
+
     it('should preserve command log across checkpoint boundaries', () => {
       // Create and validate a command
       const command: InterventionCommand = {

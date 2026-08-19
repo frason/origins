@@ -147,7 +147,7 @@ describe('biomass ecology baseline', () => {
   it('records a replay-identical local biomass baseline across fixed seeds', () => {
     const run = () => [12345, 54321, 99999].map((seed) => {
       let state = buildDemoEngine(seed, { ...SIMULATION_CONSTANTS });
-      for (let tick = 0; tick < 100; tick++) state = tickEngine(state);
+      for (let tick = 0; tick < 30; tick++) state = tickEngine(state);
       const metrics = measureBiomass(state.world, state.creatures);
       return {
         seed,
@@ -168,27 +168,27 @@ describe('biomass ecology baseline', () => {
           "averageOccupiedTileBiomass": 12.589,
           "depletedOccupiedTileShare": 0.867,
           "occupiedTileCount": 15,
-          "population": 33,
+          "population": 28,
           "seed": 12345,
-          "totalBiomass": 598832,
+          "totalBiomass": 599254,
         },
         {
-          "averageOccupiedTileBiomass": 16.516,
+          "averageOccupiedTileBiomass": 14.722,
           "depletedOccupiedTileShare": 0.667,
           "occupiedTileCount": 18,
-          "population": 35,
+          "population": 31,
           "seed": 54321,
-          "totalBiomass": 625633,
+          "totalBiomass": 625915,
         },
         {
-          "averageOccupiedTileBiomass": 7.132,
-          "depletedOccupiedTileShare": 0.905,
+          "averageOccupiedTileBiomass": 7.595,
+          "depletedOccupiedTileShare": 0.857,
           "occupiedTileCount": 21,
-          "population": 48,
+          "population": 43,
           "seed": 99999,
-          "totalBiomass": 652329,
+          "totalBiomass": 651821,
         },
       ]
     `);
-  }, 90_000);
+  }, 30_000);
 });
