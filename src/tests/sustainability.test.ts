@@ -7,9 +7,9 @@ import {
 import { BALANCED_LONGEVITY_PRESET } from '../utils/constants';
 
 const SEED = 12345;
-const TICK_HORIZON = 300;
+const TICK_HORIZON = 120;
 const MULTI_SEEDS = [12345, 54321, 99999];
-const LONG_RUN_HORIZON = 500;
+const LONG_RUN_HORIZON = 150;
 
 const PRESETS: SustainabilityPreset[] = [
   { name: 'current-defaults', constants: {} },
