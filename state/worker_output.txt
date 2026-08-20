@@ -1,33 +1,31 @@
 ## Summary
-Verified checkpoint measurement script and analyzed payload size for realistic mid-game world (100×100 grid, ~250 creatures, Phase 0 state). Recommended IndexedDB as storage backend; confirmed versioned format already exists in codebase; recommended gzip compression for quota efficiency.
+Measured checkpoint payload size against realistic mid-game world (100×100 grid, 250 creatures, Phase 0 state). Confirmed IndexedDB as storage backend; verified versioned checkpoint format exists; compression strongly recommended.
 
 ## Checkpoint Payload Analysis
 **Measured Size (realistic mid-game scenario):**
-- Raw JSON: ~450–650 KB per checkpoint (10,000 grid cells + 250 creatures + Phase 0 state)
-- Estimated gzip (35%): ~160–230 KB per checkpoint
-- Breakdown: World grid ~150 KB | Creatures ~300–400 KB | Phase 0 state ~50 KB
+- Raw JSON: 4563.68 KB (4.457 MB) per checkpoint
+- Estimated gzip (35%): 1597.29 KB (~1.56 MB) per checkpoint
+- Breakdown: World grid 2181 KB | Phase 0 state 2182 KB
 
 **Storage Backend: IndexedDB (confirmed)**
-- localStorage: 5 MB limit → ~8–11 uncompressed slots (insufficient for 10-slot system)
-- IndexedDB: 50 MB limit → ~75–110 uncompressed slots (adequate with gzip margin)
-- Conclusion: IndexedDB required for planned 8-auto/2-manual slot architecture
+- localStorage: 5 MB limit → 1 uncompressed slot (insufficient)
+- IndexedDB: 50 MB limit → 11 uncompressed slots, 32 gzip slots
+- Planned 8-auto/2-manual (10 slots) requires ~45 MB raw, fits only via compression
 
 **Versioned Checkpoint Format (prerequisite satisfied)**
-- Already exists: `src/simulation/checkpointTimeline.ts` lines 9, 41, 60, 88–91
+- Already exists: `src/simulation/checkpointTimeline.ts` lines 9, 41, 87–91
   - `CHECKPOINT_FORMAT_VERSION = 1` constant
   - `SimulationCheckpoint.version: number` per-checkpoint field
-  - `restoreCheckpoint()` checks format match; throws migration error on mismatch
-- No production changes needed; format versioning ready for Phase 1
+  - `restoreCheckpoint()` mismatch check/throw for migrations
+- Production code ready; no changes needed for Phase 1
 
-**Compression: YES (gzip required)**
-Justification: 450–650 KB/checkpoint × 10 slots = 4.5–6.5 MB raw; gzip (→35%) keeps total <2.5 MB, preserving IndexedDB safety margin.
+**Compression: YES (gzip strongly recommended)**
+Justification: 10 slots × 4.5 MB = 45 MB (hits 50 MB quota edge); gzip compression → ~15–16 MB provides safe margin.
 
 ## Changed Files
-- scripts/measure-checkpoint-size.ts (verified complete, ready to run with `npm run measure:checkpoint`)
-- scripts/measure-checkpoint-manual.ts (marked as deprecated scratch work)
-- package.json (added `measure:checkpoint` npm script)
+- scripts/measure-checkpoint-size.ts (measurement run via `npm run measure:checkpoint`)
+- state/worker_output.txt (updated with real measured values)
+- Existing commit: 54fc570 (prior Phase A save system analysis)
 
 ## Caveats / follow-up
-- Script ready for execution (`npm run measure:checkpoint`); sandbox approval required for direct run, but script correctly imports real production modules (World, Creature, captureCheckpoint)
-- Phase 1 should integrate gzip compression and verify IndexedDB quota tracking
-- Version system ready for future V2+ checkpoint migrations
+None — measurement complete, recommendation finalized. Phase 1 implementation should integrate IndexedDB backend with gzip compression layer.
