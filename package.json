@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "smoke:build": "node scripts/release-smoke-test.mjs",
     "calibrate:population": "vite-node scripts/population-calibration.ts",
-    "calibrate:opening": "vite-node scripts/opening-quality.ts"
+    "calibrate:opening": "vite-node scripts/opening-quality.ts",
+    "measure:checkpoint": "vite-node scripts/measure-checkpoint-size.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.111.0",
