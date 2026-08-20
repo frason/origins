@@ -20,6 +20,15 @@ export interface EquilibriumProgress {
   readyForCompletion: boolean;
 }
 
+export interface Building {
+  id: string;
+  x: number;
+  y: number;
+  state: 'operational' | 'dormant' | 'demolished';
+  decayTicks: number;
+  builtAtTick: number;
+}
+
 export class EquilibriumTracker {
   private streakLength = 0;
   private replacementWindow: number[] = [];
@@ -172,4 +181,34 @@ export class EquilibriumTracker {
 
     return cv <= this.REPLACEMENT_CV_MAX;
   }
+}
+
+/**
+ * Check if the world has achieved full equilibrium completion:
+ * - All four equilibrium conditions must be met AND streak >= 2000
+ * - Every standing building must be in the demolished state (not dormant/operational)
+ *
+ * The infrastructure-demolished gate ensures the player has fully decommissioned
+ * the built environment as part of achieving the equilibrium win condition.
+ * If no buildings were ever built, this check is vacuously true.
+ *
+ * @param progress EquilibriumProgress from tracker.getProgress()
+ * @param buildings Array of buildings in the world
+ * @returns true only when equilibrium is ready AND all buildings are demolished
+ */
+export function checkFullCompletion(progress: EquilibriumProgress, buildings: Building[]): boolean {
+  // First check: the equilibrium streak must be complete
+  if (!progress.readyForCompletion) {
+    return false;
+  }
+
+  // Second check: all buildings must be demolished
+  // If there are no buildings, this is vacuously true
+  for (const building of buildings) {
+    if (building.state !== 'demolished') {
+      return false;
+    }
+  }
+
+  return true;
 }

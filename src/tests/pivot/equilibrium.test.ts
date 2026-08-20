@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { EquilibriumTracker } from '../../simulation/pivot/equilibrium';
+import { EquilibriumTracker, checkFullCompletion, Building } from '../../simulation/pivot/equilibrium';
 
 describe('EquilibriumTracker', () => {
   describe('initialization', () => {
@@ -460,6 +460,194 @@ describe('EquilibriumTracker', () => {
       tracker2.recordTick(60, 50, 50, 1.0, false, false);
       const progress = tracker2.getProgress();
       expect(progress.allConditionsMet).toBe(true);
+    });
+  });
+
+  describe('checkFullCompletion (infrastructure-demolished gate)', () => {
+    it('should return false when equilibrium is not ready (streak < 2000)', () => {
+      const tracker = new EquilibriumTracker();
+      // Build a partial streak
+      for (let i = 0; i < 100; i++) {
+        tracker.recordTick(60, 50, 50, 1.0, false, false);
+      }
+
+      const progress = tracker.getProgress();
+      const buildings: Building[] = [];
+      const result = checkFullCompletion(progress, buildings);
+
+      expect(result).toBe(false);
+      expect(progress.readyForCompletion).toBe(false);
+    });
+
+    it('should return false when a building is still operational (all 4 conditions met)', () => {
+      const tracker = new EquilibriumTracker();
+      // Build complete 2000-tick streak
+      for (let i = 0; i < 2000; i++) {
+        tracker.recordTick(60, 50, 50, 1.0, false, false);
+      }
+
+      const progress = tracker.getProgress();
+      expect(progress.readyForCompletion).toBe(true);
+
+      // Create a building still in operational state
+      const building: Building = {
+        id: 'building_1',
+        x: 0,
+        y: 0,
+        state: 'operational',
+        decayTicks: 0,
+        builtAtTick: 0,
+      };
+
+      const result = checkFullCompletion(progress, [building]);
+      expect(result).toBe(false);
+    });
+
+    it('should return false when a building is still dormant (all 4 conditions met)', () => {
+      const tracker = new EquilibriumTracker();
+      // Build complete 2000-tick streak
+      for (let i = 0; i < 2000; i++) {
+        tracker.recordTick(60, 50, 50, 1.0, false, false);
+      }
+
+      const progress = tracker.getProgress();
+      expect(progress.readyForCompletion).toBe(true);
+
+      // Create a building in dormant state
+      const building: Building = {
+        id: 'building_1',
+        x: 0,
+        y: 0,
+        state: 'dormant',
+        decayTicks: 25,
+        builtAtTick: 0,
+      };
+
+      const result = checkFullCompletion(progress, [building]);
+      expect(result).toBe(false);
+    });
+
+    it('should return true when all 4 conditions met and all buildings demolished', () => {
+      const tracker = new EquilibriumTracker();
+      // Build complete 2000-tick streak
+      for (let i = 0; i < 2000; i++) {
+        tracker.recordTick(60, 50, 50, 1.0, false, false);
+      }
+
+      const progress = tracker.getProgress();
+      expect(progress.readyForCompletion).toBe(true);
+
+      // Create buildings all in demolished state
+      const buildings: Building[] = [
+        {
+          id: 'building_1',
+          x: 0,
+          y: 0,
+          state: 'demolished',
+          decayTicks: 50,
+          builtAtTick: 0,
+        },
+        {
+          id: 'building_2',
+          x: 10,
+          y: 10,
+          state: 'demolished',
+          decayTicks: 50,
+          builtAtTick: 0,
+        },
+      ];
+
+      const result = checkFullCompletion(progress, buildings);
+      expect(result).toBe(true);
+    });
+
+    it('should return true when no buildings were ever built (vacuously true)', () => {
+      const tracker = new EquilibriumTracker();
+      // Build complete 2000-tick streak
+      for (let i = 0; i < 2000; i++) {
+        tracker.recordTick(60, 50, 50, 1.0, false, false);
+      }
+
+      const progress = tracker.getProgress();
+      expect(progress.readyForCompletion).toBe(true);
+
+      // No buildings at all
+      const buildings: Building[] = [];
+
+      const result = checkFullCompletion(progress, buildings);
+      expect(result).toBe(true);
+    });
+
+    it('should return false when one of multiple buildings is not demolished', () => {
+      const tracker = new EquilibriumTracker();
+      // Build complete 2000-tick streak
+      for (let i = 0; i < 2000; i++) {
+        tracker.recordTick(60, 50, 50, 1.0, false, false);
+      }
+
+      const progress = tracker.getProgress();
+      expect(progress.readyForCompletion).toBe(true);
+
+      // Multiple buildings: all demolished except one
+      const buildings: Building[] = [
+        {
+          id: 'building_1',
+          x: 0,
+          y: 0,
+          state: 'demolished',
+          decayTicks: 50,
+          builtAtTick: 0,
+        },
+        {
+          id: 'building_2',
+          x: 10,
+          y: 10,
+          state: 'demolished',
+          decayTicks: 50,
+          builtAtTick: 0,
+        },
+        {
+          id: 'building_3',
+          x: 20,
+          y: 20,
+          state: 'dormant', // This one is NOT demolished
+          decayTicks: 30,
+          builtAtTick: 0,
+        },
+      ];
+
+      const result = checkFullCompletion(progress, buildings);
+      expect(result).toBe(false);
+    });
+
+    it('should return false when equilibrium streak resets but buildings are demolished', () => {
+      const tracker = new EquilibriumTracker();
+      // Build a partial streak then reset it
+      for (let i = 0; i < 2000; i++) {
+        tracker.recordTick(60, 50, 50, 1.0, false, false);
+      }
+      let progress = tracker.getProgress();
+      expect(progress.readyForCompletion).toBe(true);
+
+      // Trigger intervention to reset streak
+      tracker.recordTick(60, 50, 50, 1.0, true, false);
+      progress = tracker.getProgress();
+      expect(progress.readyForCompletion).toBe(false);
+
+      // Buildings are demolished but equilibrium is not ready
+      const buildings: Building[] = [
+        {
+          id: 'building_1',
+          x: 0,
+          y: 0,
+          state: 'demolished',
+          decayTicks: 50,
+          builtAtTick: 0,
+        },
+      ];
+
+      const result = checkFullCompletion(progress, buildings);
+      expect(result).toBe(false);
     });
   });
 });
