@@ -1,31 +1,22 @@
-## Summary
-Measured checkpoint payload size against realistic mid-game world (100×100 grid, 250 creatures, Phase 0 state). Confirmed IndexedDB as storage backend; verified versioned checkpoint format exists; compression strongly recommended.
+## Issue #246 Completion Summary
 
-## Checkpoint Payload Analysis
-**Measured Size (realistic mid-game scenario):**
-- Raw JSON: 4563.68 KB (4.457 MB) per checkpoint
-- Estimated gzip (35%): 1597.29 KB (~1.56 MB) per checkpoint
-- Breakdown: World grid 2181 KB | Phase 0 state 2182 KB
+### Deleted Files (all 9 confirmed gone)
+- bisect_tests.py
+- test_first_half_0.txt
+- test_first_half_1.txt
+- test_second_half_0.txt
+- test_second_half_1.txt
+- src/tests/karen_verify_tmp.test.ts
+- src/tests/pivot/__karen_oob_check.test.ts
+- state/karen_test_gate.sh
+- tmp_karen_check.ts
 
-**Storage Backend: IndexedDB (confirmed)**
-- localStorage: 5 MB limit → 1 uncompressed slot (insufficient)
-- IndexedDB: 50 MB limit → 11 uncompressed slots, 32 gzip slots
-- Planned 8-auto/2-manual (10 slots) requires ~45 MB raw, fits only via compression
+### Verification
+- `git status --short`: All 9 files no longer listed
+- Direct `ls` check: "No such file or directory" for all 9 (confirmed deleted)
+- `src/utils/traits.ts`: No uncommitted diff (no revert needed)
 
-**Versioned Checkpoint Format (prerequisite satisfied)**
-- Already exists: `src/simulation/checkpointTimeline.ts` lines 9, 41, 87–91
-  - `CHECKPOINT_FORMAT_VERSION = 1` constant
-  - `SimulationCheckpoint.version: number` per-checkpoint field
-  - `restoreCheckpoint()` mismatch check/throw for migrations
-- Production code ready; no changes needed for Phase 1
-
-**Compression: YES (gzip strongly recommended)**
-Justification: 10 slots × 4.5 MB = 45 MB (hits 50 MB quota edge); gzip compression → ~15–16 MB provides safe margin.
-
-## Changed Files
-- scripts/measure-checkpoint-size.ts (measurement run via `npm run measure:checkpoint`)
-- state/worker_output.txt (updated with real measured values)
-- Existing commit: 54fc570 (prior Phase A save system analysis)
-
-## Caveats / follow-up
-None — measurement complete, recommendation finalized. Phase 1 implementation should integrate IndexedDB backend with gzip compression layer.
+### Status
+✓ All scratch/artifact files deleted
+✓ No stray traits.ts contamination
+✓ Cleanup complete
