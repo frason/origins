@@ -73,7 +73,7 @@ export interface ValidationResult {
  *
  * Checks (in order):
  * 1. Target coordinates must be within world bounds [0, 100)
- * 2. Parameter must be whitelisted
+ * 2. Parameter must be whitelisted in the provided parameterConfig
  * 3. Value outside [min, max] is clamped to the nearest bound (hard limits are soft)
  * 4. Value (absolute) must not exceed maxDeltaPerCommand (delta cap is hard)
  *
@@ -81,8 +81,18 @@ export interface ValidationResult {
  * is returned (valid: true, caller should use clampedValue).
  * If value exceeds maxDeltaPerCommand (even if within [min, max]), validation fails (valid: false).
  * If targetX or targetY are out of bounds, validation fails (rejected, not clamped).
+ *
+ * @param cmd - The InterventionCommand to validate
+ * @param worldWidth - World width (default 100)
+ * @param worldHeight - World height (default 100)
+ * @param parameterConfig - Parameter configuration table mapping paramName to {min, max, maxDeltaPerCommand} (default WHITELISTED_PARAMETERS)
  */
-export function validateInterventionCommand(cmd: InterventionCommand, worldWidth: number = 100, worldHeight: number = 100): ValidationResult {
+export function validateInterventionCommand(
+  cmd: InterventionCommand,
+  worldWidth: number = 100,
+  worldHeight: number = 100,
+  parameterConfig: Record<string, ParameterBounds> = WHITELISTED_PARAMETERS
+): ValidationResult {
   // Check 0: target coordinates must be within world bounds
   if (cmd.targetX < 0 || cmd.targetX >= worldWidth || cmd.targetY < 0 || cmd.targetY >= worldHeight) {
     return {
@@ -92,14 +102,14 @@ export function validateInterventionCommand(cmd: InterventionCommand, worldWidth
   }
 
   // Check 1: parameter must be whitelisted
-  if (!(cmd.parameter in WHITELISTED_PARAMETERS)) {
+  if (!(cmd.parameter in parameterConfig)) {
     return {
       valid: false,
-      reason: `Parameter '${cmd.parameter}' is not whitelisted. Allowed: ${Object.keys(WHITELISTED_PARAMETERS).join(', ')}`,
+      reason: `Parameter '${cmd.parameter}' is not whitelisted. Allowed: ${Object.keys(parameterConfig).join(', ')}`,
     };
   }
 
-  const bounds = WHITELISTED_PARAMETERS[cmd.parameter];
+  const bounds = parameterConfig[cmd.parameter];
 
   // Check 2: clamp value to hard bounds [min, max]
   let effectiveValue = cmd.value;
@@ -162,15 +172,16 @@ export interface ValidatedCommandLogEntry {
  *   - Never appends unvalidated commands, even if caller passes {valid: true}
  *
  * Usage pattern:
- *   1. Call validateInterventionCommand(cmd)
+ *   1. Call validateInterventionCommand(cmd, worldWidth, worldHeight, parameterConfig)
  *   2. Check if result.valid === true
- *   3. If true, call appendValidatedCommand(log, cmd, validationResult, currentTick)
+ *   3. If true, call appendValidatedCommand(log, cmd, validationResult, currentTick, parameterConfig)
  *   4. If false, reject/handle the error
  *
  * @param log - The command log array to append to (mutated in-place)
  * @param command - The InterventionCommand to append (will be re-validated internally)
  * @param validationResult - The result from validateInterventionCommand; must match internal validation
  * @param currentTick - Current simulation tick (recorded in appendedAtTick)
+ * @param parameterConfig - Parameter configuration table (default WHITELISTED_PARAMETERS); must match the config used for initial validation
  * @throws Error if caller-supplied validation does not match internal validation (spoofing attempt)
  * @throws Error if internal validation fails
  * @returns The appended entry for confirmation
@@ -179,11 +190,12 @@ export function appendValidatedCommand(
   log: ValidatedCommandLogEntry[],
   command: InterventionCommand,
   validationResult: ValidationResult,
-  currentTick: number
+  currentTick: number,
+  parameterConfig: Record<string, ParameterBounds> = WHITELISTED_PARAMETERS
 ): ValidatedCommandLogEntry {
-  // Self-validation: re-run validateInterventionCommand internally
+  // Self-validation: re-run validateInterventionCommand internally with same parameterConfig
   // This prevents callers from spoofing a fake {valid: true} result for an invalid command
-  const internalValidation = validateInterventionCommand(command);
+  const internalValidation = validateInterventionCommand(command, 100, 100, parameterConfig);
 
   // Enforce: internal validation must pass
   if (!internalValidation.valid) {

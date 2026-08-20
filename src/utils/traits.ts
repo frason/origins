@@ -38,6 +38,9 @@ export interface Traits {
   terrainGrip: number;
   toxinResistance: number;
 
+  // Sensory/behavioral traits
+  auditorySteal: number; // auditory stealth (0-1) reduces sound production
+
   // Ecological trait
   energyStrategy: EnergyStrategy; // herbivore, carnivore, omnivore, or scavenger
 }
@@ -70,6 +73,9 @@ export const DEFAULT_TRAITS: Traits = {
   aquaticAffinity: 0,
   terrainGrip: 0,
   toxinResistance: 0,
+
+  // Sensory/behavioral
+  auditorySteal: 0,
 
   // Ecological
   energyStrategy: 'omnivore',
@@ -111,6 +117,7 @@ export const TRAIT_MUTATION_RATES: Record<
   aquaticAffinity: 0.05,
   terrainGrip: 0.05,
   toxinResistance: 0.05,
+  auditorySteal: 0.05,
 };
 
 /**
@@ -135,6 +142,7 @@ export const TRAIT_MIN: Partial<Traits> = {
   aquaticAffinity: 0,
   terrainGrip: 0,
   toxinResistance: 0,
+  auditorySteal: 0,
 };
 
 /**
@@ -159,4 +167,5 @@ export const TRAIT_MAX: Partial<Traits> = {
   aquaticAffinity: 1,
   terrainGrip: 1,
   toxinResistance: 1,
+  auditorySteal: 1,
 };

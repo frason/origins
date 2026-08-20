@@ -6,6 +6,7 @@ import {
   appendValidatedCommand,
   type ValidatedCommandLogEntry,
   type ValidationResult,
+  type ParameterBounds,
 } from '../../simulation/pivot/interventionCommand';
 
 describe('InterventionCommand validation', () => {
@@ -757,6 +758,289 @@ describe('InterventionCommand validation', () => {
 
       expect(() => appendValidatedCommand(log, negativeYCommand, validation, 100)).toThrow();
       expect(log).toHaveLength(0);
+    });
+  });
+
+  describe('validateInterventionCommand with injected parameterConfig - multi-parameter support', () => {
+    /**
+     * Test that the validation logic is data-driven and can handle multiple independent parameters.
+     * This simulates Phase A's need to add new parameter types without modifying the validation engine.
+     */
+
+    it('should accept a custom parameter config with a second independent parameter', () => {
+      // Define a hypothetical second parameter (test-only, not a real intervention type)
+      const customConfig: Record<string, ParameterBounds> = {
+        toxicity_reduction: WHITELISTED_PARAMETERS.toxicity_reduction,
+        habitat_expansion: {
+          min: 0,
+          max: 100,
+          maxDeltaPerCommand: 20,
+        },
+      };
+
+      const cmd: InterventionCommand = {
+        id: 'habitat-cmd-1',
+        tick: 200,
+        tier: 2,
+        sourceScoutId: 'scout-001',
+        targetX: 50,
+        targetY: 50,
+        parameter: 'habitat_expansion',
+        value: 15, // Within bounds [0, 100] and delta cap (20)
+      };
+
+      const result = validateInterventionCommand(cmd, 100, 100, customConfig);
+
+      expect(result.valid).toBe(true);
+      expect(result.clampedValue).toBeUndefined();
+    });
+
+    it('should enforce bounds independently for a second parameter', () => {
+      // Second parameter with different bounds
+      const customConfig: Record<string, ParameterBounds> = {
+        toxicity_reduction: WHITELISTED_PARAMETERS.toxicity_reduction,
+        habitat_expansion: {
+          min: 0,
+          max: 100,
+          maxDeltaPerCommand: 20,
+        },
+      };
+
+      // Value exceeds second parameter's delta cap (20) but would be valid for toxicity_reduction (delta cap 15)
+      const cmd: InterventionCommand = {
+        id: 'habitat-cmd-2',
+        tick: 200,
+        tier: 2,
+        sourceScoutId: 'scout-001',
+        targetX: 50,
+        targetY: 50,
+        parameter: 'habitat_expansion',
+        value: 25, // Exceeds habitat_expansion's delta cap (20)
+      };
+
+      const result = validateInterventionCommand(cmd, 100, 100, customConfig);
+
+      expect(result.valid).toBe(false);
+      expect(result.reason).toContain('exceeds maxDeltaPerCommand');
+    });
+
+    it('should reject second parameter if not in custom config', () => {
+      // Custom config without habitat_expansion
+      const customConfig: Record<string, ParameterBounds> = {
+        toxicity_reduction: WHITELISTED_PARAMETERS.toxicity_reduction,
+      };
+
+      const cmd: InterventionCommand = {
+        id: 'habitat-cmd-3',
+        tick: 200,
+        tier: 2,
+        sourceScoutId: 'scout-001',
+        targetX: 50,
+        targetY: 50,
+        parameter: 'habitat_expansion', // Not in customConfig
+        value: 15,
+      };
+
+      const result = validateInterventionCommand(cmd, 100, 100, customConfig);
+
+      expect(result.valid).toBe(false);
+      expect(result.reason).toContain('not whitelisted');
+      expect(result.reason).toContain('toxicity_reduction');
+    });
+
+    it('should keep toxicity_reduction valid when using custom config with additional parameters', () => {
+      // Add a second parameter but keep toxicity_reduction
+      const customConfig: Record<string, ParameterBounds> = {
+        toxicity_reduction: WHITELISTED_PARAMETERS.toxicity_reduction,
+        habitat_expansion: {
+          min: 0,
+          max: 100,
+          maxDeltaPerCommand: 20,
+        },
+      };
+
+      // toxicity_reduction should still work exactly as before
+      const toxicityCmd: InterventionCommand = {
+        id: 'tox-cmd-1',
+        tick: 200,
+        tier: 1,
+        sourceScoutId: 'scout-001',
+        targetX: 50,
+        targetY: 50,
+        parameter: 'toxicity_reduction',
+        value: 10,
+      };
+
+      const result = validateInterventionCommand(toxicityCmd, 100, 100, customConfig);
+
+      expect(result.valid).toBe(true);
+      expect(result.clampedValue).toBeUndefined();
+    });
+
+    it('should clamp value for second parameter independently of toxicity_reduction bounds', () => {
+      const customConfig: Record<string, ParameterBounds> = {
+        toxicity_reduction: WHITELISTED_PARAMETERS.toxicity_reduction,
+        habitat_expansion: {
+          min: 10, // Different min from toxicity_reduction
+          max: 100,
+          maxDeltaPerCommand: 20,
+        },
+      };
+
+      // Value below habitat_expansion's min (10), should be clamped to 10
+      const cmd: InterventionCommand = {
+        id: 'habitat-cmd-4',
+        tick: 200,
+        tier: 2,
+        sourceScoutId: 'scout-001',
+        targetX: 50,
+        targetY: 50,
+        parameter: 'habitat_expansion',
+        value: 5, // Below min (10), should clamp
+      };
+
+      const result = validateInterventionCommand(cmd, 100, 100, customConfig);
+
+      expect(result.valid).toBe(true);
+      expect(result.clampedValue).toBe(10); // Clamped to min of habitat_expansion
+      expect(result.reason).toContain('clamped');
+    });
+
+    it('should use default WHITELISTED_PARAMETERS when no custom config provided', () => {
+      // When no custom config is provided, function should use default (WHITELISTED_PARAMETERS)
+      const cmd: InterventionCommand = {
+        id: 'default-cmd-1',
+        tick: 200,
+        tier: 1,
+        sourceScoutId: 'scout-001',
+        targetX: 50,
+        targetY: 50,
+        parameter: 'toxicity_reduction',
+        value: 10,
+      };
+
+      // Call without parameterConfig parameter (should default to WHITELISTED_PARAMETERS)
+      const result = validateInterventionCommand(cmd);
+
+      expect(result.valid).toBe(true);
+    });
+
+    it('should append command with custom config to log correctly', () => {
+      const customConfig: Record<string, ParameterBounds> = {
+        toxicity_reduction: WHITELISTED_PARAMETERS.toxicity_reduction,
+        habitat_expansion: {
+          min: 0,
+          max: 100,
+          maxDeltaPerCommand: 20,
+        },
+      };
+
+      const log: ValidatedCommandLogEntry[] = [];
+      const cmd: InterventionCommand = {
+        id: 'habitat-append-1',
+        tick: 200,
+        tier: 2,
+        sourceScoutId: 'scout-001',
+        targetX: 50,
+        targetY: 50,
+        parameter: 'habitat_expansion',
+        value: 15,
+      };
+
+      const validation = validateInterventionCommand(cmd, 100, 100, customConfig);
+      expect(validation.valid).toBe(true);
+
+      const entry = appendValidatedCommand(log, cmd, validation, 200, customConfig);
+
+      expect(log).toHaveLength(1);
+      expect(entry.command.parameter).toBe('habitat_expansion');
+      expect(entry.appendedAtTick).toBe(200);
+    });
+
+    it('should reject appending with mismatched parameterConfig', () => {
+      // Create command for habitat_expansion
+      const habitatConfig: Record<string, ParameterBounds> = {
+        toxicity_reduction: WHITELISTED_PARAMETERS.toxicity_reduction,
+        habitat_expansion: {
+          min: 0,
+          max: 100,
+          maxDeltaPerCommand: 20,
+        },
+      };
+
+      const cmd: InterventionCommand = {
+        id: 'habitat-mismatch-1',
+        tick: 200,
+        tier: 2,
+        sourceScoutId: 'scout-001',
+        targetX: 50,
+        targetY: 50,
+        parameter: 'habitat_expansion',
+        value: 15,
+      };
+
+      // Validate with habitat config
+      const validation = validateInterventionCommand(cmd, 100, 100, habitatConfig);
+      expect(validation.valid).toBe(true);
+
+      // Try to append with only toxicity_reduction config (missing habitat_expansion)
+      const defaultOnlyConfig: Record<string, ParameterBounds> = {
+        toxicity_reduction: WHITELISTED_PARAMETERS.toxicity_reduction,
+      };
+
+      const log: ValidatedCommandLogEntry[] = [];
+
+      // Should throw because internal re-validation uses different config
+      expect(() => appendValidatedCommand(log, cmd, validation, 200, defaultOnlyConfig)).toThrow(
+        /not whitelisted|validation/i
+      );
+      expect(log).toHaveLength(0);
+    });
+
+    it('should prove two parameters with different delta caps validate independently', () => {
+      const customConfig: Record<string, ParameterBounds> = {
+        param_a: {
+          min: 0,
+          max: 100,
+          maxDeltaPerCommand: 10, // Strict delta cap
+        },
+        param_b: {
+          min: 0,
+          max: 100,
+          maxDeltaPerCommand: 50, // Loose delta cap
+        },
+      };
+
+      // Value 25: exceeds param_a's delta cap (10) but fits param_b's (50)
+      const cmdA: InterventionCommand = {
+        id: 'param-a-cmd',
+        tick: 300,
+        tier: 2,
+        sourceScoutId: 'scout-001',
+        targetX: 50,
+        targetY: 50,
+        parameter: 'param_a',
+        value: 25,
+      };
+
+      const resultA = validateInterventionCommand(cmdA, 100, 100, customConfig);
+      expect(resultA.valid).toBe(false); // Should fail: exceeds param_a's delta cap (10)
+      expect(resultA.reason).toContain('exceeds maxDeltaPerCommand');
+
+      // Same value with param_b should succeed
+      const cmdB: InterventionCommand = {
+        id: 'param-b-cmd',
+        tick: 300,
+        tier: 2,
+        sourceScoutId: 'scout-001',
+        targetX: 50,
+        targetY: 50,
+        parameter: 'param_b',
+        value: 25,
+      };
+
+      const resultB = validateInterventionCommand(cmdB, 100, 100, customConfig);
+      expect(resultB.valid).toBe(true); // Should pass: within param_b's delta cap (50)
     });
   });
 });
