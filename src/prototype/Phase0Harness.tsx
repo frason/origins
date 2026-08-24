@@ -31,8 +31,10 @@ import {
   type Phase0State,
 } from '../simulation/checkpointTimeline';
 import type { PersistedEngineState } from '../simulation/enginePersistence';
-import { autoSaveAndUpdateStore } from '../state/saveSlotManager';
+import { autoSaveAndUpdateStore, loadSaveById, manualSave, manualSaveWithOverwrite } from '../state/saveSlotManager';
+import { listAutoSaves, listManualSaves, type SaveSlot } from '../state/indexedDbSaveSystem';
 import { useStore } from '../state/store';
+import { restorePhase0FromPersistedState, restorePhase0LedgerFromState } from '../state/phase0Restore';
 
 const BASE_X = 50;
 const BASE_Y = 50;
@@ -80,6 +82,14 @@ function initializePhase0State(): Phase0HarnessState {
   };
 }
 
+/**
+ * Format a timestamp as a readable date string.
+ */
+function formatTimestamp(timestamp: number): string {
+  const date = new Date(timestamp);
+  return date.toLocaleString();
+}
+
 function serializePhase0State(state: Phase0HarnessState): Phase0State {
   const balances = state.ledger.getBalances();
   return {
@@ -92,14 +102,6 @@ function serializePhase0State(state: Phase0HarnessState): Phase0State {
   };
 }
 
-/**
- * Converts Phase0State ledger balances to a ResourceLedger instance.
- * Used when restoring from checkpoint phase0 data.
- */
-function restorePhase0LedgerFromState(ledgerState: Phase0State['ledger']): ResourceLedger {
-  if (!ledgerState) return new ResourceLedger();
-  return new ResourceLedger(ledgerState.energy, ledgerState.biomass);
-}
 
 /**
  * Convert Phase0HarnessState to PersistedEngineState for auto-save.
@@ -134,8 +136,34 @@ export default function Phase0Harness() {
   const [state, setState] = useState<Phase0HarnessState>(initializePhase0State());
   const [message, setMessage] = useState<string>('');
   const [checkpointTicks, setCheckpointTicks] = useState<number[]>([]);
+  const [autoSaves, setAutoSaves] = useState<SaveSlot[]>([]);
+  const [manualSaves, setManualSaves] = useState<SaveSlot[]>([]);
+  const [savesLoading, setSavesLoading] = useState(false);
+  const [showOverwritePicker, setShowOverwritePicker] = useState(false);
+  const [pendingManualSavePayload, setPendingManualSavePayload] = useState<PersistedEngineState | null>(null);
 
   stateRef.current = state;
+
+  /**
+   * Load the list of auto and manual saves from IndexedDB.
+   */
+  const refreshSavesList = useCallback(async () => {
+    try {
+      setSavesLoading(true);
+      const [auto, manual] = await Promise.all([listAutoSaves(), listManualSaves()]);
+      setAutoSaves(auto);
+      setManualSaves(manual);
+    } catch (e) {
+      console.error('Failed to load saves list:', e);
+    } finally {
+      setSavesLoading(false);
+    }
+  }, []);
+
+  // Load saves list on mount
+  useEffect(() => {
+    refreshSavesList();
+  }, [refreshSavesList]);
 
   const addCheckpoint = useCallback(() => {
     const phase0 = serializePhase0State(state);
@@ -186,9 +214,14 @@ export default function Phase0Harness() {
         console.error('Auto-save failed:', err);
       });
 
+      // Refresh saves list after auto-save
+      refreshSavesList().catch((err) => {
+        console.error('Failed to refresh saves list:', err);
+      });
+
       return next;
     });
-  }, [addCheckpoint]);
+  }, [addCheckpoint, refreshSavesList]);
 
   const buildHarvesterAction = useCallback(() => {
     setState((prev) => {
@@ -280,6 +313,43 @@ export default function Phase0Harness() {
     setMessage(`Game saved at tick ${state.tick}`);
   }, [state.tick, addCheckpoint]);
 
+  const performManualSave = useCallback(async () => {
+    try {
+      const persistedState = serializePhase0HarnessToPersistedState(state);
+      await manualSave(persistedState, 'Manual Save');
+      setMessage(`Manual save created at tick ${state.tick}`);
+      setShowOverwritePicker(false);
+      setPendingManualSavePayload(null);
+      await refreshSavesList();
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Manual save pool is full')) {
+        // Pool is full, show overwrite picker
+        const persistedState = serializePhase0HarnessToPersistedState(state);
+        setPendingManualSavePayload(persistedState);
+        setShowOverwritePicker(true);
+        setMessage('Manual save pool is full. Choose a slot to overwrite.');
+      } else {
+        setMessage(`Manual save failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+      }
+    }
+  }, [state, refreshSavesList]);
+
+  const performManualSaveWithOverwrite = useCallback(async (slotIdToOverwrite: string) => {
+    if (!pendingManualSavePayload) {
+      setMessage('No pending save to overwrite');
+      return;
+    }
+    try {
+      await manualSaveWithOverwrite(pendingManualSavePayload, slotIdToOverwrite, 'Manual Save');
+      setMessage(`Manual save overwritten at tick ${state.tick}`);
+      setShowOverwritePicker(false);
+      setPendingManualSavePayload(null);
+      await refreshSavesList();
+    } catch (error) {
+      setMessage(`Overwrite failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+    }
+  }, [state, pendingManualSavePayload, refreshSavesList]);
+
   const loadGame = useCallback((tick: number) => {
     try {
       // Use shared restoreCheckpoint() to validate version and restore checkpoints list
@@ -338,6 +408,29 @@ export default function Phase0Harness() {
     }
   }, []);
 
+  const loadSaveSlot = useCallback(async (saveId: string) => {
+    try {
+      const persistedState = await loadSaveById(saveId);
+      if (!persistedState) {
+        setMessage('Save not found');
+        return;
+      }
+
+      if (!persistedState.phase0) {
+        setMessage('Save missing Phase 0 state');
+        return;
+      }
+
+      setState((prev) => {
+        const restoredState = restorePhase0FromPersistedState(persistedState, prev);
+        setMessage(`Loaded game from save slot at tick ${restoredState.tick}`);
+        return restoredState;
+      });
+    } catch (e) {
+      setMessage(`Failed to load save: ${e instanceof Error ? e.message : 'unknown error'}`);
+    }
+  }, []);
+
   const gridCellSize = 8;
 
   return (
@@ -350,6 +443,98 @@ export default function Phase0Harness() {
         </div>
       )}
 
+      {/* Manual Save Overwrite Picker Modal */}
+      {showOverwritePicker && manualSaves.length > 0 && (
+        <div style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          backgroundColor: '#fff',
+          border: '2px solid #333',
+          padding: '20px',
+          borderRadius: '4px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          zIndex: 1000,
+          maxWidth: '400px',
+          width: '90%',
+        }}>
+          <h3 style={{ margin: '0 0 15px 0' }}>Manual Save Pool Full</h3>
+          <p style={{ margin: '0 0 15px 0' }}>Choose a slot to overwrite:</p>
+          <div style={{ marginBottom: '15px' }}>
+            {manualSaves.map((slot) => (
+              <div
+                key={slot.metadata.id}
+                style={{
+                  marginBottom: '10px',
+                  padding: '10px',
+                  backgroundColor: '#f5f5f5',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                }}
+              >
+                <div style={{ marginBottom: '8px', fontSize: '12px' }}>
+                  <strong>Slot {slot.metadata.slot}</strong> — Tick {slot.metadata.tick} — {formatTimestamp(slot.metadata.timestamp)}
+                  {slot.metadata.worldName && <div style={{ color: '#666' }}>World: {slot.metadata.worldName}</div>}
+                </div>
+                <button
+                  onClick={() => performManualSaveWithOverwrite(slot.metadata.id)}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    backgroundColor: '#ff9800',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '3px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Overwrite This Slot
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => {
+              setShowOverwritePicker(false);
+              setPendingManualSavePayload(null);
+              setMessage('Save cancelled');
+            }}
+            style={{
+              padding: '6px 12px',
+              fontSize: '12px',
+              backgroundColor: '#999',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '3px',
+              cursor: 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {/* Background overlay for modal */}
+      {showOverwritePicker && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.3)',
+            zIndex: 999,
+          }}
+          onClick={() => {
+            setShowOverwritePicker(false);
+            setPendingManualSavePayload(null);
+            setMessage('Save cancelled');
+          }}
+        />
+      )}
+
       {/* Economy Section */}
       <section style={{ marginBottom: '20px', border: '1px solid #ccc', padding: '10px' }}>
         <h2>Economy</h2>
@@ -357,6 +542,7 @@ export default function Phase0Harness() {
         <div>Biomass: {state.ledger.getBalance('biomass')} / {PHASE0_ECONOMY_CONSTANTS.biomass.storageCap}</div>
         <div style={{ marginTop: '10px' }}>
           <button onClick={saveGame} style={{ marginRight: '10px' }}>Save Game</button>
+          <button onClick={performManualSave} style={{ marginRight: '10px' }}>Manual Save</button>
           {checkpointTicks.length > 0 && (
             <>
               <select onChange={(e) => loadGame(parseInt(e.target.value, 10))}>
@@ -366,6 +552,94 @@ export default function Phase0Harness() {
                 ))}
               </select>
             </>
+          )}
+        </div>
+      </section>
+
+      {/* Save Slots Section */}
+      <section style={{ marginBottom: '20px', border: '1px solid #ccc', padding: '10px' }}>
+        <h2>Load from Save Slots</h2>
+        {savesLoading && <div style={{ marginBottom: '10px', color: '#666' }}>Loading saves...</div>}
+
+        {/* Auto-saves */}
+        <div style={{ marginBottom: '15px' }}>
+          <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>Auto-saves ({autoSaves.length}/8)</h3>
+          {autoSaves.length === 0 ? (
+            <div style={{ fontSize: '12px', color: '#666' }}>No auto-saves yet</div>
+          ) : (
+            <div style={{ fontSize: '11px' }}>
+              {autoSaves.map((slot) => (
+                <div
+                  key={slot.metadata.id}
+                  style={{
+                    marginBottom: '5px',
+                    padding: '5px',
+                    backgroundColor: '#f5f5f5',
+                    border: '1px solid #ddd',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <div>
+                    <strong>Slot {slot.metadata.slot}</strong> — Tick {slot.metadata.tick} — {formatTimestamp(slot.metadata.timestamp)}
+                    {slot.metadata.worldName && <div style={{ color: '#666' }}>World: {slot.metadata.worldName}</div>}
+                  </div>
+                  <button
+                    onClick={() => loadSaveSlot(slot.metadata.id)}
+                    style={{
+                      marginLeft: '10px',
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Load
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Manual saves */}
+        <div style={{ marginBottom: '15px' }}>
+          <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>Manual saves ({manualSaves.length}/2)</h3>
+          {manualSaves.length === 0 ? (
+            <div style={{ fontSize: '12px', color: '#666' }}>No manual saves yet</div>
+          ) : (
+            <div style={{ fontSize: '11px' }}>
+              {manualSaves.map((slot) => (
+                <div
+                  key={slot.metadata.id}
+                  style={{
+                    marginBottom: '5px',
+                    padding: '5px',
+                    backgroundColor: '#f0f5f0',
+                    border: '1px solid #ccc',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <div>
+                    <strong>Slot {slot.metadata.slot}</strong> — Tick {slot.metadata.tick} — {formatTimestamp(slot.metadata.timestamp)}
+                    {slot.metadata.worldName && <div style={{ color: '#666' }}>World: {slot.metadata.worldName}</div>}
+                  </div>
+                  <button
+                    onClick={() => loadSaveSlot(slot.metadata.id)}
+                    style={{
+                      marginLeft: '10px',
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Load
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </section>
