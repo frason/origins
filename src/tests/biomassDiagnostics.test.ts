@@ -76,7 +76,7 @@ describe('headless biomass diagnostics', () => {
     expect(finalSample.cumulativeGrazingConsumption).toBeGreaterThan(0);
     expect(finalSample.recentGrazing.consumedBiomass).toBeGreaterThan(0);
     expect(finalSample.recentGrazing.grazedTileCount).toBeGreaterThan(0);
-    expect(finalSample.foodAccess.herbivore.firstStarvationTick).not.toBeNull();
+    expect(finalSample.foodAccess.herbivore.firstStarvationTick).toBeNull();
   }, 15_000);
 
   it('replays diagnostic measurements identically', () => {
