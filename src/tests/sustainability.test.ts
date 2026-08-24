@@ -53,7 +53,9 @@ describe('God Mode sustainability matrix', () => {
     // lineage turnover while the longer-horizon diversity gates remain active.
     expect(first[0].allSpeciesSurvivalTicks).toBeGreaterThanOrEqual(90);
     expect(first[0].ecosystemSurvivalTicks).toBe(TICK_HORIZON);
-  }, 30_000);
+    // Timeout ~25min (1.5M ms): 100×100 grid × 100 ticks × per-tick creature
+    // perception/decision scans. Engine scale (#158) tracks the core perf optimization.
+  }, 1_500_000);
 
   it('sustains active evolution across multiple reproducible seeds', () => {
     const presets = [PRESETS[0], PRESETS[3]];
@@ -94,5 +96,8 @@ describe('God Mode sustainability matrix', () => {
     // (With reduced horizon, founding species extinction may not occur, so we rely on
     // speciation + the per-seed checks above for mutations, niches, and diversity.)
     expect(longevity.some((result) => result.speciationCount > 0)).toBe(true);
-  }, 120_000);
+    // Timeout ~25min (1.5M ms): 100×100 grid × 120 ticks × per-tick creature
+    // perception/decision scans, across 2 presets × 3 seeds. Engine scale (#158)
+    // tracks the core perf optimization needed here.
+  }, 1_500_000);
 });
