@@ -1,6 +1,7 @@
 import { Creature } from './creature';
 import type { EngineState } from './engine';
 import { World } from './world';
+import type { Phase0State } from './checkpointTimeline';
 
 export const ENGINE_SAVE_VERSION = 1;
 
@@ -11,6 +12,11 @@ export interface PersistedEngineState {
     creatures: ReturnType<Creature['toJSON']>[];
     creatureIdCounter: number;
   };
+  /**
+   * Optional Phase 0 pivot state (scout, building, crises, ledger, equilibrium).
+   * Included when auto-saving Phase 0 ecosystem state.
+   */
+  phase0?: Phase0State;
 }
 
 /** Create a JSON-safe, versioned save payload without changing live state. */

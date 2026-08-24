@@ -30,6 +30,9 @@ import {
   type SimulationCheckpoint,
   type Phase0State,
 } from '../simulation/checkpointTimeline';
+import type { PersistedEngineState } from '../simulation/enginePersistence';
+import { autoSaveAndUpdateStore } from '../state/saveSlotManager';
+import { useStore } from '../state/store';
 
 const BASE_X = 50;
 const BASE_Y = 50;
@@ -98,6 +101,32 @@ function restorePhase0LedgerFromState(ledgerState: Phase0State['ledger']): Resou
   return new ResourceLedger(ledgerState.energy, ledgerState.biomass);
 }
 
+/**
+ * Convert Phase0HarnessState to PersistedEngineState for auto-save.
+ * Captures the full Phase 0 pivot state (scout, building, crises, ledger, equilibrium)
+ * in addition to the standard engine state fields.
+ */
+export function serializePhase0HarnessToPersistedState(state: Phase0HarnessState): PersistedEngineState {
+  const phase0 = serializePhase0State(state);
+  return {
+    version: 1,
+    state: {
+      tick: state.tick,
+      seed: 12345, // Mock seed for Phase 0
+      creatures: [],
+      world: phase0.worldGrid as any,
+      events: [],
+      constants: SIMULATION_CONSTANTS,
+      history: [],
+      historyInterval: 10,
+      speciesProfiles: [],
+      incipientSpecies: [],
+      creatureIdCounter: 0,
+    },
+    phase0,
+  };
+}
+
 export default function Phase0Harness() {
   const stateRef = useRef<Phase0HarnessState | null>(null);
   const checkpointsRef = useRef<SimulationCheckpoint<{ tick: number }>[]>([]);
@@ -150,6 +179,13 @@ export default function Phase0Harness() {
       next.crises = next.crises;
 
       addCheckpoint();
+
+      // Auto-save the full Phase 0 state
+      const persistedState = serializePhase0HarnessToPersistedState(next);
+      autoSaveAndUpdateStore(persistedState, 'Phase 0 Debug World', useStore).catch((err) => {
+        console.error('Auto-save failed:', err);
+      });
+
       return next;
     });
   }, [addCheckpoint]);

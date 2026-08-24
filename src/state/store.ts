@@ -20,6 +20,7 @@ import type { ProducerArchetype } from '../simulation/producerTypes';
 import type { SimEvent } from '../simulation/events';
 import type { EcosystemHistorySample } from '../simulation/ecosystemHistory';
 import type { IncipientSpecies, SpeciesProfile } from '../simulation/speciation';
+import type { PendingEviction } from './saveSlotManager';
 
 // Cell interface for world state
 export interface CellSnapshot {
@@ -116,6 +117,13 @@ export interface FollowedLineage {
   lineageId: string;
 }
 
+export interface SaveSlotStatus {
+  autoCount: number;
+  autoCapacity: number;
+  manualCount: number;
+  manualCapacity: number;
+}
+
 /**
  * Global state shape for the store
  */
@@ -128,6 +136,8 @@ export interface StoreState {
   constants: SimulationConstants;
   selectedTile: SelectedTile | null;
   followedLineages: FollowedLineage[];
+  saveSlotStatus: SaveSlotStatus;
+  pendingEviction: PendingEviction | null;
 
   // Actions
   setWorldState: (state: WorldSnapshot) => void;
@@ -139,6 +149,8 @@ export interface StoreState {
   setSelectedTile: (tile: SelectedTile | null) => void;
   toggleFollowedLineage: (lineage: FollowedLineage) => void;
   clearFollowedLineages: () => void;
+  updateSaveSlotStatus: (status: SaveSlotStatus) => void;
+  setPendingEviction: (eviction: PendingEviction | null) => void;
 }
 
 /**
@@ -153,6 +165,13 @@ export const useStore = create<StoreState>((set) => ({
   constants: { ...SIMULATION_CONSTANTS },
   selectedTile: null,
   followedLineages: [],
+  saveSlotStatus: {
+    autoCount: 0,
+    autoCapacity: 8,
+    manualCount: 0,
+    manualCapacity: 2,
+  },
+  pendingEviction: null,
 
   setWorldState: (state: WorldSnapshot) => {
     set({ worldState: state });
@@ -204,4 +223,12 @@ export const useStore = create<StoreState>((set) => ({
   },
 
   clearFollowedLineages: () => set({ followedLineages: [] }),
+
+  updateSaveSlotStatus: (status: SaveSlotStatus) => {
+    set({ saveSlotStatus: status });
+  },
+
+  setPendingEviction: (eviction: PendingEviction | null) => {
+    set({ pendingEviction: eviction });
+  },
 }));
