@@ -8,5 +8,8 @@ export default defineConfig({
     environment: 'node',
     passWithNoTests: true,
     exclude: [...configDefaults.exclude, 'src/tests/sustainability.test.ts'],
+    environmentMatchGlobs: [
+      ['src/tests/**/*.test.tsx', 'jsdom'],
+    ],
   },
 })
