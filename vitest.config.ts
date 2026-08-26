@@ -7,9 +7,16 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     passWithNoTests: true,
+    setupFiles: ['./vitest.setup.ts'],
     exclude: [...configDefaults.exclude, 'src/tests/sustainability.test.ts'],
     environmentMatchGlobs: [
       ['src/tests/**/*.test.tsx', 'jsdom'],
+      ['src/tests/**/*.test.ts', 'jsdom'],
     ],
+    environmentOptions: {
+      jsdom: {
+        url: 'http://localhost',
+      },
+    },
   },
 })

@@ -54,6 +54,7 @@ import {
   type BetaWorldBackupBackend,
 } from './services/betaWorldBackupClient';
 import Phase0Harness from './prototype/Phase0Harness';
+import LLMSettingsPanel from './ui/LLMSettingsPanel';
 
 function browserStorage(): Storage | null {
   return typeof window === 'undefined' ? null : window.localStorage;
@@ -458,22 +459,25 @@ export default function App() {
               </>
             )}
             {settingsTab === 'act' && (
-              <ControlPanel
-                onReset={reset}
-                onNewWorld={newWorld}
-                onExportWorld={exportWorld}
-                onExportDiagnostic={exportDiagnostic}
-                onImportWorld={importWorld}
-                onCloudBackup={backupWorld}
-                onCloudRestore={restoreCloudWorld}
-                onStartSeed={startWorld}
-                worldSeed={worldSeed}
-                worldName={worldName}
-                onIntroduceSpecies={addSpecies}
-                replayActive={replayActive}
-                checkpointTicks={checkpointTicks}
-                onRestoreCheckpoint={restoreToTick}
-              />
+              <>
+                <LLMSettingsPanel />
+                <ControlPanel
+                  onReset={reset}
+                  onNewWorld={newWorld}
+                  onExportWorld={exportWorld}
+                  onExportDiagnostic={exportDiagnostic}
+                  onImportWorld={importWorld}
+                  onCloudBackup={backupWorld}
+                  onCloudRestore={restoreCloudWorld}
+                  onStartSeed={startWorld}
+                  worldSeed={worldSeed}
+                  worldName={worldName}
+                  onIntroduceSpecies={addSpecies}
+                  replayActive={replayActive}
+                  checkpointTicks={checkpointTicks}
+                  onRestoreCheckpoint={restoreToTick}
+                />
+              </>
             )}
             {settingsTab === 'remember' && (
               <>
