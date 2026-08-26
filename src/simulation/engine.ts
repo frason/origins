@@ -67,6 +67,16 @@ import {
   type IncipientSpecies,
   type SpeciesProfile,
 } from './speciation';
+import {
+  createSoundEvent,
+  detectActiveSounds,
+  shouldStalk,
+  getStalkingSpeedMultiplier,
+  getStalkingEnergyCostMultiplier,
+  SOUND_PERSISTENCE_TICKS,
+  type SoundEvent,
+  type DetectedSound,
+} from './soundEcology';
 
 export type {
   ConstantChange,
@@ -145,6 +155,10 @@ export interface EngineState {
   historyInterval: number;
   speciesProfiles: SpeciesProfile[];
   incipientSpecies: IncipientSpecies[];
+  /** Active sound events from creature actions this and recent ticks */
+  activeSounds: SoundEvent[];
+  /** Sound event counter for deterministic ID generation */
+  soundEventCounter: number;
 }
 
 export interface SpeciesIntroduction {
@@ -350,6 +364,8 @@ export function createEngine(
     historyInterval: BASE_HISTORY_INTERVAL,
     speciesProfiles,
     incipientSpecies: [],
+    activeSounds: [],
+    soundEventCounter: 0,
   };
 }
 
@@ -454,6 +470,10 @@ export function tickEngine(
 
   // Create deterministic RNG from seed and tick
   const rng = createRng(state.seed ^ state.tick);
+
+  // Initialize sound event tracking
+  let soundEventCounter = state.soundEventCounter;
+  const newSounds: SoundEvent[] = [];
 
   // Step 2: Producer Growth
   growProducers(newWorld, 'solar', constants.producerGrowthRate, true, true);
@@ -976,6 +996,11 @@ export function tickEngine(
       )
     : { history: state.history, interval: state.historyInterval };
 
+  // Clean up expired sounds (older than SOUND_PERSISTENCE_TICKS)
+  const activeSounds = state.activeSounds.filter(
+    (sound) => nextTick - sound.tick < SOUND_PERSISTENCE_TICKS
+  );
+
   return {
     world: newWorld,
     creatures: creaturesAfterDecomposition,
@@ -988,6 +1013,8 @@ export function tickEngine(
     historyInterval: historyResult.interval,
     speciesProfiles,
     incipientSpecies,
+    activeSounds,
+    soundEventCounter: state.soundEventCounter,
   };
 }
 

@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:slow": "vitest run src/tests/sustainability.test.ts",
+    "test:slow": "INCLUDE_SLOW_TESTS=1 vitest run src/tests/sustainability.test.ts",
     "smoke:build": "node scripts/release-smoke-test.mjs",
     "calibrate:population": "vite-node scripts/population-calibration.ts",
     "calibrate:opening": "vite-node scripts/opening-quality.ts",
