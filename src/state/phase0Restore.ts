@@ -21,6 +21,14 @@ import { ResourceLedger } from '../simulation/pivot/economy';
 import type { Scout } from '../simulation/pivot/scout';
 import type { Building } from '../simulation/pivot/building';
 import type { Crisis } from '../simulation/pivot/crisis';
+import {
+  createDefaultBurstWindow,
+  createSpendTrackerAdapter,
+  type BurstWindowState,
+  type SpendTracker,
+  type LocalComputeBuilding,
+} from '../simulation/pivot/crisisResponseHandler';
+import type { LLMProviderSettings } from '../services/llmProviderConfig';
 
 /**
  * Intermediate type representing the key fields of Phase0 Harness state.
@@ -35,6 +43,12 @@ export interface Phase0HarnessStateForRestore {
   equilibrium: EquilibriumTracker;
   tick: number;
   selectedWaypoint: { x: number; y: number } | null;
+  burst: BurstWindowState;
+  spendTracker: SpendTracker;
+  localComputeInfrastructure: LocalComputeBuilding[];
+  crisisFailureStates: Map<string, { count: number }>;
+  llmSettings: LLMProviderSettings;
+  commandLog: any[];
 }
 
 /**
@@ -97,5 +111,11 @@ export function restorePhase0FromPersistedState(
     crises: phase0.crises || [],
     equilibrium: restoredEquilibrium,
     selectedWaypoint: null, // Clear UI-level waypoint selection on restore
+    burst: createDefaultBurstWindow(),
+    spendTracker: createSpendTrackerAdapter(10.0),
+    localComputeInfrastructure: [],
+    crisisFailureStates: new Map(),
+    llmSettings: prevState.llmSettings,
+    commandLog: [],
   };
 }

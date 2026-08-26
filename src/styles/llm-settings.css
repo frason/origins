@@ -1,0 +1,244 @@
+/**
+ * LLM Settings Panel Styles
+ *
+ * BYOK (Bring Your Own Key) configuration UI
+ */
+
+.llm-settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sim-space-4);
+  color: #292116;
+}
+
+.llm-settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sim-space-3);
+  padding: var(--sim-space-3);
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.llm-settings-title {
+  margin: 0;
+  font-size: var(--sim-font-size-lg);
+  font-weight: 700;
+  color: #292116;
+}
+
+.llm-settings-disclosure {
+  padding: var(--sim-space-2) var(--sim-space-3);
+  background: #fff9e6;
+  border-left: 4px solid #f0ad4e;
+  border-radius: 4px;
+  font-size: var(--sim-font-size-sm);
+}
+
+.llm-settings-disclosure p {
+  margin: 0;
+  color: #292116;
+}
+
+.llm-settings-error {
+  padding: var(--sim-space-2) var(--sim-space-3);
+  background: #fee;
+  border: 1px solid #fcc;
+  border-radius: 4px;
+  color: #c33;
+  font-size: var(--sim-font-size-sm);
+}
+
+.llm-settings-success {
+  padding: var(--sim-space-2) var(--sim-space-3);
+  background: #efe;
+  border: 1px solid #cfc;
+  border-radius: 4px;
+  color: #3c3;
+  font-size: var(--sim-font-size-sm);
+}
+
+.llm-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sim-space-3);
+}
+
+.llm-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sim-space-1);
+}
+
+.llm-settings-field label {
+  font-weight: 600;
+  font-size: var(--sim-font-size-sm);
+  color: #292116;
+}
+
+.llm-settings-select,
+.llm-settings-input {
+  padding: var(--sim-space-1) var(--sim-space-2);
+  font-size: var(--sim-font-size-sm);
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  color: #292116;
+  font-family: inherit;
+}
+
+.llm-settings-select:focus,
+.llm-settings-input:focus {
+  outline: 2px solid #7cb342;
+  outline-offset: -1px;
+}
+
+.llm-settings-help {
+  font-size: var(--sim-font-size-xs);
+  color: #666;
+  line-height: 1.4;
+}
+
+.llm-settings-limit-control {
+  display: flex;
+  gap: var(--sim-space-2);
+  align-items: center;
+}
+
+.llm-settings-limit-control input {
+  max-width: 120px;
+}
+
+.llm-settings-actions {
+  display: flex;
+  gap: var(--sim-space-2);
+  flex-wrap: wrap;
+  margin-top: var(--sim-space-2);
+}
+
+.llm-settings-button {
+  padding: var(--sim-space-2) var(--sim-space-3);
+  font-size: var(--sim-font-size-sm);
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.llm-settings-button--primary {
+  background: #7cb342;
+  color: white;
+}
+
+.llm-settings-button--primary:hover {
+  background: #689f38;
+}
+
+.llm-settings-button--secondary {
+  background: #90caf9;
+  color: white;
+}
+
+.llm-settings-button--secondary:hover {
+  background: #42a5f5;
+}
+
+.llm-settings-button--danger {
+  background: #ef5350;
+  color: white;
+}
+
+.llm-settings-button--danger:hover {
+  background: #e53935;
+}
+
+.llm-settings-budget {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sim-space-2);
+  padding: var(--sim-space-3);
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 4px;
+}
+
+.llm-settings-budget-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--sim-space-1) 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  font-size: var(--sim-font-size-sm);
+}
+
+.llm-settings-budget-row:last-child {
+  border-bottom: none;
+}
+
+.llm-settings-budget-row span {
+  color: #666;
+}
+
+.llm-settings-budget-row strong {
+  color: #292116;
+  font-weight: 700;
+}
+
+.text-danger {
+  color: #d32f2f !important;
+}
+
+.llm-settings-budget-actions {
+  display: flex;
+  gap: var(--sim-space-2);
+  margin-top: var(--sim-space-2);
+}
+
+.llm-settings-status {
+  padding: var(--sim-space-3);
+  border-radius: 4px;
+}
+
+.llm-settings-status--configured {
+  background: #f0f9ff;
+  border: 1px solid #90caf9;
+}
+
+.llm-settings-status--configured p {
+  margin: 0 0 var(--sim-space-2) 0;
+  color: #1976d2;
+  font-weight: 600;
+}
+
+.llm-settings-status--unconfigured {
+  background: #fff3e0;
+  border: 1px solid #ffb74d;
+}
+
+.llm-settings-status--unconfigured p {
+  margin: 0;
+  color: #e65100;
+  font-weight: 600;
+}
+
+.llm-settings-details {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sim-space-1);
+}
+
+.llm-settings-details li {
+  font-size: var(--sim-font-size-sm);
+  color: #292116;
+}
+
+.llm-settings-details strong {
+  font-weight: 600;
+  color: #292116;
+}

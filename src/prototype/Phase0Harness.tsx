@@ -22,6 +22,19 @@ import {
   resolveTier1,
   TOXICITY_CRISIS_THRESHOLD,
 } from '../simulation/pivot/crisis';
+import {
+  type BurstWindowState,
+  type SpendTracker,
+  createDefaultBurstWindow,
+  tickBurstWindowRecharge,
+  resolveTier2,
+  resolveTier3,
+  createSpendTrackerAdapter,
+  type LocalComputeBuilding,
+  checkTier2Gating,
+  checkTier3Gating,
+} from '../simulation/pivot/crisisResponseHandler';
+import type { LLMProviderSettings } from '../services/llmProviderConfig';
 import { EquilibriumTracker } from '../simulation/pivot/equilibrium';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
 import {
@@ -49,6 +62,12 @@ interface Phase0HarnessState {
   equilibrium: EquilibriumTracker;
   tick: number;
   selectedWaypoint: { x: number; y: number } | null;
+  burst: BurstWindowState;
+  spendTracker: SpendTracker;
+  localComputeInfrastructure: LocalComputeBuilding[];
+  crisisFailureStates: Map<string, { count: number }>;
+  llmSettings: LLMProviderSettings;
+  commandLog: any[];
 }
 
 function initializePhase0State(): Phase0HarnessState {
@@ -79,6 +98,18 @@ function initializePhase0State(): Phase0HarnessState {
     equilibrium: new EquilibriumTracker(),
     tick: 0,
     selectedWaypoint: null,
+    burst: createDefaultBurstWindow(),
+    spendTracker: createSpendTrackerAdapter(10.0), // $10 daily limit
+    localComputeInfrastructure: [],
+    crisisFailureStates: new Map(),
+    llmSettings: {
+      provider: 'openai',
+      apiKey: 'sk-test',
+      baseUrl: 'https://api.openai.com/v1',
+      modelName: 'gpt-4',
+      dailySpendLimitUSD: 10,
+    },
+    commandLog: [],
   };
 }
 
@@ -299,6 +330,122 @@ export default function Phase0Harness() {
       return prev;
     });
   }, []);
+
+  const respondTier2Action = useCallback(
+    async (crisisIndex: number) => {
+      const crisis = state.crises[crisisIndex];
+      if (!crisis || crisis.status === 'resolved') {
+        setMessage('Crisis not found or already resolved');
+        return;
+      }
+
+      // Check gating condition first
+      const gating = checkTier2Gating(state.burst, state.spendTracker);
+      if (!gating.available) {
+        setMessage(gating.reason);
+        return;
+      }
+
+      // Get or initialize failure state for this crisis
+      let failureState = state.crisisFailureStates.get(crisis.id);
+      if (!failureState) {
+        failureState = { count: 0 };
+        state.crisisFailureStates.set(crisis.id, failureState);
+      }
+
+      try {
+        const result = await resolveTier2(
+          crisis,
+          state.world,
+          state.ledger,
+          state.burst,
+          state.scout.id,
+          state.tick,
+          state.llmSettings,
+          failureState,
+          undefined,
+          state.spendTracker,
+          state.commandLog
+        );
+
+        if (result.success) {
+          setMessage(`Tier 2 crisis response successful at (${crisis.x}, ${crisis.y})`);
+          setState((prev) => ({
+            ...prev,
+            crises: prev.crises.map((c, i) => (i === crisisIndex ? crisis : c)),
+            commandLog: [...prev.commandLog, result.commandLogEntry],
+          }));
+        } else {
+          setMessage(result.failureReason || 'Tier 2 response failed');
+          if (result.failureType === 'llm_call' && result.failureCount) {
+            state.crisisFailureStates.set(crisis.id, { count: result.failureCount });
+          }
+        }
+      } catch (err) {
+        setMessage(`Tier 2 error: ${err instanceof Error ? err.message : 'unknown error'}`);
+      }
+    },
+    [state]
+  );
+
+  const respondTier3Action = useCallback(
+    async (crisisIndex: number) => {
+      const crisis = state.crises[crisisIndex];
+      if (!crisis || crisis.status === 'resolved') {
+        setMessage('Crisis not found or already resolved');
+        return;
+      }
+
+      // Check gating condition first
+      const gating = checkTier3Gating(state.scout.x, state.scout.y, state.localComputeInfrastructure, state.spendTracker);
+      if (!gating.available) {
+        setMessage(gating.reason);
+        return;
+      }
+
+      // Get or initialize failure state for this crisis
+      let failureState = state.crisisFailureStates.get(crisis.id);
+      if (!failureState) {
+        failureState = { count: 0 };
+        state.crisisFailureStates.set(crisis.id, failureState);
+      }
+
+      try {
+        const result = await resolveTier3(
+          crisis,
+          state.world,
+          state.ledger,
+          state.scout.x,
+          state.scout.y,
+          state.localComputeInfrastructure,
+          state.scout.id,
+          state.tick,
+          state.llmSettings,
+          failureState,
+          undefined,
+          state.spendTracker,
+          state.commandLog
+        );
+
+        if (result.success) {
+          setMessage(`Tier 3 crisis response successful at (${crisis.x}, ${crisis.y})`);
+          setState((prev) => ({
+            ...prev,
+            crises: prev.crises.map((c, i) => (i === crisisIndex ? crisis : c)),
+            commandLog: [...prev.commandLog, result.commandLogEntry],
+          }));
+        } else {
+          setMessage(result.failureReason || 'Tier 3 response failed');
+          if (result.failureType === 'llm_call' && result.failureCount) {
+            state.crisisFailureStates.set(crisis.id, { count: result.failureCount });
+          }
+        }
+      } catch (err) {
+        setMessage(`Tier 3 error: ${err instanceof Error ? err.message : 'unknown error'}`);
+      }
+    },
+    [state]
+  );
 
   const setWaypointFromGrid = useCallback((x: number, y: number) => {
     setState((prev) => {
@@ -749,23 +896,71 @@ export default function Phase0Harness() {
           <div>No crises detected</div>
         ) : (
           <div>
-            {state.crises.map((crisis, idx) => (
-              <div key={crisis.id} style={{ marginBottom: '10px', padding: '5px', backgroundColor: '#fff0f0' }}>
-                <div>Position: ({crisis.x}, {crisis.y})</div>
-                <div>Type: {crisis.type}</div>
-                <div>Status: {crisis.status}</div>
-                <div>Detected at tick: {crisis.tick}</div>
-                <div>Toxicity: {state.world.getCell(crisis.x, crisis.y).toxicity.toFixed(2)}</div>
-                {crisis.status === 'active' && (
-                  <button
-                    onClick={() => respondToCrisisAction(idx)}
-                    style={{ marginTop: '5px' }}
-                  >
-                    Respond (Tier 1) - Cost: {PHASE0_ECONOMY_CONSTANTS.energy.tier1ResponseCost} Energy
-                  </button>
-                )}
-              </div>
-            ))}
+            {state.crises.map((crisis, idx) => {
+              const tier2Gating = checkTier2Gating(state.burst, state.spendTracker);
+              const tier3Gating = checkTier3Gating(state.scout.x, state.scout.y, state.localComputeInfrastructure, state.spendTracker);
+              return (
+                <div key={crisis.id} style={{ marginBottom: '10px', padding: '5px', backgroundColor: '#fff0f0' }}>
+                  <div>Position: ({crisis.x}, {crisis.y})</div>
+                  <div>Type: {crisis.type}</div>
+                  <div>Status: {crisis.status}</div>
+                  <div>Detected at tick: {crisis.tick}</div>
+                  <div>Toxicity: {state.world.getCell(crisis.x, crisis.y).toxicity.toFixed(2)}</div>
+                  {crisis.status === 'active' && (
+                    <div style={{ marginTop: '5px' }}>
+                      <div style={{ marginBottom: '5px' }}>
+                        <button
+                          onClick={() => respondToCrisisAction(idx)}
+                          style={{ marginRight: '10px' }}
+                        >
+                          Respond (Tier 1) - Cost: {PHASE0_ECONOMY_CONSTANTS.energy.tier1ResponseCost} Energy
+                        </button>
+                        <button
+                          onClick={() => respondTier2Action(idx)}
+                          disabled={!tier2Gating.available}
+                          style={{
+                            marginRight: '10px',
+                            backgroundColor: tier2Gating.available ? '#4CAF50' : '#ccc',
+                            color: '#fff',
+                            border: 'none',
+                            padding: '5px 10px',
+                            borderRadius: '3px',
+                            cursor: tier2Gating.available ? 'pointer' : 'not-allowed',
+                          }}
+                        >
+                          Tier 2 (Cloud LLM)
+                        </button>
+                        <button
+                          onClick={() => respondTier3Action(idx)}
+                          disabled={!tier3Gating.available}
+                          style={{
+                            marginRight: '10px',
+                            backgroundColor: tier3Gating.available ? '#2196F3' : '#ccc',
+                            color: '#fff',
+                            border: 'none',
+                            padding: '5px 10px',
+                            borderRadius: '3px',
+                            cursor: tier3Gating.available ? 'pointer' : 'not-allowed',
+                          }}
+                        >
+                          Tier 3 (Local LLM)
+                        </button>
+                      </div>
+                      {!tier2Gating.available && (
+                        <div style={{ fontSize: '11px', color: '#666', marginBottom: '3px' }}>
+                          Tier 2 unavailable: {tier2Gating.reason}
+                        </div>
+                      )}
+                      {!tier3Gating.available && (
+                        <div style={{ fontSize: '11px', color: '#666', marginBottom: '3px' }}>
+                          Tier 3 unavailable: {tier3Gating.reason}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </section>
