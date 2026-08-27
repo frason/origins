@@ -2,6 +2,30 @@ import type { EngineState } from '../simulation/engine';
 import { getEnergyCapacity } from '../simulation/energy';
 import type { Biome } from '../simulation/world';
 
+// Re-export compact, layer-based rendering snapshot and utilities
+// This makes worldSnapshot.ts the single truth source for all render data formats
+export {
+  type RenderSnapshot,
+  type RenderLayerKey,
+  type TerrainLayer,
+  type BiomassLayer,
+  type EnergyLayer,
+  type ToxicityLayer,
+  type Organism,
+  type OrganismLayer,
+  type Corpse,
+  type CorpseLayer,
+  type MutationPressureLayer,
+  type LineageLayer,
+  type RenderEvent,
+  RENDER_SNAPSHOT_VERSION,
+  MAX_RENDER_EVENTS,
+  toRenderSnapshot,
+  validateRenderSnapshot,
+  serializeRenderSnapshot,
+  deserializeRenderSnapshot,
+} from './renderSnapshot';
+
 export const PROTOTYPE_SNAPSHOT_VERSION = 1;
 export const MAX_PROTOTYPE_EVENTS = 24;
 
