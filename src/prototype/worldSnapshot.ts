@@ -14,6 +14,7 @@ export interface PrototypeCell {
   temperature: number;
   producerBiomass: number;
   toxicity: number;
+  energy: number;
 }
 
 export interface PrototypeCreature {
@@ -52,6 +53,7 @@ export function toPrototypeWorldSnapshot(state: EngineState): PrototypeWorldSnap
       cells.push({
         x, y, biome: cell.biome, elevation: cell.elevation, moisture: cell.moisture,
         temperature: cell.temperature, producerBiomass: cell.producerBiomass, toxicity: cell.toxicity,
+        energy: cell.energy,
       });
     }
   }
@@ -87,7 +89,8 @@ export function validatePrototypeWorldSnapshot(snapshot: PrototypeWorldSnapshot)
     if (!Number.isInteger(cell.x) || !Number.isInteger(cell.y) ||
         cell.x < 0 || cell.x >= snapshot.world.width || cell.y < 0 || cell.y >= snapshot.world.height ||
         !BIOMES.includes(cell.biome) || !finite(cell.elevation) || !finite(cell.moisture) ||
-        !finite(cell.temperature) || !finite(cell.producerBiomass) || !finite(cell.toxicity)) {
+        !finite(cell.temperature) || !finite(cell.producerBiomass) || !finite(cell.toxicity) ||
+        !finite(cell.energy)) {
       throw new Error('Prototype snapshot contains an invalid cell');
     }
   }

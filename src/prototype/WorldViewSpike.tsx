@@ -3,6 +3,7 @@ import '../styles/prototype-world-views.css';
 import fixture from './fixtures/default-world-t100.json';
 import PrototypeMap from './PrototypeMap';
 import ThreeWorldView from './ThreeWorldView';
+import ThreeWorldOverlayControl from '../ui/ThreeWorldOverlayControl';
 import {
   cellAt,
   notableEvent,
@@ -10,6 +11,7 @@ import {
   type SelectedLocation,
 } from './worldViewModel';
 import type { PrototypeWorldSnapshot } from './worldSnapshot';
+import type { OverlayKey } from '../ui/ThreeWorldLegend';
 
 const snapshot = fixture as PrototypeWorldSnapshot;
 
@@ -22,12 +24,30 @@ export default function WorldViewSpike() {
     PrototypeDirection,
     { buildMs: number; drawCalls: number; triangles: number }
   >>>({});
+  const [activeOverlays, setActiveOverlays] = useState<Set<OverlayKey>>(
+    new Set(['biomass', 'toxicity'])
+  );
+  const [useFallbackRender, setUseFallbackRender] = useState(false);
   const select = useCallback((location: SelectedLocation) => setSelected(location), []);
   const reportMetrics = useCallback((
     measuredDirection: PrototypeDirection,
     measured: { buildMs: number; drawCalls: number; triangles: number },
   ) => {
     setMetrics((current) => ({ ...current, [measuredDirection]: measured }));
+  }, []);
+  const handleOverlayToggle = useCallback((key: OverlayKey) => {
+    setActiveOverlays((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
+  const handleFallback = useCallback((enabled: boolean) => {
+    setUseFallbackRender(enabled);
   }, []);
   const cell = useMemo(() => cellAt(snapshot, selected), [selected]);
   const event = notableEvent(snapshot);
@@ -76,11 +96,21 @@ export default function WorldViewSpike() {
             onSelect={select}
             onMetrics={reportMetrics}
             focusNonce={focusNonce}
+            activeOverlays={activeOverlays}
+            onOverlayToggle={handleOverlayToggle}
+            useFallbackRender={useFallbackRender}
+            onFallback={handleFallback}
           />
           <div className="world-spike__stage-label">
             <strong>{direction === 'isometric' ? 'Isometric tile world' : 'Full globe'}</strong>
             <span>Drag to orbit · wheel/pinch to zoom · click geometry to select</span>
           </div>
+          <ThreeWorldOverlayControl
+            activeOverlays={activeOverlays}
+            onOverlayToggle={handleOverlayToggle}
+            isFallbackActive={useFallbackRender}
+            onFallbackMode={() => setUseFallbackRender(false)}
+          />
         </div>
 
         <aside className="world-spike__sidebar" aria-label="Prototype navigation and inspection">

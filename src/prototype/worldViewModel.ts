@@ -3,12 +3,22 @@ import type {
   PrototypeCreature,
   PrototypeWorldSnapshot,
 } from './worldSnapshot';
+import type { ZoomLevel } from './semanticZoom';
 
 export type PrototypeDirection = 'isometric' | 'globe';
 
 export interface SelectedLocation {
   x: number;
   y: number;
+}
+
+export interface FocusState {
+  zoom: ZoomLevel;
+  lineageId?: string;
+  regionMinX?: number;
+  regionMaxX?: number;
+  regionMinY?: number;
+  regionMaxY?: number;
 }
 
 const CREATURE_COLORS: Record<string, number> = {

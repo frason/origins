@@ -155,6 +155,8 @@ export function serializePhase0HarnessToPersistedState(state: Phase0HarnessState
       speciesProfiles: [],
       incipientSpecies: [],
       creatureIdCounter: 0,
+      activeSounds: [],
+      soundEventCounter: 0,
     },
     phase0,
   };

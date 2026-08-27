@@ -71,5 +71,7 @@ export function deserializeEngineState(value: string): EngineState {
     events: saved.events, constants: saved.constants, history: saved.history,
     historyInterval: saved.historyInterval, speciesProfiles: saved.speciesProfiles,
     incipientSpecies: saved.incipientSpecies,
+    activeSounds: saved.activeSounds ?? [],
+    soundEventCounter: saved.soundEventCounter ?? 0,
   };
 }
