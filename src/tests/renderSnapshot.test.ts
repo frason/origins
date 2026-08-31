@@ -1,9 +1,11 @@
 import { describe, expect, it, beforeAll } from 'vitest';
 import { buildDemoEngine } from '../simulation/demoWorld';
 import { tickEngine, type EngineState } from '../simulation/engine';
+import { snapshotEngine } from '../state/snapshot';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
 import {
   toRenderSnapshot,
+  toRenderSnapshotFromWorldSnapshot,
   validateRenderSnapshot,
   serializeRenderSnapshot,
   deserializeRenderSnapshot,
@@ -602,5 +604,135 @@ describe('render snapshot: renderer integration (Canvas2D & Three.js)', () => {
     expect(delta1.births.map((c) => c.id).sort()).toEqual(delta2.births.map((c) => c.id).sort());
     expect(delta1.deaths.sort()).toEqual(delta2.deaths.sort());
     expect(delta1.movedCreatures.length).toBe(delta2.movedCreatures.length);
+  });
+});
+
+describe('render snapshot: WorldSnapshot integration (store serialized state)', () => {
+  it('builds render snapshot from WorldSnapshot (store format)', () => {
+    // This is the critical regression test: WorldSnapshot is the format
+    // produced by snapshotEngine() and held in store.worldState
+    const engine = stateAt(42, 50);
+    const worldSnapshot = snapshotEngine(engine);
+
+    // Should not throw and should produce valid snapshot
+    const snapshot = toRenderSnapshotFromWorldSnapshot(worldSnapshot);
+    validateRenderSnapshot(snapshot);
+
+    // Verify basic structure is preserved
+    expect(snapshot.version).toBe(RENDER_SNAPSHOT_VERSION);
+    expect(snapshot.world.width).toBeGreaterThan(0);
+    expect(snapshot.world.height).toBeGreaterThan(0);
+    expect(snapshot.layers.terrain.biomes).toBeDefined();
+    expect(snapshot.layers.organisms.creatures).toBeDefined();
+  });
+
+  it('produces identical snapshots from EngineState vs WorldSnapshot', () => {
+    // Verify consistency: toRenderSnapshot(engine) should match
+    // toRenderSnapshotFromWorldSnapshot(snapshotEngine(engine))
+    const engine = stateAt(42, 50);
+    const worldSnapshot = snapshotEngine(engine);
+
+    const fromEngine = toRenderSnapshot(engine);
+    const fromWorldSnapshot = toRenderSnapshotFromWorldSnapshot(worldSnapshot);
+
+    // Verify critical matching properties
+    expect(fromWorldSnapshot.version).toBe(fromEngine.version);
+    expect(fromWorldSnapshot.source.seed).toBe(fromEngine.source.seed);
+    expect(fromWorldSnapshot.source.tick).toBe(fromEngine.source.tick);
+    expect(fromWorldSnapshot.world).toEqual(fromEngine.world);
+
+    // Verify layers match exactly
+    expect(fromWorldSnapshot.layers.terrain.biomes).toEqual(fromEngine.layers.terrain.biomes);
+    expect(fromWorldSnapshot.layers.terrain.elevation).toEqual(fromEngine.layers.terrain.elevation);
+    expect(fromWorldSnapshot.layers.terrain.moisture).toEqual(fromEngine.layers.terrain.moisture);
+    expect(fromWorldSnapshot.layers.terrain.temperature).toEqual(fromEngine.layers.terrain.temperature);
+
+    expect(fromWorldSnapshot.layers.biomass.values).toEqual(fromEngine.layers.biomass.values);
+    expect(fromWorldSnapshot.layers.energy.values).toEqual(fromEngine.layers.energy.values);
+    expect(fromWorldSnapshot.layers.toxicity.values).toEqual(fromEngine.layers.toxicity.values);
+
+    // Organisms should match (same ordering, same IDs)
+    expect(fromWorldSnapshot.layers.organisms.creatures).toEqual(
+      fromEngine.layers.organisms.creatures
+    );
+    expect(fromWorldSnapshot.layers.corpses.creatures).toEqual(
+      fromEngine.layers.corpses.creatures
+    );
+  });
+
+  it('preserves determinism through WorldSnapshot round-trip', () => {
+    // Multiple builds from same WorldSnapshot should be identical
+    const engine = stateAt(999, 50);
+    const worldSnapshot = snapshotEngine(engine);
+
+    const snap1 = toRenderSnapshotFromWorldSnapshot(worldSnapshot);
+    const snap2 = toRenderSnapshotFromWorldSnapshot(worldSnapshot);
+
+    expect(snap1.version).toBe(snap2.version);
+    expect(snap1.source.seed).toBe(snap2.source.seed);
+    expect(snap1.source.tick).toBe(snap2.source.tick);
+    expect(snap1.layers.organisms.creatures).toEqual(snap2.layers.organisms.creatures);
+    expect(snap1.layers.corpses.creatures).toEqual(snap2.layers.corpses.creatures);
+  });
+
+  it('handles empty worlds from WorldSnapshot', () => {
+    // Create a minimal WorldSnapshot to test edge case
+    const minimalWorldSnapshot = {
+      width: 10,
+      height: 10,
+      cells: Array(100)
+        .fill(null)
+        .map(() => ({
+          energy: 0,
+          elevation: 0,
+          moisture: 0.5,
+          temperature: 20,
+          producerBiomass: 0,
+          toxicity: 0,
+          biome: 'grassland' as const,
+        })),
+      creatures: [],
+      seed: 12345,
+      tick: 0,
+      events: [],
+    };
+
+    const snapshot = toRenderSnapshotFromWorldSnapshot(minimalWorldSnapshot);
+    validateRenderSnapshot(snapshot);
+
+    // Should have empty organisms and corpses
+    expect(snapshot.layers.organisms.creatures).toEqual([]);
+    expect(snapshot.layers.corpses.creatures).toEqual([]);
+  });
+
+  it('computes build time correctly for WorldSnapshot conversion', () => {
+    const engine = stateAt(42, 50);
+    const worldSnapshot = snapshotEngine(engine);
+
+    const snapshot = toRenderSnapshotFromWorldSnapshot(worldSnapshot);
+
+    // Metadata should include build time
+    expect(snapshot.metadata.buildTimeMs).toBeDefined();
+    expect(typeof snapshot.metadata.buildTimeMs).toBe('number');
+    expect(snapshot.metadata.buildTimeMs).toBeGreaterThanOrEqual(0);
+    expect(snapshot.metadata.buildTimeMs).toBeLessThan(100); // Should be fast
+  });
+
+  it('preserves creature order deterministically in WorldSnapshot', () => {
+    const engine1 = stateAt(42, 50);
+    const worldSnapshot1 = snapshotEngine(engine1);
+    const snap1 = toRenderSnapshotFromWorldSnapshot(worldSnapshot1);
+
+    const engine2 = stateAt(42, 50);
+    const worldSnapshot2 = snapshotEngine(engine2);
+    const snap2 = toRenderSnapshotFromWorldSnapshot(worldSnapshot2);
+
+    // Creature ordering should be identical
+    expect(snap1.layers.organisms.creatures.map((c) => c.id)).toEqual(
+      snap2.layers.organisms.creatures.map((c) => c.id)
+    );
+    expect(snap1.layers.corpses.creatures.map((c) => c.id)).toEqual(
+      snap2.layers.corpses.creatures.map((c) => c.id)
+    );
   });
 });

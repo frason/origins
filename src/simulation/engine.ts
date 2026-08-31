@@ -77,6 +77,10 @@ import {
   type SoundEvent,
   type DetectedSound,
 } from './soundEcology';
+import {
+  AdaptationMetricsTracker,
+  type AdaptationObservation,
+} from './adaptationMetrics';
 
 export type {
   ConstantChange,
@@ -159,6 +163,10 @@ export interface EngineState {
   activeSounds: SoundEvent[];
   /** Sound event counter for deterministic ID generation */
   soundEventCounter: number;
+  /** Tracks trait frequencies and adaptation evidence across lineages */
+  adaptationMetrics: AdaptationMetricsTracker;
+  /** Recent adaptation observations from the current tick */
+  lastAdaptationObservations: AdaptationObservation[];
 }
 
 export interface SpeciesIntroduction {
@@ -366,6 +374,8 @@ export function createEngine(
     incipientSpecies: [],
     activeSounds: [],
     soundEventCounter: 0,
+    adaptationMetrics: new AdaptationMetricsTracker(),
+    lastAdaptationObservations: [],
   };
 }
 
@@ -1001,6 +1011,36 @@ export function tickEngine(
     (sound) => nextTick - sound.tick < SOUND_PERSISTENCE_TICKS
   );
 
+  // Update adaptation metrics tracker with current creature snapshots
+  const adaptationObservations = state.adaptationMetrics.updateMetrics(
+    nextTick,
+    creaturesAfterDecomposition.map((c) => ({
+      id: c.id,
+      speciesId: c.speciesId,
+      lineageId: c.lineageId,
+      parentId: c.parentId,
+      traits: c.traits,
+      x: c.x,
+      y: c.y,
+      energy: c.energy,
+      age: c.age,
+      lifecycleState: c.lifecycleState,
+      corpseDecayTicks: c.corpseDecayTicks,
+      lastReproductionAge: c.lastReproductionAge,
+      generation: c.generation,
+      incipientSpeciesId: c.incipientSpeciesId,
+      offspringCount: c.offspringCount,
+      toxinExposure: c.toxinExposure,
+      localResourcePressure: c.localResourcePressure,
+      reproductionPressureMultiplier: c.reproductionPressureMultiplier,
+      dispersalTargetX: c.dispersalTargetX,
+      dispersalTargetY: c.dispersalTargetY,
+      lastDispersalTick: c.lastDispersalTick,
+      dispersalMoves: c.dispersalMoves,
+    })),
+    completeEvents
+  );
+
   return {
     world: newWorld,
     creatures: creaturesAfterDecomposition,
@@ -1015,6 +1055,8 @@ export function tickEngine(
     incipientSpecies,
     activeSounds,
     soundEventCounter: state.soundEventCounter,
+    adaptationMetrics: state.adaptationMetrics,
+    lastAdaptationObservations: adaptationObservations,
   };
 }
 

@@ -2,6 +2,7 @@ import { Creature } from './creature';
 import type { EngineState } from './engine';
 import { World } from './world';
 import type { Phase0State } from './checkpointTimeline';
+import { AdaptationMetricsTracker } from './adaptationMetrics';
 
 export const ENGINE_SAVE_VERSION = 1;
 
@@ -73,5 +74,7 @@ export function deserializeEngineState(value: string): EngineState {
     incipientSpecies: saved.incipientSpecies,
     activeSounds: saved.activeSounds ?? [],
     soundEventCounter: saved.soundEventCounter ?? 0,
+    adaptationMetrics: new AdaptationMetricsTracker(),
+    lastAdaptationObservations: saved.lastAdaptationObservations ?? [],
   };
 }

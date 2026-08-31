@@ -15,7 +15,7 @@ import { buildMiasmaPressureGrid, getToxicityHazard } from '../simulation/toxici
 import { elevationAppearance } from './elevationLayer';
 import { buildFollowedLineageKeySet, isFollowedLineageMember } from './followedLineageMarker';
 import { creatureColor } from './creatureColor';
-import { toRenderSnapshot } from '../prototype/renderSnapshot';
+import { toRenderSnapshot, toRenderSnapshotFromWorldSnapshot } from '../prototype/renderSnapshot';
 import type { RenderSnapshot } from '../prototype/renderSnapshot';
 
 /**
@@ -218,11 +218,11 @@ const WorldView: React.FC = () => {
     calculateGridLayout(400, 400, GRID_WIDTH, GRID_HEIGHT)
   );
 
-  // Compute render snapshot from engine state; memoized to avoid rebuilding on every render
+  // Compute render snapshot from WorldSnapshot; memoized to avoid rebuilding on every render
   const snapshot = useMemo(() => {
     if (!worldState) return null;
     try {
-      return toRenderSnapshot(worldState as any);
+      return toRenderSnapshotFromWorldSnapshot(worldState);
     } catch (e) {
       console.warn('Failed to build render snapshot:', e);
       return null;

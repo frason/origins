@@ -12,6 +12,7 @@ import type { EngineState } from '../simulation/engine';
 import type { Creature } from '../simulation/creature';
 import { getEnergyCapacity } from '../simulation/energy';
 import type { Biome } from '../simulation/world';
+import { MAX_ENERGY_MULTIPLIER } from '../utils/constants';
 
 /**
  * Render snapshot version for future compatibility
@@ -571,6 +572,216 @@ export function validateRenderSnapshot(snapshot: RenderSnapshot): void {
       !snapshot.layers.selection.followedLineages) {
     throw new Error('Selection layer missing required fields');
   }
+}
+
+/**
+ * Calculate energy capacity for a creature in WorldSnapshot format
+ * Mirrors getEnergyCapacity but works with serialized creature objects
+ */
+function calculateCreatureEnergyCapacity(creature: {
+  traits: { size?: number; [key: string]: unknown };
+}): number {
+  const size = creature.traits?.size ?? 1;
+  return Math.max(200, size * MAX_ENERGY_MULTIPLIER);
+}
+
+/**
+ * Build render snapshot from WorldSnapshot (store serialized state)
+ * Converts flat WorldSnapshot structure to RenderSnapshot for rendering
+ * This is used when consuming from Zustand store which holds WorldSnapshot
+ */
+export function toRenderSnapshotFromWorldSnapshot(
+  worldSnapshot: {
+    width: number;
+    height: number;
+    cells: Array<{
+      energy: number;
+      elevation: number;
+      moisture: number;
+      temperature: number;
+      producerBiomass: number;
+      toxicity: number;
+      biome: Biome;
+    }>;
+    creatures: Array<{
+      id: string;
+      x: number;
+      y: number;
+      speciesId: string;
+      lineageId: string;
+      traits: { energyStrategy: string };
+      energy: number;
+      lifecycleState: 'alive' | 'dead' | 'corpse';
+    }>;
+    seed?: number;
+    tick?: number;
+    events?: Array<{
+      type: string;
+      tick: number;
+      detail?: string;
+    }>;
+  }
+): RenderSnapshot {
+  const buildStart = performance.now();
+  const { width, height } = worldSnapshot;
+  const cellCount = width * height;
+
+  // Build terrain layer from cells
+  const biomes = new Uint8Array(cellCount);
+  const elevation = new Float32Array(cellCount);
+  const moisture = new Float32Array(cellCount);
+  const temperature = new Float32Array(cellCount);
+
+  for (let i = 0; i < cellCount; i++) {
+    const cell = worldSnapshot.cells[i];
+    biomes[i] = BIOME_TO_ID[cell.biome];
+    elevation[i] = cell.elevation;
+    moisture[i] = cell.moisture;
+    temperature[i] = cell.temperature;
+  }
+
+  const terrainLayer: TerrainLayer = { type: 'terrain', biomes, elevation, moisture, temperature };
+
+  // Build biomass layer
+  const biomassValues = new Float32Array(cellCount);
+  for (let i = 0; i < cellCount; i++) {
+    biomassValues[i] = worldSnapshot.cells[i].producerBiomass;
+  }
+  const biomassLayer: BiomassLayer = { type: 'biomass', values: biomassValues };
+
+  // Build energy layer
+  const energyValues = new Float32Array(cellCount);
+  for (let i = 0; i < cellCount; i++) {
+    energyValues[i] = worldSnapshot.cells[i].energy;
+  }
+  const energyLayer: EnergyLayer = { type: 'energy', values: energyValues };
+
+  // Build toxicity layer
+  const toxicityValues = new Float32Array(cellCount);
+  for (let i = 0; i < cellCount; i++) {
+    toxicityValues[i] = worldSnapshot.cells[i].toxicity;
+  }
+  const toxicityLayer: ToxicityLayer = { type: 'toxicity', values: toxicityValues };
+
+  // Build organism and corpse layers with deterministic ordering
+  const livingCreatures = worldSnapshot.creatures.filter((c) => c.lifecycleState === 'alive');
+  const sortedLiving = [...livingCreatures].sort((a, b) => a.id.localeCompare(b.id));
+
+  const organisms: Organism[] = sortedLiving.map((creature) => ({
+    id: creature.id,
+    x: creature.x,
+    y: creature.y,
+    speciesId: creature.speciesId,
+    lineageId: creature.lineageId,
+    strategy: creature.traits.energyStrategy,
+    relativeEnergy: Math.max(0, Math.min(1, creature.energy / calculateCreatureEnergyCapacity(creature))),
+  }));
+
+  const organismLayer: OrganismLayer = { type: 'organisms', creatures: organisms };
+
+  // Build corpse layer
+  const deadCreatures = worldSnapshot.creatures.filter((c) => c.lifecycleState !== 'alive');
+  const sortedDead = [...deadCreatures].sort((a, b) => a.id.localeCompare(b.id));
+
+  const corpses: Corpse[] = sortedDead.map((creature) => {
+    let decayState: 'fresh' | 'decomposing' | 'skeleton' = 'decomposing';
+    if (creature.lifecycleState === 'dead') {
+      decayState = 'fresh';
+    } else if (creature.lifecycleState === 'corpse') {
+      decayState = 'decomposing';
+    }
+
+    return {
+      id: creature.id,
+      x: creature.x,
+      y: creature.y,
+      lineageId: creature.lineageId,
+      decayState,
+    };
+  });
+
+  const corpseLayer: CorpseLayer = { type: 'corpses', creatures: corpses };
+
+  // Build lineage layer
+  const lineageIds = new Set<string>();
+  const creatureLineages = new Map<string, string>();
+
+  for (const creature of worldSnapshot.creatures) {
+    lineageIds.add(creature.lineageId);
+    creatureLineages.set(creature.id, creature.lineageId);
+  }
+
+  const lineageLayer: LineageLayer = { type: 'lineage', lineageIds, creatureLineages };
+
+  // Build mutation pressure layer from corpse positions
+  const mutationPressure = new Float32Array(cellCount);
+  for (const corpse of deadCreatures) {
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const dx = x - corpse.x;
+        const dy = y - corpse.y;
+        const distSq = dx * dx + dy * dy;
+        if (distSq < 9) {
+          const dist = Math.sqrt(distSq);
+          const contribution = Math.max(0, 1 - dist / 3);
+          const idx = y * width + x;
+          mutationPressure[idx] = Math.max(mutationPressure[idx], contribution);
+        }
+      }
+    }
+  }
+
+  const mutationPressureLayer: MutationPressureLayer = {
+    type: 'mutation-pressure',
+    values: mutationPressure,
+  };
+
+  // Build selection layer (empty for now)
+  const selectionLayer: SelectionLayer = {
+    type: 'selection',
+    selectedCreatureIds: new Set(),
+    selectedLineageIds: new Set(),
+    followedLineages: new Map(),
+  };
+
+  // Extract recent events
+  const events: RenderEvent[] = (worldSnapshot.events ?? [])
+    .slice(-MAX_RENDER_EVENTS)
+    .map((event) => ({
+      type: event.type,
+      tick: event.tick,
+      ...(event.detail ? { detail: event.detail } : {}),
+    }));
+
+  const snapshot: RenderSnapshot = {
+    version: RENDER_SNAPSHOT_VERSION,
+    source: {
+      seed: worldSnapshot.seed ?? 0,
+      tick: worldSnapshot.tick ?? 0,
+    },
+    world: {
+      width,
+      height,
+    },
+    layers: {
+      terrain: terrainLayer,
+      biomass: biomassLayer,
+      energy: energyLayer,
+      toxicity: toxicityLayer,
+      organisms: organismLayer,
+      corpses: corpseLayer,
+      mutationPressure: mutationPressureLayer,
+      lineage: lineageLayer,
+      selection: selectionLayer,
+    },
+    events,
+    metadata: {
+      buildTimeMs: performance.now() - buildStart,
+    },
+  };
+
+  validateRenderSnapshot(snapshot);
+  return snapshot;
 }
 
 /**

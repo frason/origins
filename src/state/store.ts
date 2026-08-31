@@ -21,6 +21,7 @@ import type { SimEvent } from '../simulation/events';
 import type { EcosystemHistorySample } from '../simulation/ecosystemHistory';
 import type { IncipientSpecies, SpeciesProfile } from '../simulation/speciation';
 import type { PendingEviction } from './saveSlotManager';
+import type { AdaptationObservation } from '../simulation/adaptationMetrics';
 
 // Cell interface for world state
 export interface CellSnapshot {
@@ -90,6 +91,9 @@ export interface WorldSnapshot {
   speciesProfiles?: SpeciesProfile[];
   incipientSpecies?: IncipientSpecies[];
 
+  // Evolution truth: trait frequencies and adaptation evidence
+  lastAdaptationObservations?: AdaptationObservation[];
+
   // Allow additional fields for forward compatibility
   [key: string]: unknown;
 }
@@ -138,6 +142,7 @@ export interface StoreState {
   followedLineages: FollowedLineage[];
   saveSlotStatus: SaveSlotStatus;
   pendingEviction: PendingEviction | null;
+  show2dView: boolean;
 
   // Actions
   setWorldState: (state: WorldSnapshot) => void;
@@ -151,6 +156,7 @@ export interface StoreState {
   clearFollowedLineages: () => void;
   updateSaveSlotStatus: (status: SaveSlotStatus) => void;
   setPendingEviction: (eviction: PendingEviction | null) => void;
+  setShow2dView: (show: boolean) => void;
 }
 
 /**
@@ -172,6 +178,7 @@ export const useStore = create<StoreState>((set) => ({
     manualCapacity: 2,
   },
   pendingEviction: null,
+  show2dView: false,
 
   setWorldState: (state: WorldSnapshot) => {
     set({ worldState: state });
@@ -230,5 +237,9 @@ export const useStore = create<StoreState>((set) => ({
 
   setPendingEviction: (eviction: PendingEviction | null) => {
     set({ pendingEviction: eviction });
+  },
+
+  setShow2dView: (show: boolean) => {
+    set({ show2dView: show });
   },
 }));

@@ -58,6 +58,8 @@ function createTestCheckpoint(tick: number, seed: number = 12345): PersistedEngi
       speciesProfiles: [],
       incipientSpecies: [],
       creatureIdCounter: 0,
+      activeSounds: [],
+      soundEventCounter: 0,
     },
   };
 }
@@ -404,6 +406,8 @@ describe('Phase A: Save Slot System', () => {
           speciesProfiles: [],
           incipientSpecies: [],
           creatureIdCounter: 0,
+          activeSounds: [],
+          soundEventCounter: 0,
         },
         // Include full Phase 0 state with all fields
         phase0: {
@@ -562,6 +566,8 @@ describe('Phase A: Save Slot System', () => {
           speciesProfiles: [],
           incipientSpecies: [],
           creatureIdCounter: 0,
+          activeSounds: [],
+          soundEventCounter: 0,
         },
         phase0: {
           ledger: { energy: 500, biomass: 200 },
