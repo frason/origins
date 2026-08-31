@@ -3,6 +3,7 @@ import { useStore } from '../state/store';
 import {
   buildLineageHistories,
   formatTraitChange,
+  formatMutationContext,
   resolveFollowedLineages,
 } from './lineageHistoryModel';
 
@@ -134,6 +135,11 @@ export default function LineageHistory() {
               <div style={{ color: 'var(--sim-color-screen-ink-faint)', fontSize: '0.66rem', marginTop: '0.1rem' }}>
                 {lineage.parentLineageId ? `branched at tick ${lineage.firstSeenTick}` : 'founding lineage'}
               </div>
+              {formatMutationContext(lineage.mutationPressure, lineage.mutationRate) && (
+                <div style={{ color: '#a8c5d1', fontSize: '0.65rem', marginTop: '0.2rem', fontStyle: 'italic' }}>
+                  {formatMutationContext(lineage.mutationPressure, lineage.mutationRate)}
+                </div>
+              )}
               {lineage.traitChanges.map((change) => (
                 <div
                   key={change.trait}

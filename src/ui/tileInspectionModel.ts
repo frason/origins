@@ -33,19 +33,21 @@ export interface TileMutationContext {
   label: string;
 }
 
-/** Explain the local corpse-miasma effect that will apply to births on this tile. */
+/** Explain the local corpse-miasma effect and toxin-induced mutations that will apply to births on this tile. */
 export function buildTileMutationContext(
   x: number,
   y: number,
   creatures: CreatureSnapshot[],
-  constants: SimulationConstants
+  constants: SimulationConstants,
+  cellToxicity: number = 0
 ): TileMutationContext {
   const pressure = getLocalMiasmaMutationPressure(
     x,
     y,
     creatures,
     constants.corpseToxicityRadius,
-    constants.corpseDecayDurationTicks
+    constants.corpseDecayDurationTicks,
+    cellToxicity
   );
   const rate = getMiasmaAdjustedMutationRate(constants.defaultMutationRate, pressure);
   return {

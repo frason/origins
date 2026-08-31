@@ -50,23 +50,32 @@ export function getCorpseDecayStage(
 }
 
 /**
- * Measure local mutation pressure from active corpses without conflating it
- * with accumulated toxicity. Peak decay contributes the strongest pressure;
- * distance and completed decomposition remove the effect deterministically.
+ * Measure local mutation pressure from active corpses and environmental toxins.
+ * Corpse decay contributes transient pressure; accumulated toxicity contributes
+ * persistent but bounded pressure. Both are kept distinct from the energy-cost
+ * hazard path to prevent toxicity from becoming an evolutionary bonus.
  */
 export function getLocalMiasmaMutationPressure(
   x: number,
   y: number,
   sources: MiasmaSource[],
   radius: number,
-  decayDurationTicks: number
+  decayDurationTicks: number,
+  cellToxicity: number = 0
 ): number {
   const boundedRadius = Math.max(0, Math.floor(radius));
-  let pressure = 0;
+  let corpsePressure = 0;
   for (const source of sources) {
-    pressure += sourceMiasmaPressure(x, y, source, boundedRadius, decayDurationTicks);
+    corpsePressure += sourceMiasmaPressure(x, y, source, boundedRadius, decayDurationTicks);
   }
-  return Math.min(1, Math.max(0, pressure));
+
+  // Toxicity contributes persistent (but capped) pressure independent of corpses.
+  // High toxicity makes reproduction harder (energy cost) but also induces mutations.
+  // Cap toxicity contribution at 0.3 to keep corpse decay as the primary driver.
+  const bounded = Math.max(0, Number.isFinite(cellToxicity) ? cellToxicity : 0);
+  const toxicityPressure = Math.min(0.3, bounded * 0.05);
+
+  return Math.min(1, Math.max(0, corpsePressure + toxicityPressure));
 }
 
 /** Build a compact, render-ready mutation-pressure field without per-cell source scans. */

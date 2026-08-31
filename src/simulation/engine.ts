@@ -768,12 +768,14 @@ export function tickEngine(
         creature.y,
         constants.corpseToxicityRadius
       );
+      const cellToxicity = newWorld.getCell(creature.x, creature.y).toxicity;
       const mutationPressure = getLocalMiasmaMutationPressure(
         creature.x,
         creature.y,
         nearbySources,
         constants.corpseToxicityRadius,
-        constants.corpseDecayDurationTicks
+        constants.corpseDecayDurationTicks,
+        cellToxicity
       );
       const mutationRate = getMiasmaAdjustedMutationRate(
         constants.defaultMutationRate,

@@ -11,6 +11,8 @@ export interface LineageHistoryNode {
   population: number;
   status: 'living' | 'extinct';
   traitChanges: TraitChange[];
+  mutationPressure?: number;
+  mutationRate?: number;
 }
 
 export interface SpeciesLineageHistory {
@@ -29,7 +31,10 @@ export interface FollowedLineageStatus extends FollowedLineage {
   depth: number | null;
 }
 
-interface MutableNode extends Omit<LineageHistoryNode, 'depth' | 'status'> {}
+interface MutableNode extends Omit<LineageHistoryNode, 'depth' | 'status'> {
+  lastMutationPressure?: number;
+  lastMutationRate?: number;
+}
 
 function nodeDepth(node: MutableNode, nodes: Map<string, MutableNode>): number {
   let depth = 0;
@@ -84,6 +89,8 @@ export function buildLineageHistories(
         firstSeenTick: event.tick,
         population: 0,
         traitChanges: event.traitChanges ?? [],
+        mutationPressure: event.mutationPressure,
+        mutationRate: event.mutationRate,
       });
     }
   }
@@ -135,6 +142,17 @@ export function formatTraitChange(change: TraitChange): string {
   const value = (item: number | string) =>
     typeof item === 'number' ? (Math.round(item * 100) / 100).toString() : item;
   return `${label}: ${value(change.before)} → ${value(change.after)}`;
+}
+
+export function formatMutationContext(pressure?: number, rate?: number): string | null {
+  if (pressure === undefined || rate === undefined) return null;
+  const pressureLabel =
+    pressure === 0
+      ? 'Baseline'
+      : pressure >= 0.75
+        ? 'Peak miasma'
+        : 'Miasma nearby';
+  return `Pressure: ${pressureLabel} (${Math.round(pressure * 100)}%) · Rate: ${Math.round(rate * 100)}%`;
 }
 
 /** Resolve bookmarks against live history while retaining branches that just disappeared. */

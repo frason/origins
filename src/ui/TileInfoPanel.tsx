@@ -50,7 +50,8 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
     selectedTile.x,
     selectedTile.y,
     worldState.creatures,
-    constants
+    constants,
+    cell.toxicity
   );
 
   return (
