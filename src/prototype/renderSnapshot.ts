@@ -28,14 +28,14 @@ export const MAX_RENDER_EVENTS = 32;
  */
 export type RenderLayerKey =
   | 'terrain'
-  | 'elevation'
   | 'biomass'
   | 'energy'
   | 'toxicity'
   | 'organisms'
   | 'corpses'
   | 'mutation-pressure'
-  | 'lineage';
+  | 'lineage'
+  | 'selection';
 
 /**
  * Terrain layer: biome classification per cell
@@ -124,6 +124,16 @@ export interface LineageLayer {
 }
 
 /**
+ * Selection layer: tracks selected creatures and lineages for UI highlighting
+ */
+export interface SelectionLayer {
+  type: 'selection';
+  selectedCreatureIds: Set<string>; // Currently selected creature IDs
+  selectedLineageIds: Set<string>; // Currently selected lineage IDs
+  followedLineages: Map<string, Set<string>>; // lineage → set of species IDs
+}
+
+/**
  * Recent simulation event for UI feedback
  */
 export interface RenderEvent {
@@ -154,6 +164,7 @@ export interface RenderSnapshot {
     corpses: CorpseLayer;
     mutationPressure: MutationPressureLayer;
     lineage: LineageLayer;
+    selection: SelectionLayer;
   };
   events: RenderEvent[];
   metadata: {
@@ -366,6 +377,18 @@ function buildLineageLayer(state: EngineState): LineageLayer {
 }
 
 /**
+ * Build selection layer for UI highlighting (initialized empty; to be populated by consumers)
+ */
+function buildSelectionLayer(): SelectionLayer {
+  return {
+    type: 'selection',
+    selectedCreatureIds: new Set(),
+    selectedLineageIds: new Set(),
+    followedLineages: new Map(),
+  };
+}
+
+/**
  * Build mutation pressure layer
  */
 function buildMutationPressureLayer(
@@ -417,6 +440,7 @@ export function toRenderSnapshot(state: EngineState): RenderSnapshot {
       corpses: buildCorpseLayer(state),
       mutationPressure: buildMutationPressureLayer(state, width, height),
       lineage: buildLineageLayer(state),
+      selection: buildSelectionLayer(),
     },
     events: extractRecentEvents(state),
     metadata: {
@@ -540,6 +564,13 @@ export function validateRenderSnapshot(snapshot: RenderSnapshot): void {
       (snapshot.layers.organisms.creatures.length + snapshot.layers.corpses.creatures.length)) {
     throw new Error('Lineage tracking incomplete');
   }
+
+  // Validate selection layer
+  if (!snapshot.layers.selection.selectedCreatureIds ||
+      !snapshot.layers.selection.selectedLineageIds ||
+      !snapshot.layers.selection.followedLineages) {
+    throw new Error('Selection layer missing required fields');
+  }
 }
 
 /**
@@ -581,6 +612,12 @@ export function serializeRenderSnapshot(snapshot: RenderSnapshot): string {
         type: snapshot.layers.lineage.type,
         lineageIds: Array.from(snapshot.layers.lineage.lineageIds),
         creatureLineages: Array.from(snapshot.layers.lineage.creatureLineages),
+      },
+      selection: {
+        type: snapshot.layers.selection.type,
+        selectedCreatureIds: Array.from(snapshot.layers.selection.selectedCreatureIds),
+        selectedLineageIds: Array.from(snapshot.layers.selection.selectedLineageIds),
+        followedLineages: Array.from(snapshot.layers.selection.followedLineages.entries()).map(([k, v]) => [k, Array.from(v)]),
       },
     },
     events: snapshot.events,
@@ -629,6 +666,12 @@ export function deserializeRenderSnapshot(json: string): RenderSnapshot {
         lineageIds: new Set(data.layers.lineage.lineageIds),
         creatureLineages: new Map(data.layers.lineage.creatureLineages),
       },
+      selection: {
+        type: 'selection',
+        selectedCreatureIds: new Set(data.layers.selection.selectedCreatureIds),
+        selectedLineageIds: new Set(data.layers.selection.selectedLineageIds),
+        followedLineages: new Map(data.layers.selection.followedLineages.map((entry: [string, string[]]) => [entry[0], new Set(entry[1])])),
+      },
     },
     events: data.events,
     metadata: data.metadata,
@@ -636,4 +679,91 @@ export function deserializeRenderSnapshot(json: string): RenderSnapshot {
 
   validateRenderSnapshot(snapshot);
   return snapshot;
+}
+
+/**
+ * Incremental snapshot delta tracking births, deaths, moves, and state changes
+ */
+export interface RenderSnapshotDelta {
+  sourceTick: number;
+  targetTick: number;
+  births: Organism[]; // New creatures in target
+  deaths: string[]; // Creature IDs that died (removed from organisms)
+  corpseAppearances: Corpse[]; // New corpses
+  corpseDisappearances: string[]; // Corpse IDs removed
+  movedCreatures: Array<{ id: string; fromX: number; fromY: number; toX: number; toY: number }>; // Creature movements
+  energyChanges: Map<string, { from: number; to: number }>; // Relative energy changes
+}
+
+/**
+ * Compute incremental delta between two snapshots
+ * Identifies births, deaths, movements, and state changes for efficient updates
+ * Suitable for worker-to-renderer transfer of only changed data
+ */
+export function diffRenderSnapshot(from: RenderSnapshot, to: RenderSnapshot): RenderSnapshotDelta {
+  const delta: RenderSnapshotDelta = {
+    sourceTick: from.source.tick,
+    targetTick: to.source.tick,
+    births: [],
+    deaths: [],
+    corpseAppearances: [],
+    corpseDisappearances: [],
+    movedCreatures: [],
+    energyChanges: new Map(),
+  };
+
+  // Build ID maps for quick lookup
+  const fromOrgMap = new Map(from.layers.organisms.creatures.map((o) => [o.id, o]));
+  const toOrgMap = new Map(to.layers.organisms.creatures.map((o) => [o.id, o]));
+  const fromCorpseMap = new Map(from.layers.corpses.creatures.map((c) => [c.id, c]));
+  const toCorpseMap = new Map(to.layers.corpses.creatures.map((c) => [c.id, c]));
+
+  // Find births (creatures in 'to' but not in 'from')
+  for (const org of to.layers.organisms.creatures) {
+    if (!fromOrgMap.has(org.id)) {
+      delta.births.push(org);
+    } else {
+      // Check for movements
+      const fromOrg = fromOrgMap.get(org.id)!;
+      if (fromOrg.x !== org.x || fromOrg.y !== org.y) {
+        delta.movedCreatures.push({
+          id: org.id,
+          fromX: fromOrg.x,
+          fromY: fromOrg.y,
+          toX: org.x,
+          toY: org.y,
+        });
+      }
+      // Check for energy changes
+      if (fromOrg.relativeEnergy !== org.relativeEnergy) {
+        delta.energyChanges.set(org.id, {
+          from: fromOrg.relativeEnergy,
+          to: org.relativeEnergy,
+        });
+      }
+    }
+  }
+
+  // Find deaths (creatures in 'from' but not in 'to')
+  for (const org of from.layers.organisms.creatures) {
+    if (!toOrgMap.has(org.id)) {
+      delta.deaths.push(org.id);
+    }
+  }
+
+  // Find corpse appearances (corpses in 'to' but not in 'from')
+  for (const corpse of to.layers.corpses.creatures) {
+    if (!fromCorpseMap.has(corpse.id)) {
+      delta.corpseAppearances.push(corpse);
+    }
+  }
+
+  // Find corpse disappearances (corpses in 'from' but not in 'to')
+  for (const corpse of from.layers.corpses.creatures) {
+    if (!toCorpseMap.has(corpse.id)) {
+      delta.corpseDisappearances.push(corpse.id);
+    }
+  }
+
+  return delta;
 }

@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, beforeAll } from 'vitest';
 import { buildDemoEngine } from '../simulation/demoWorld';
-import { tickEngine } from '../simulation/engine';
+import { tickEngine, type EngineState } from '../simulation/engine';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
 import {
   toRenderSnapshot,
@@ -8,15 +8,43 @@ import {
   serializeRenderSnapshot,
   deserializeRenderSnapshot,
   RENDER_SNAPSHOT_VERSION,
+  diffRenderSnapshot,
+  type RenderSnapshot,
 } from '../prototype/renderSnapshot';
 
-function stateAt(seed: number, tick: number) {
+// Shared engine state cache to avoid rebuilding engines multiple times
+const engineCache = new Map<string, EngineState>();
+
+function getCachedEngine(seed: number, tick: number): EngineState {
+  const key = `${seed}-${tick}`;
+  if (engineCache.has(key)) {
+    return engineCache.get(key)!;
+  }
+
   let state = buildDemoEngine(seed, { ...SIMULATION_CONSTANTS });
   for (let index = 0; index < tick; index++) {
     state = tickEngine(state);
   }
+  engineCache.set(key, state);
   return state;
 }
+
+function stateAt(seed: number, tick: number): EngineState {
+  return getCachedEngine(seed, tick);
+}
+
+// Pre-cache common engine states used across tests
+beforeAll(() => {
+  // Pre-cache frequently used states to avoid rebuilding
+  stateAt(42, 1);
+  stateAt(42, 10);
+  stateAt(42, 50);
+  stateAt(42, 100);
+  stateAt(12345, 1);
+  stateAt(12345, 50);
+  stateAt(12345, 100);
+  stateAt(999, 5);
+});
 
 describe('render snapshot: determinism and structure', () => {
   it('produces identical snapshots for identical engine states', () => {
@@ -391,6 +419,26 @@ describe('render snapshot: Three.js layer support', () => {
     expect(snapshot.layers.toxicity.type).toBe('toxicity');
     expect(snapshot.layers.mutationPressure.type).toBe('mutation-pressure');
     expect(snapshot.layers.lineage.type).toBe('lineage');
+    expect(snapshot.layers.selection.type).toBe('selection');
+  });
+
+  it('provides selection layer for UI highlighting', () => {
+    const snapshot = toRenderSnapshot(stateAt(42, 50));
+
+    // Selection layer should track UI state
+    expect(snapshot.layers.selection.selectedCreatureIds).toBeDefined();
+    expect(snapshot.layers.selection.selectedLineageIds).toBeDefined();
+    expect(snapshot.layers.selection.followedLineages).toBeDefined();
+
+    // All should be Sets/Maps
+    expect(snapshot.layers.selection.selectedCreatureIds instanceof Set).toBe(true);
+    expect(snapshot.layers.selection.selectedLineageIds instanceof Set).toBe(true);
+    expect(snapshot.layers.selection.followedLineages instanceof Map).toBe(true);
+
+    // Initially empty (populated by UI as needed)
+    expect(snapshot.layers.selection.selectedCreatureIds.size).toBe(0);
+    expect(snapshot.layers.selection.selectedLineageIds.size).toBe(0);
+    expect(snapshot.layers.selection.followedLineages.size).toBe(0);
   });
 
   it('enables efficient sampling of cell attributes', () => {
@@ -507,5 +555,52 @@ describe('render snapshot: renderer integration (Canvas2D & Three.js)', () => {
     const births2b = Array.from(snap2b.layers.organisms.creatures.map((c) => c.id))
       .filter((id) => !org1Ids.has(id));
     expect(births).toEqual(births2b);
+  });
+
+  it('computes delta between snapshots correctly', () => {
+    const snap1 = toRenderSnapshot(stateAt(42, 10));
+    const snap2 = toRenderSnapshot(stateAt(42, 11));
+
+    const delta = diffRenderSnapshot(snap1, snap2);
+
+    // Delta should track the ticks
+    expect(delta.sourceTick).toBe(10);
+    expect(delta.targetTick).toBe(11);
+
+    // Delta should contain births and/or deaths
+    expect(Array.isArray(delta.births)).toBe(true);
+    expect(Array.isArray(delta.deaths)).toBe(true);
+    expect(delta.movedCreatures).toBeDefined();
+    expect(delta.energyChanges).toBeDefined();
+
+    // Births should be a subset of snap2 organisms
+    const snap2Ids = new Set(snap2.layers.organisms.creatures.map((c) => c.id));
+    for (const birth of delta.births) {
+      expect(snap2Ids.has(birth.id)).toBe(true);
+    }
+
+    // Deaths should NOT be in snap2 organisms
+    const births2Ids = new Set(delta.births.map((c) => c.id));
+    for (const deathId of delta.deaths) {
+      expect(snap2Ids.has(deathId)).toBe(false);
+      expect(births2Ids.has(deathId)).toBe(false);
+    }
+  });
+
+  it('delta is stable across replay', () => {
+    const snap1a = toRenderSnapshot(stateAt(42, 10));
+    const snap2a = toRenderSnapshot(stateAt(42, 11));
+    const delta1 = diffRenderSnapshot(snap1a, snap2a);
+
+    const snap1b = toRenderSnapshot(stateAt(42, 10));
+    const snap2b = toRenderSnapshot(stateAt(42, 11));
+    const delta2 = diffRenderSnapshot(snap1b, snap2b);
+
+    // Deltas should be identical
+    expect(delta1.sourceTick).toBe(delta2.sourceTick);
+    expect(delta1.targetTick).toBe(delta2.targetTick);
+    expect(delta1.births.map((c) => c.id).sort()).toEqual(delta2.births.map((c) => c.id).sort());
+    expect(delta1.deaths.sort()).toEqual(delta2.deaths.sort());
+    expect(delta1.movedCreatures.length).toBe(delta2.movedCreatures.length);
   });
 });

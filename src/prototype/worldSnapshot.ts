@@ -1,6 +1,7 @@
 import type { EngineState } from '../simulation/engine';
 import { getEnergyCapacity } from '../simulation/energy';
 import type { Biome } from '../simulation/world';
+import { toRenderSnapshot } from './renderSnapshot';
 
 // Re-export compact, layer-based rendering snapshot and utilities
 // This makes worldSnapshot.ts the single truth source for all render data formats
@@ -65,39 +66,100 @@ const BIOMES: readonly Biome[] = [
   'ocean', 'desert', 'grassland', 'forest', 'wetland', 'tundra', 'mountain',
 ];
 
+const BIOME_ENUM: readonly Biome[] = [
+  'ocean', 'desert', 'grassland', 'forest', 'wetland', 'tundra', 'mountain',
+] as const;
+
+const BIOME_ID_TO_BIOME: Record<number, Biome> = {
+  0: 'ocean', 1: 'desert', 2: 'grassland', 3: 'forest', 4: 'wetland', 5: 'tundra', 6: 'mountain',
+};
+
 const finite = (value: number) => Number.isFinite(value);
 const bounded = (value: number) => Math.max(0, Math.min(1, value));
 
-/** Extract only renderer-relevant facts; this is never an authoritative save format. */
-export function toPrototypeWorldSnapshot(state: EngineState): PrototypeWorldSnapshot {
+/**
+ * Convert a compact RenderSnapshot to PrototypeWorldSnapshot for legacy renderers.
+ * This is the adapter that makes RenderSnapshot the single truth source.
+ */
+export function fromRenderSnapshot(renderSnapshot: ReturnType<typeof toRenderSnapshot>): PrototypeWorldSnapshot {
   const cells: PrototypeCell[] = [];
-  for (let y = 0; y < state.world.height; y++) {
-    for (let x = 0; x < state.world.width; x++) {
-      const cell = state.world.getCell(x, y);
+  const { width, height } = renderSnapshot.world;
+  const terrain = renderSnapshot.layers.terrain;
+  const biomass = renderSnapshot.layers.biomass;
+  const energy = renderSnapshot.layers.energy;
+  const toxicity = renderSnapshot.layers.toxicity;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      const biomeId = terrain.biomes[idx];
+      const biome = BIOME_ID_TO_BIOME[biomeId] || 'grassland';
+
       cells.push({
-        x, y, biome: cell.biome, elevation: cell.elevation, moisture: cell.moisture,
-        temperature: cell.temperature, producerBiomass: cell.producerBiomass, toxicity: cell.toxicity,
-        energy: cell.energy,
+        x,
+        y,
+        biome,
+        elevation: terrain.elevation[idx],
+        moisture: terrain.moisture[idx],
+        temperature: terrain.temperature[idx],
+        producerBiomass: biomass.values[idx],
+        toxicity: toxicity.values[idx],
+        energy: energy.values[idx],
       });
     }
   }
+
+  // Combine living creatures and corpses into unified creature list with lifecycle state
+  const creatures: PrototypeCreature[] = [];
+
+  // Add living organisms
+  for (const org of renderSnapshot.layers.organisms.creatures) {
+    creatures.push({
+      id: org.id,
+      x: org.x,
+      y: org.y,
+      speciesId: org.speciesId,
+      lineageId: org.lineageId,
+      strategy: org.strategy,
+      lifecycleState: 'alive',
+      relativeEnergy: org.relativeEnergy,
+      colorKey: `${org.speciesId}:${org.lineageId}`,
+    });
+  }
+
+  // Add corpses
+  for (const corpse of renderSnapshot.layers.corpses.creatures) {
+    creatures.push({
+      id: corpse.id,
+      x: corpse.x,
+      y: corpse.y,
+      speciesId: '', // Corpses don't track species anymore
+      lineageId: corpse.lineageId,
+      strategy: '', // Corpses don't have strategy
+      lifecycleState: corpse.decayState === 'fresh' ? 'dead' : 'corpse',
+      relativeEnergy: 0, // Corpses have no energy
+      colorKey: `corpse:${corpse.lineageId}`,
+    });
+  }
+
   const snapshot: PrototypeWorldSnapshot = {
     version: PROTOTYPE_SNAPSHOT_VERSION,
-    source: { seed: state.seed, tick: state.tick },
-    world: { width: state.world.width, height: state.world.height, cells },
-    creatures: state.creatures.map((creature) => ({
-      id: creature.id, x: creature.x, y: creature.y, speciesId: creature.speciesId,
-      lineageId: creature.lineageId, strategy: creature.traits.energyStrategy,
-      lifecycleState: creature.lifecycleState,
-      relativeEnergy: bounded(creature.energy / getEnergyCapacity(creature)),
-      colorKey: `${creature.speciesId}:${creature.lineageId}`,
-    })),
-    events: state.events.slice(-MAX_PROTOTYPE_EVENTS).map((event) => ({
-      type: event.type, tick: event.tick, ...(event.detail ? { detail: event.detail } : {}),
-    })),
+    source: renderSnapshot.source,
+    world: { width, height, cells },
+    creatures,
+    events: renderSnapshot.events,
   };
+
   validatePrototypeWorldSnapshot(snapshot);
   return snapshot;
+}
+
+/** Extract only renderer-relevant facts; this is never an authoritative save format.
+ * Builds from toRenderSnapshot to ensure a single truth source walking the engine state.
+ */
+export function toPrototypeWorldSnapshot(state: EngineState): PrototypeWorldSnapshot {
+  const renderSnapshot = toRenderSnapshot(state);
+  return fromRenderSnapshot(renderSnapshot);
 }
 
 /** Reject malformed data early so a visual prototype cannot invent world facts. */

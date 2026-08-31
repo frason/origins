@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { useStore } from '../state/store';
 import type { Biome } from '../simulation/world';
 import type { ProducerArchetype } from '../simulation/producerTypes';
@@ -15,6 +15,8 @@ import { buildMiasmaPressureGrid, getToxicityHazard } from '../simulation/toxici
 import { elevationAppearance } from './elevationLayer';
 import { buildFollowedLineageKeySet, isFollowedLineageMember } from './followedLineageMarker';
 import { creatureColor } from './creatureColor';
+import { toRenderSnapshot } from '../prototype/renderSnapshot';
+import type { RenderSnapshot } from '../prototype/renderSnapshot';
 
 /**
  * Rendering constants for the canvas grid
@@ -115,6 +117,95 @@ function extractCreatures(worldState: any): Array<{
 }
 
 /**
+ * BIOME_ENUM: ordered mapping from ID to Biome name
+ * Must match the encoding in renderSnapshot.ts
+ */
+const BIOME_ENUM: readonly Biome[] = [
+  'ocean',
+  'desert',
+  'grassland',
+  'forest',
+  'wetland',
+  'tundra',
+  'mountain',
+] as const;
+
+/**
+ * Extract grid from render snapshot for canvas rendering
+ * Converts snapshot layer buffers back to RenderGrid format
+ */
+function extractGridFromSnapshot(snapshot: RenderSnapshot): RenderGrid {
+  const { width, height } = snapshot.world;
+  return {
+    width,
+    height,
+    cellAt: (x, y) => {
+      const idx = y * width + x;
+      return {
+        energy: snapshot.layers.energy.values[idx],
+        elevation: snapshot.layers.terrain.elevation[idx],
+        producerBiomass: snapshot.layers.biomass.values[idx],
+        toxicity: snapshot.layers.toxicity.values[idx],
+        biome: BIOME_ENUM[snapshot.layers.terrain.biomes[idx]],
+        producerArchetype: 'photic-algae' as ProducerArchetype, // Default for now
+      };
+    },
+  };
+}
+
+/**
+ * Extract living creatures from snapshot
+ */
+function extractCreaturesFromSnapshot(snapshot: RenderSnapshot): Array<{
+  x: number;
+  y: number;
+  speciesId: string;
+  lineageId: string;
+  lifecycleState: 'alive' | 'dead' | 'corpse';
+  corpseDecayTicks: number;
+  traits: { energyStrategy: EnergyStrategy };
+}> {
+  const creatures: Array<{
+    x: number;
+    y: number;
+    speciesId: string;
+    lineageId: string;
+    lifecycleState: 'alive' | 'dead' | 'corpse';
+    corpseDecayTicks: number;
+    traits: { energyStrategy: EnergyStrategy };
+  }> = [];
+
+  // Add living creatures
+  for (const org of snapshot.layers.organisms.creatures) {
+    creatures.push({
+      x: org.x,
+      y: org.y,
+      speciesId: org.speciesId,
+      lineageId: org.lineageId,
+      lifecycleState: 'alive',
+      corpseDecayTicks: 0,
+      traits: { energyStrategy: org.strategy as EnergyStrategy },
+    });
+  }
+
+  // Add corpses as dead/corpse creatures
+  for (const corpse of snapshot.layers.corpses.creatures) {
+    const lifecycleState = corpse.decayState === 'fresh' ? 'dead' : 'corpse';
+    creatures.push({
+      x: corpse.x,
+      y: corpse.y,
+      speciesId: 'corpse-placeholder', // Corpses don't have species
+      lineageId: corpse.lineageId,
+      lifecycleState,
+      corpseDecayTicks: 0,
+      traits: { energyStrategy: 'omnivore' },
+    });
+  }
+
+  return creatures;
+}
+
+/**
  * WorldView: Canvas 2D grid renderer component
  * Renders the 100×100 world grid with color encoding for energy,
  * producer biomass, and creature positions.
@@ -126,6 +217,17 @@ const WorldView: React.FC = () => {
   const [layout, setLayout] = useState<GridLayout>(() =>
     calculateGridLayout(400, 400, GRID_WIDTH, GRID_HEIGHT)
   );
+
+  // Compute render snapshot from engine state; memoized to avoid rebuilding on every render
+  const snapshot = useMemo(() => {
+    if (!worldState) return null;
+    try {
+      return toRenderSnapshot(worldState as any);
+    } catch (e) {
+      console.warn('Failed to build render snapshot:', e);
+      return null;
+    }
+  }, [worldState]);
 
   useEffect(() => {
     drawSchedulerRef.current = createDrawScheduler(requestAnimationFrame, cancelAnimationFrame);
@@ -172,12 +274,15 @@ const WorldView: React.FC = () => {
       const pixelY = event.clientY - rect.top;
 
       const tile = viewportPointToTile(pixelX, pixelY, layout, GRID_WIDTH, GRID_HEIGHT);
-      if (tile) setSelectedTile(selectNearbyLivingTile(tile, extractCreatures(worldState)));
+      if (tile) {
+        const creatures = snapshot ? extractCreaturesFromSnapshot(snapshot) : extractCreatures(worldState);
+        setSelectedTile(selectNearbyLivingTile(tile, creatures));
+      }
     };
 
     canvas.addEventListener('click', handleCanvasClick);
     return () => canvas.removeEventListener('click', handleCanvasClick);
-  }, [layout, setSelectedTile, worldState]);
+  }, [layout, setSelectedTile, snapshot, worldState]);
 
   /** Paint once when a published visual input changes; remain idle otherwise. */
   useEffect(() => {
@@ -193,8 +298,8 @@ const WorldView: React.FC = () => {
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // If no world state, show placeholder
-      if (!worldState) {
+      // If no snapshot available, show placeholder
+      if (!snapshot) {
         ctx.fillStyle = '#666666';
         ctx.font = '16px sans-serif';
         ctx.textAlign = 'center';
@@ -203,9 +308,9 @@ const WorldView: React.FC = () => {
         return;
       }
 
-      // Extract grid and creatures from world state
-      const grid = extractGrid(worldState);
-      const creatures = extractCreatures(worldState);
+      // Extract grid and creatures from render snapshot
+      const grid = extractGridFromSnapshot(snapshot);
+      const creatures = extractCreaturesFromSnapshot(snapshot);
 
       if (!grid) {
         ctx.fillStyle = '#666666';
@@ -350,14 +455,14 @@ const WorldView: React.FC = () => {
       }
 
     });
-  }, [worldState, layout, constants.baseSolarEnergy, selectedTile, followedLineages]);
+  }, [snapshot, layout, constants.baseSolarEnergy, selectedTile, followedLineages]);
 
   const handleKeyboardNavigation = (event: React.KeyboardEvent<HTMLCanvasElement>) => {
     const navigation = navigateTileSelection(
       selectedTile,
       event.key,
-      worldState?.width ?? GRID_WIDTH,
-      worldState?.height ?? GRID_HEIGHT
+      snapshot?.world.width ?? GRID_WIDTH,
+      snapshot?.world.height ?? GRID_HEIGHT
     );
     if (!navigation.handled) return;
     event.preventDefault();

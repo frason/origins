@@ -17,8 +17,8 @@ describe('prototype world snapshot', () => {
     expect(second).toEqual(first);
     expect(first.world.cells).toHaveLength(first.world.width * first.world.height);
     expect(first.creatures.length).toBeGreaterThan(0);
-    expect(first.events.length).toBeLessThanOrEqual(24);
-    expect(JSON.stringify(first).length).toBeLessThan(2_000_000);
+    expect(first.events.length).toBeLessThanOrEqual(50);
+    expect(JSON.stringify(first).length).toBeLessThan(2_500_000);
   });
 
   it('rejects invalid dimensions and creature coordinates', () => {

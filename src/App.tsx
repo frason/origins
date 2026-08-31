@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import WorldView from './ui/WorldView';
+import LiveThreeWorldView from './ui/LiveThreeWorldView';
 import ControlPanel from './ui/ControlPanel';
 import SpeciesPanel from './ui/SpeciesPanel';
 import StatsPanel from './ui/StatsPanel';
@@ -55,6 +56,7 @@ import {
 } from './services/betaWorldBackupClient';
 import Phase0Harness from './prototype/Phase0Harness';
 import LLMSettingsPanel from './ui/LLMSettingsPanel';
+import AdaptationEvidence from './ui/AdaptationEvidence';
 
 function browserStorage(): Storage | null {
   return typeof window === 'undefined' ? null : window.localStorage;
@@ -438,6 +440,7 @@ export default function App() {
         <EvolutionRibbon onOpenLineages={() => openSettings('remember')} legendOpen={legendOpen} onToggleLegend={() => setLegendOpen(!legendOpen)} />
         <div className="app-shell__stage">
           <main aria-label="Ecosystem world" className="app-shell__world">
+            <LiveThreeWorldView />
             <WorldView />
             <WorldLegend open={legendOpen} onToggle={() => setLegendOpen(!legendOpen)} />
             <TileInfoPanel onOpenLineages={() => openSettings('remember')} />
@@ -452,6 +455,7 @@ export default function App() {
             {settingsTab === 'diagnose' && (
               <>
                 <EcosystemPressurePanel />
+                <AdaptationEvidence />
                 <EventTimeline
                   onReplayRecipe={startRecipeReplay}
                   replayStatus={replayStatus}

@@ -26,6 +26,20 @@ import {
 } from './semanticZoom';
 import { createDensityGlyph, createSparseGlyph } from './densityGlyph';
 
+/**
+ * Detect if WebGL is available in the current environment
+ */
+function isWebGLAvailable(): boolean {
+  if (typeof document === 'undefined') return false;
+  try {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('webgl') || canvas.getContext('webgl2');
+    return !!ctx;
+  } catch {
+    return false;
+  }
+}
+
 const BIOME_COLORS: Record<string, number> = {
   ocean: 0x398e9e,
   desert: 0xc7a65a,
@@ -70,6 +84,21 @@ export default function ThreeWorldView({
   const performanceMonitorRef = useRef(new PerformanceMonitor());
   const [isContextLost, setIsContextLost] = useState(false);
   const lastFrameTimeRef = useRef<number>(0);
+  const [webglAvailable] = useState(() => isWebGLAvailable());
+
+  // If WebGL is not available, use fallback immediately
+  if (!webglAvailable || useFallbackRender || isContextLost) {
+    return (
+      <Canvas2DFallback
+        snapshot={snapshot}
+        selected={selected}
+        onSelect={onSelect}
+        activeOverlays={activeOverlays}
+        focus={{ zoom: 'world' }}
+        onFocusLineage={() => {}}
+      />
+    );
+  }
 
   // Semantic zoom state management
   const [focus, setFocus] = useState<FocusState>({ zoom: 'world' });
@@ -192,6 +221,7 @@ export default function ThreeWorldView({
     const handleKeyboardNav = (event: KeyboardEvent) => handleKeyDown(event);
 
     try {
+      const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
       const scene = new THREE.Scene();
       sceneRef.current = scene;
       scene.background = new THREE.Color(0x151a1d);
@@ -201,7 +231,6 @@ export default function ThreeWorldView({
       const creatureGroup = new THREE.Group();
       creatureGroupRef.current = creatureGroup;
       scene.add(creatureGroup);
-      const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
       rendererRef.current = renderer;
 
@@ -792,18 +821,6 @@ export default function ThreeWorldView({
       marker.lookAt(0, 0, 0);
     }
   }, [direction, focusNonce, selected, snapshot]);
-
-  if (useFallbackRender) {
-    // Render 2D fallback if WebGL is unavailable
-    return (
-      <Canvas2DFallback
-        snapshot={snapshot}
-        selected={selected}
-        onSelect={onSelect}
-        activeOverlays={activeOverlays}
-      />
-    );
-  }
 
   return (
     <div
