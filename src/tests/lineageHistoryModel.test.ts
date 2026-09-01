@@ -4,6 +4,7 @@ import { DEFAULT_TRAITS } from '../utils/traits';
 import {
   buildLineageHistories,
   formatTraitChange,
+  formatMutationContext,
   resolveFollowedLineages,
 } from '../ui/lineageHistoryModel';
 
@@ -95,5 +96,37 @@ describe('lineage history model', () => {
       { lineageId: 'lost-root', population: 0, status: 'extinct', firstSeenTick: null, depth: null },
     ]);
     expect(resolveFollowedLineages(histories, followed)).toEqual(resolved);
+  });
+
+  it('formats mutation context with toxicity-driven pressure and rate in lineage history', () => {
+    // Test Gap 3: verify formatMutationContext surfaces toxicity-driven mutation cause
+    const noMutation = formatMutationContext(0, 0.12);
+    const baseline = formatMutationContext(0, 0.12);
+    const lowPressure = formatMutationContext(0.15, 0.14);
+    const mediumPressure = formatMutationContext(0.2, 0.16);
+    const highPressure = formatMutationContext(0.8, 0.2);
+
+    // No pressure → baseline label
+    expect(noMutation).toContain('Baseline');
+    expect(noMutation).toContain('12%');
+
+    // Low to medium pressure → "Miasma nearby"
+    expect(lowPressure).toContain('Miasma nearby');
+    expect(lowPressure).toContain('15%');
+
+    expect(mediumPressure).toContain('Miasma nearby');
+    expect(mediumPressure).toContain('20%');
+
+    // High pressure (≥0.75) → "Peak miasma"
+    expect(highPressure).toContain('Peak miasma');
+    expect(highPressure).toContain('80%');
+
+    // Verify rate is always shown
+    expect(lowPressure).toContain('Rate: 14%');
+    expect(mediumPressure).toContain('Rate: 16%');
+
+    // Null case when pressure or rate undefined
+    expect(formatMutationContext(undefined, 0.12)).toBeNull();
+    expect(formatMutationContext(0.5, undefined)).toBeNull();
   });
 });

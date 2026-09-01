@@ -77,4 +77,32 @@ describe('tile lineage inspection model', () => {
     expect(hotspot.pressure).toBeGreaterThan(0);
     expect(hotspot.rate).toBeGreaterThan(baseline.rate);
   });
+
+  it('surfaces toxicity-driven mutation cause in tile mutation context', () => {
+    // Test Gap 3: verify buildTileMutationContext with nonzero cellToxicity
+    // produces elevated mutation pressure and correct UI label.
+    const noToxicity = buildTileMutationContext(2, 3, [], SIMULATION_CONSTANTS, 0);
+    const lowToxicity = buildTileMutationContext(2, 3, [], SIMULATION_CONSTANTS, 1);
+    const mediumToxicity = buildTileMutationContext(2, 3, [], SIMULATION_CONSTANTS, 4);
+    const highToxicity = buildTileMutationContext(2, 3, [], SIMULATION_CONSTANTS, 6);
+
+    // No toxicity → baseline pressure
+    expect(noToxicity).toMatchObject({ pressure: 0, label: 'Baseline' });
+
+    // Low toxicity → detectable pressure but below peak
+    expect(lowToxicity.pressure).toBeCloseTo(0.05);
+    expect(lowToxicity.label).toBe('Miasma nearby');
+    expect(lowToxicity.rate).toBeGreaterThan(noToxicity.rate);
+
+    // Medium toxicity → elevated but not peak
+    expect(mediumToxicity.pressure).toBeCloseTo(0.2);
+    expect(mediumToxicity.label).toBe('Miasma nearby');
+    expect(mediumToxicity.rate).toBeGreaterThan(lowToxicity.rate);
+
+    // High toxicity → capped at 0.3, still below peak-miasma threshold (0.75)
+    expect(highToxicity.pressure).toBeCloseTo(0.3);
+    expect(highToxicity.label).toBe('Miasma nearby');
+    expect(highToxicity.rate).toBeGreaterThan(mediumToxicity.rate);
+    expect(highToxicity.rate).toBeLessThan(0.2); // mutation rate capped below 20%
+  });
 });

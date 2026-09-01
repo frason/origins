@@ -110,4 +110,77 @@ describe('toxicity lifecycle', () => {
     expect(hotspot?.mutationRate).toBeGreaterThan(control?.mutationRate ?? 0);
     expect(run(true)).toEqual(hotspot);
   });
+
+  it('applies toxin-only mutagenicity independent of corpse decay', () => {
+    // Test Gap 1: toxicity contribution to mutation pressure without corpses
+    // When toxicity > 0 but no nearby corpses, getLocalMiasmaMutationPressure
+    // should return a nonzero but capped pressure from the toxicity term alone.
+    const noCorpores: any[] = [];
+    const lowToxicity = getLocalMiasmaMutationPressure(5, 5, noCorpores, 3, 30, 2);
+    const mediumToxicity = getLocalMiasmaMutationPressure(5, 5, noCorpores, 3, 30, 4);
+    const highToxicity = getLocalMiasmaMutationPressure(5, 5, noCorpores, 3, 30, 6);
+    const veryHighToxicity = getLocalMiasmaMutationPressure(5, 5, noCorpores, 3, 30, 100);
+
+    // Toxicity pressure = min(0.3, toxicity * 0.05)
+    expect(lowToxicity).toBeCloseTo(0.1);
+    expect(mediumToxicity).toBeCloseTo(0.2);
+    expect(highToxicity).toBeCloseTo(0.3);
+    expect(veryHighToxicity).toBeCloseTo(0.3); // capped at 0.3
+    expect(lowToxicity).toBeGreaterThan(0);
+    expect(veryHighToxicity).toBeLessThanOrEqual(0.3);
+  });
+
+  it('demonstrates harmful energy cost and heritable mutation together in toxic cell', () => {
+    // Test Gap 2: show that high toxicity simultaneously imposes energy cost
+    // AND increases mutation pressure during reproduction.
+    const run = (cellToxicity: number) => {
+      Creature.resetIdCounter();
+      const parent = new Creature({
+        speciesId: 'grazer',
+        lineageId: 'grazer-root',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore' },
+        x: 2,
+        y: 2,
+        energy: 100,
+        age: 8,
+      });
+      const state = createEngine(91, [parent], 5, 5, {
+        baseMetabolism: 0,
+        reproductionEnergyThreshold: 50,
+        reproductionEnergyCost: 10,
+        reproductionMaturityAgeTicks: 0,
+        reproductionCooldownTicks: 0,
+        reproductionPressureStart: 1,
+        reproductionPressureMaxMultiplier: 1,
+        defaultMutationRate: 0.1,
+        monocultureMortalityPenalty: 0,
+      });
+      state.world.setCell(2, 2, { producerBiomass: 50, toxicity: cellToxicity });
+      const result = tickEngine(state);
+      return {
+        birthEvent: result.events.find((e) => e.type === 'birth'),
+        mutationEvent: result.events.find((e) => e.type === 'mutation'),
+        parentAfter: result.creatures.find((c) => c.id === parent.id),
+      };
+    };
+
+    const baseline = run(0);
+    const toxic = run(5);
+
+    // Verify baseline has no toxicity-induced pressure
+    expect(baseline.birthEvent).toMatchObject({ mutationPressure: 0, mutationRate: 0.1 });
+
+    // Verify toxic cell produces elevated mutation pressure
+    expect(toxic.birthEvent?.mutationPressure).toBeGreaterThan(0);
+    expect(toxic.birthEvent?.mutationRate).toBeGreaterThan(baseline.birthEvent?.mutationRate ?? 0);
+
+    // Verify the parent in toxic cell still pays an energy cost
+    // (it's harder to reproduce, shown by higher reproduction threshold)
+    const toxicThreshold = getToxinAdjustedReproductionThreshold(50, 5);
+    expect(toxicThreshold).toBeGreaterThan(50);
+
+    // Verify determinism: same seed produces identical results
+    expect(run(5)).toEqual(toxic);
+  });
 });
