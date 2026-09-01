@@ -4,6 +4,57 @@
  */
 
 /**
+ * Trait activity status indicating whether a trait has observable simulation consequences.
+ * Per issue #167: "Evolution truth" audit
+ * - active: has observable ecological consequence (benefit, cost, effect)
+ * - partial: has some effects but implementation incomplete
+ * - placeholder: reserved for future features, no current effect
+ * - inert: currently unused in simulation
+ */
+export type TraitStatus = 'active' | 'partial' | 'placeholder' | 'inert';
+
+/**
+ * Mapping of each trait to its implementation status.
+ * Used to determine UI visibility and test coverage requirements.
+ */
+export const TRAIT_STATUS: Record<keyof Omit<Traits, 'energyStrategy'>, TraitStatus> = {
+  // Physical traits - ACTIVE
+  size: 'active',           // affects capacity, metabolism, sound, bite capacity
+  speed: 'active',          // affects bite capacity, sound intensity, movement
+  visionRange: 'active',    // affects food detection radius
+  hearingRange: 'active',   // affects sound detection range + energy cost (2% per point)
+  camouflage: 'active',     // reduces predator detection probability
+  metabolism: 'active',     // affects per-tick energy cost and food processing speed
+
+  // Cognitive traits - ACTIVE (with energy cost)
+  brainSize: 'active',      // amplifies hearing range (benefit) + energy cost (5% per point)
+  consciousnessLevel: 'inert', // reserved for learning/memory (V3+)
+
+  // Social traits - PLACEHOLDER
+  communication: 'placeholder',      // no group coordination mechanics
+  collectiveConnection: 'placeholder', // no herd/symbiosis mechanics
+
+  // Combat/defense - PLACEHOLDER
+  armor: 'placeholder',     // no damage model implemented
+
+  // Reproduction - PLACEHOLDER
+  reproductionRate: 'placeholder', // offspring always = 1, trait unused
+
+  // Structural - PARTIAL
+  boneDensity: 'partial',   // only in mutation co-evolution, no direct effect
+
+  // Sensory/behavioral - ACTIVE
+  auditorySteal: 'active',  // reduces sound production, energy cost (10% per point)
+
+  // Habitat adaptations - ACTIVE
+  thermalTolerance: 'active',  // reduces tundra traversal penalty
+  waterRetention: 'active',    // reduces desert traversal penalty
+  aquaticAffinity: 'active',   // improves wetland/ocean movement
+  terrainGrip: 'active',       // improves mountain/tundra movement
+  toxinResistance: 'active',   // reduces toxicity damage
+};
+
+/**
  * Energy acquisition strategy for creatures
  */
 export type EnergyStrategy = 'herbivore' | 'carnivore' | 'omnivore' | 'scavenger';
