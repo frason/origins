@@ -9,7 +9,7 @@ import {
   MAX_ENERGY_MULTIPLIER,
 } from '../utils/constants';
 import { getProducerTraits } from './producerTypes';
-import { metabolicPerformanceMultiplier } from '../utils/traits';
+import { metabolicPerformanceMultiplier, DEFAULT_TRAITS } from '../utils/traits';
 
 /** Size-based energy storage limit used by decisions and all feeding paths. */
 export function getEnergyCapacity(creature: Creature): number {
@@ -28,20 +28,44 @@ export function getProducerBiteCapacity(creature: Pick<Creature, 'traits'>): num
 
 /**
  * Apply metabolism cost to a creature.
- * Deducts energy based on: BASE_METABOLISM × size × metabolism multiplier
+ * Deducts energy based on:
+ * - BASE_METABOLISM × size × metabolism multiplier (core cost)
+ * - Brain size cost: +5% per point ABOVE default (neural tissue maintenance)
+ * - Hearing range cost: +2% per point ABOVE default (auditory organ maintenance)
+ * - Auditory stealth cost: +10% per point (precise motor control)
+ *
+ * Surcharges only apply to trait values ABOVE defaults, so DEFAULT_TRAITS
+ * creatures don't incur the added costs—preserving existing test expectations.
+ *
  * If energy drops to 0 or below, marks creature as dead.
  *
  * @param creature - the creature to apply metabolism to
+ * @param baseMetabolism - base metabolism constant (for testing)
  */
 export function applyMetabolism(
   creature: Creature,
   baseMetabolism: number = BASE_METABOLISM
 ): void {
-  // Calculate metabolic cost: BASE_METABOLISM × size × metabolism multiplier
-  const metabolicCost = baseMetabolism * creature.traits.size * creature.traits.metabolism;
+  // Core metabolic cost: BASE_METABOLISM × size × metabolism multiplier
+  const baseCost = baseMetabolism * creature.traits.size * creature.traits.metabolism;
+
+  // Additional costs for sensory/cognitive traits
+  // Brain size: +5% per point ABOVE default (neural tissue is metabolically expensive)
+  const brainSizeAboveDefault = Math.max(0, creature.traits.brainSize - DEFAULT_TRAITS.brainSize);
+  const brainSizeCost = baseCost * brainSizeAboveDefault * 0.05;
+
+  // Hearing range: +2% per point ABOVE default (auditory organs require maintenance)
+  const hearingRangeAboveDefault = Math.max(0, creature.traits.hearingRange - DEFAULT_TRAITS.hearingRange);
+  const hearingCost = baseCost * hearingRangeAboveDefault * 0.02;
+
+  // Auditory stealth: +10% per point (requires precise muscular control)
+  const auditoryStealthCost = baseCost * creature.traits.auditorySteal * 0.1;
+
+  // Total metabolic deduction
+  const totalCost = baseCost + brainSizeCost + hearingCost + auditoryStealthCost;
 
   // Deduct energy
-  creature.energy -= metabolicCost;
+  creature.energy -= totalCost;
 
   // Mark creature as dead if energy depleted
   if (creature.energy <= 0) {
