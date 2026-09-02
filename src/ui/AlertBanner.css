@@ -150,6 +150,16 @@
   transform: translateY(0);
 }
 
+.alert-banner__action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.alert-banner__action:disabled:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+  transform: none;
+}
+
 .alert-banner__action--focus {
   color: #2196f3;
   border-color: #2196f3;

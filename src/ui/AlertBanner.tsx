@@ -138,17 +138,15 @@ export default function AlertBanner({
           </div>
 
           <div className="alert-banner__actions">
-            {alert.x !== undefined && alert.y !== undefined && (
-              <button
-                className="alert-banner__action alert-banner__action--focus"
-                onClick={() => handleFocus(alert)}
-                type="button"
-                title="Navigate to this location"
-                aria-label={`Focus on location ${alert.x}, ${alert.y}`}
-              >
-                Focus
-              </button>
-            )}
+            <button
+              className="alert-banner__action alert-banner__action--focus"
+              onClick={() => handleFocus(alert)}
+              type="button"
+              title="Navigate to this location or view details"
+              aria-label={`Focus on ${alert.speciesName || alert.type} at location ${alert.x}, ${alert.y}`}
+            >
+              Focus
+            </button>
 
             <button
               className="alert-banner__action alert-banner__action--pause"

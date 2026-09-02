@@ -67,8 +67,12 @@ export function evaluateWatch(
   const shouldAlert = checkThreshold(watch, metrics);
   if (!shouldAlert) return null;
 
+  // Find location for the alert (for Focus action)
+  // This is guaranteed to return a valid location for all watch types
+  const location = findAlertLocation(watch, engineState, speciesProfiles);
+
   // Generate alert
-  const alert = createAlert(watch, metrics, engineState.tick, speciesProfiles);
+  const alert = createAlert(watch, metrics, engineState.tick, speciesProfiles, location);
   return alert;
 }
 
@@ -382,13 +386,85 @@ function checkThreshold(watch: EcosystemWatch, metrics: WatchMetrics): boolean {
 }
 
 /**
+ * Find a navigable location for an alert (x/y coordinates)
+ * For regional watches, use the watch region center.
+ * For species watches, find a representative creature (or use world center as fallback).
+ * For global watches, find the critical cell.
+ * Always returns a valid location to enable Focus action.
+ */
+function findAlertLocation(
+  watch: EcosystemWatch,
+  engineState: EngineState,
+  speciesProfiles: Map<string, { name: string }>
+): { x: number; y: number } {
+  // Regional watches already have explicit coordinates
+  if (watch.x !== undefined && watch.y !== undefined) {
+    return { x: watch.x, y: watch.y };
+  }
+
+  // Species watches: find a representative creature
+  if (watch.speciesId) {
+    const representative = engineState.creatures.find(
+      (c) => c.speciesId === watch.speciesId && c.lifecycleState === 'alive'
+    );
+    if (representative) {
+      return { x: representative.x, y: representative.y };
+    }
+    // If no living creatures, find the last corpse or use world center
+    const corpse = engineState.creatures.find(
+      (c) => c.speciesId === watch.speciesId && c.lifecycleState === 'corpse'
+    );
+    if (corpse) {
+      return { x: corpse.x, y: corpse.y };
+    }
+    // Fallback: world center for extinct species
+    return { x: Math.floor(engineState.world.width / 2), y: Math.floor(engineState.world.height / 2) };
+  }
+
+  // Global watches (energy-depletion, biomass-collapse): find critical cell
+  if (watch.type === 'energy-depletion') {
+    let maxEnergy = 0;
+    let maxCell = { x: 0, y: 0 };
+    for (let y = 0; y < engineState.world.height; y++) {
+      for (let x = 0; x < engineState.world.width; x++) {
+        const cell = engineState.world.getCell(x, y);
+        if (cell.energy > maxEnergy) {
+          maxEnergy = cell.energy;
+          maxCell = { x, y };
+        }
+      }
+    }
+    return maxCell;
+  }
+
+  if (watch.type === 'biomass-collapse') {
+    let maxBiomass = 0;
+    let maxCell = { x: 0, y: 0 };
+    for (let y = 0; y < engineState.world.height; y++) {
+      for (let x = 0; x < engineState.world.width; x++) {
+        const cell = engineState.world.getCell(x, y);
+        if (cell.producerBiomass > maxBiomass) {
+          maxBiomass = cell.producerBiomass;
+          maxCell = { x, y };
+        }
+      }
+    }
+    return maxCell;
+  }
+
+  // Fallback: world center for unknown watch types
+  return { x: Math.floor(engineState.world.width / 2), y: Math.floor(engineState.world.height / 2) };
+}
+
+/**
  * Create an alert from watch and metrics
  */
 function createAlert(
   watch: EcosystemWatch,
   metrics: WatchMetrics,
   tick: number,
-  speciesProfiles: Map<string, { name: string }>
+  speciesProfiles: Map<string, { name: string }>,
+  location: { x: number; y: number }
 ): EcosystemAlert {
   const unit = formatWatchUnit(watch.type);
   const isExtreme = isExtremeThreshold(watch, metrics);
@@ -403,8 +479,8 @@ function createAlert(
     type: watch.type,
     speciesId: watch.speciesId,
     speciesName: metrics.speciesName,
-    x: watch.x,
-    y: watch.y,
+    x: location.x,
+    y: location.y,
     trait: watch.trait,
     cause,
     evidence: {

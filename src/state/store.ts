@@ -22,6 +22,9 @@ import type { EcosystemHistorySample } from '../simulation/ecosystemHistory';
 import type { IncipientSpecies, SpeciesProfile } from '../simulation/speciation';
 import type { PendingEviction } from './saveSlotManager';
 import type { AdaptationObservation } from '../simulation/adaptationMetrics';
+import type { EcosystemWatch, EcosystemAlert } from '../simulation/watches';
+import type { ObservatoryState } from '../ui/observatoryObjectives';
+import type { FieldJournal, FieldJournalEntry } from '../simulation/fieldJournal';
 
 // Cell interface for world state
 export interface CellSnapshot {
@@ -34,6 +37,8 @@ export interface CellSnapshot {
   temperature: number;
   biome: Biome;
   producerArchetype: ProducerArchetype;
+  corpseBiomass?: number; // Aggregated biomass from decaying corpses
+  decompserActivity?: number; // Decomposer activity rate (0-1)
 }
 
 // Creature interface for world state
@@ -143,6 +148,10 @@ export interface StoreState {
   saveSlotStatus: SaveSlotStatus;
   pendingEviction: PendingEviction | null;
   show2dView: boolean;
+  observatoryState: ObservatoryState | null;
+  ecosystemWatches: EcosystemWatch[];
+  ecosystemAlerts: EcosystemAlert[];
+  fieldJournal: FieldJournal | null;
 
   // Actions
   setWorldState: (state: WorldSnapshot) => void;
@@ -157,6 +166,17 @@ export interface StoreState {
   updateSaveSlotStatus: (status: SaveSlotStatus) => void;
   setPendingEviction: (eviction: PendingEviction | null) => void;
   setShow2dView: (show: boolean) => void;
+  setObservatoryState: (state: ObservatoryState) => void;
+  addWatch: (watch: EcosystemWatch) => void;
+  updateWatch: (id: string, updates: Partial<EcosystemWatch>) => void;
+  removeWatch: (id: string) => void;
+  dismissAlert: (alertId: string) => void;
+  addAlerts: (alerts: EcosystemAlert[]) => void;
+  clearAlerts: () => void;
+  setFieldJournal: (journal: FieldJournal) => void;
+  addJournalEntry: (entry: FieldJournalEntry) => void;
+  updateJournalEntryNotes: (entryId: string, notes: string) => void;
+  clearFieldJournal: () => void;
 }
 
 /**
@@ -179,6 +199,10 @@ export const useStore = create<StoreState>((set) => ({
   },
   pendingEviction: null,
   show2dView: false,
+  observatoryState: null,
+  ecosystemWatches: [],
+  ecosystemAlerts: [],
+  fieldJournal: null,
 
   setWorldState: (state: WorldSnapshot) => {
     set({ worldState: state });
@@ -241,5 +265,86 @@ export const useStore = create<StoreState>((set) => ({
 
   setShow2dView: (show: boolean) => {
     set({ show2dView: show });
+  },
+
+  setObservatoryState: (state: ObservatoryState) => {
+    set({ observatoryState: state });
+  },
+
+  addWatch: (watch: EcosystemWatch) => {
+    set((state) => ({
+      ecosystemWatches: [...state.ecosystemWatches, { ...watch, createdAtTick: state.tick }],
+    }));
+  },
+
+  updateWatch: (id: string, updates: Partial<EcosystemWatch>) => {
+    set((state) => ({
+      ecosystemWatches: state.ecosystemWatches.map((w) =>
+        w.id === id ? { ...w, ...updates } : w
+      ),
+    }));
+  },
+
+  removeWatch: (id: string) => {
+    set((state) => ({
+      ecosystemWatches: state.ecosystemWatches.filter((w) => w.id !== id),
+    }));
+  },
+
+  dismissAlert: (alertId: string) => {
+    set((state) => ({
+      ecosystemAlerts: state.ecosystemAlerts.map((a) =>
+        a.id === alertId ? { ...a, dismissed: true } : a
+      ),
+    }));
+  },
+
+  addAlerts: (alerts: EcosystemAlert[]) => {
+    set((state) => {
+      const existingIds = new Set(state.ecosystemAlerts.map((a) => a.id));
+      const newAlerts = alerts.filter((a) => !existingIds.has(a.id));
+      return {
+        ecosystemAlerts: [...state.ecosystemAlerts, ...newAlerts],
+      };
+    });
+  },
+
+  clearAlerts: () => {
+    set({ ecosystemAlerts: [] });
+  },
+
+  setFieldJournal: (journal: FieldJournal) => {
+    set({ fieldJournal: journal });
+  },
+
+  addJournalEntry: (entry: FieldJournalEntry) => {
+    set((state) => {
+      if (!state.fieldJournal) return state;
+      const updated = { ...state.fieldJournal };
+      if (!updated.entryIndex.has(entry.id)) {
+        updated.entries = [...updated.entries, entry];
+        updated.entryIndex.set(entry.id, entry);
+        updated.lastUpdatedTick = Math.max(updated.lastUpdatedTick, entry.tick);
+      }
+      return { fieldJournal: updated };
+    });
+  },
+
+  updateJournalEntryNotes: (entryId: string, notes: string) => {
+    set((state) => {
+      if (!state.fieldJournal) return state;
+      const entry = state.fieldJournal.entryIndex.get(entryId);
+      if (!entry) return state;
+      const updated = { ...state.fieldJournal };
+      updated.entries = updated.entries.map((e) =>
+        e.id === entryId ? { ...e, playerNotes: notes } : e
+      );
+      updated.entryIndex.set(entryId, { ...entry, playerNotes: notes });
+      return { fieldJournal: updated };
+    });
+  },
+
+  clearFieldJournal: () => {
+    set({ fieldJournal: null });
   },
 }));

@@ -75,3 +75,41 @@ export function buildTileBiomassContext(
       : recoveryPerTick < -0.01 ? 'Declining' : 'Stable',
   };
 }
+
+export interface TileDecompositionContext {
+  corpseBiomass: number;
+  decompserActivity: number; // 0-1
+  decompserLabel: string;
+  estimatedCycleTime: number; // ticks until fully decomposed
+}
+
+export function buildTileDecompositionContext(
+  cell: CellSnapshot
+): TileDecompositionContext {
+  const corpseBiomass = cell.corpseBiomass ?? 0;
+  const decompserActivity = cell.decompserActivity ?? 0;
+
+  // Estimate how many ticks until corpses fully decompose
+  let estimatedCycleTime = Number.POSITIVE_INFINITY;
+  if (corpseBiomass > 0 && decompserActivity > 0) {
+    // At typical rates (0.1 decay per tick), estimate time to consume corpus
+    const typicalDecayRate = 0.1;
+    const timeToDecompose = corpseBiomass / Math.max(0.001, corpseBiomass * typicalDecayRate * decompserActivity);
+    estimatedCycleTime = Math.ceil(timeToDecompose);
+  }
+
+  const decompserLabel = corpseBiomass === 0
+    ? 'No corpses'
+    : decompserActivity < 0.1
+      ? 'Stalled (cold/toxic)'
+      : decompserActivity < 0.5
+        ? 'Slow'
+        : 'Active';
+
+  return {
+    corpseBiomass,
+    decompserActivity,
+    decompserLabel,
+    estimatedCycleTime,
+  };
+}

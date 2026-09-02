@@ -1,20 +1,28 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../state/store';
 import { rgbToCss, strategyColor } from './creatureColor';
+import {
+  createFreshObservatoryState,
+  dismissOnboarding,
+  saveObservatoryState,
+} from './observatoryObjectives';
 
 export default function FirstRunOnboarding() {
   const tick = useStore((state) => state.tick);
   const setRunning = useStore((state) => state.setRunning);
+  const observatoryState = useStore((state) => state.observatoryState);
+  const setObservatoryState = useStore((state) => state.setObservatoryState);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
+    // Check old onboarding state for backwards compatibility
     const stored = localStorage.getItem('origins_onboarding_dismissed');
     if (stored) {
       setDismissed(true);
     }
   }, []);
 
-  if (dismissed || tick > 0) {
+  if (dismissed || tick > 0 || (observatoryState?.isOnboarded)) {
     return null;
   }
 
@@ -23,6 +31,19 @@ export default function FirstRunOnboarding() {
   const handleDismiss = () => {
     localStorage.setItem('origins_onboarding_dismissed', 'true');
     setDismissed(true);
+
+    // Initialize observatory state for guided play loop
+    if (observatoryState === null) {
+      const fresh = createFreshObservatoryState();
+      const onboarded = dismissOnboarding(fresh);
+      setObservatoryState(onboarded);
+      saveObservatoryState(onboarded);
+    } else if (!observatoryState.isOnboarded) {
+      const onboarded = dismissOnboarding(observatoryState);
+      setObservatoryState(onboarded);
+      saveObservatoryState(onboarded);
+    }
+
     setRunning(true);
   };
 

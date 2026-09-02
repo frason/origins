@@ -49,9 +49,14 @@ import {
 } from './energy';
 import {
   checkAgeAndStarvation,
-  decayCorpse,
   recycleNutrients,
   dissipateToxicity,
+  aggregateCorpseBiomass,
+  calculateDecomposerActivity,
+  processDecomposition,
+  applyCorpseToxicity,
+  decrementCorpseDecayTimers,
+  syncCreatureEnergyWithDecomposition,
 } from './decomposition';
 import { applyEnvironmentalStress } from './biomeStress';
 import { buildLocalResourcePressureCache } from './localResourcePressure';
@@ -924,19 +929,67 @@ export function tickEngine(
   }
 
   // Step 9: Decomposition
+  // Dissipate old toxicity from previous ticks
   dissipateToxicity(newWorld, constants.toxicityRetention);
+
+  // Aggregate corpse biomass from newly-dead creatures to their tiles
+  aggregateCorpseBiomass(creatures, newWorld, constants.corpseDecayDurationTicks);
+
+  // Process deterministic decomposition for each cell
+  // Track biomass consumed per cell to sync with creature energy
+  const consumptionPerCell = new Map<string, number>();
+  for (let y = 0; y < newWorld.height; y++) {
+    for (let x = 0; x < newWorld.width; x++) {
+      const cell = newWorld.getCell(x, y);
+      const decompserActivity = calculateDecomposerActivity(
+        cell.temperature,
+        cell.moisture,
+        cell.toxicity,
+        cell.corpseBiomass || 0,
+        constants
+      );
+      // Process decomposition (mutates the cell copy, returns amount consumed)
+      const biomassConsumed = processDecomposition(
+        cell,
+        decompserActivity,
+        constants.corpseDecayRate
+      );
+      // Track consumption for energy sync
+      consumptionPerCell.set(`${x},${y}`, biomassConsumed);
+      // Persist changes back to world
+      newWorld.setCell(x, y, {
+        decompserActivity,
+        corpseBiomass: cell.corpseBiomass,
+        nutrients: cell.nutrients,
+      });
+    }
+  }
+
+  // Sync creature energy with decomposition consumption
+  for (let y = 0; y < newWorld.height; y++) {
+    for (let x = 0; x < newWorld.width; x++) {
+      const consumed = consumptionPerCell.get(`${x},${y}`) ?? 0;
+      if (consumed > 0) {
+        syncCreatureEnergyWithDecomposition(x, y, consumed, creatures);
+      }
+    }
+  }
+
+  // Apply toxicity from decaying corpses and decrement timers
   for (const creature of creatures) {
     if (creature.lifecycleState === 'dead' && creature.corpseDecayTicks > 0) {
-      decayCorpse(
+      applyCorpseToxicity(
         creature,
         newWorld,
-        constants.corpseDecayRate,
         constants.corpseToxicityPerTick,
         constants.corpseToxicityRadius,
         constants.corpseDecayDurationTicks
       );
     }
   }
+
+  // Decrement corpse decay timers
+  decrementCorpseDecayTimers(creatures);
 
   // Step 10: Nutrient Recycling
   recycleNutrients(newWorld);
@@ -1003,7 +1056,8 @@ export function tickEngine(
           completeEvents,
           newWorld,
           reproductionPressure,
-          dispersal
+          dispersal,
+          constants
         )
       )
     : { history: state.history, interval: state.historyInterval };

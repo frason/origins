@@ -1,7 +1,9 @@
 import type { Creature } from './creature';
 import type { SimEvent } from './events';
 import type { World } from './world';
+import type { SimulationConstants } from '../utils/constants';
 import { measureBiomass, type BiomassMetrics } from './biomassMetrics';
+import { calculateDecomposerActivity } from './decomposition';
 
 export interface SpeciesPopulationSample {
   speciesId: string;
@@ -26,6 +28,7 @@ export interface EcosystemHistorySample {
   biomass?: BiomassMetrics;
   reproductionPressure?: ReproductionPressureHistory;
   dispersal?: DispersalHistory;
+  decomposition?: DecompositionMetrics;
 }
 
 export interface ReproductionPressureHistory {
@@ -41,8 +44,61 @@ export interface DispersalHistory {
   biomeTransitions: number;
 }
 
+export interface DecompositionMetrics {
+  totalCorpseBiomass: number;
+  cellsWithCorpses: number;
+  averageDecomposerActivity: number;
+  maxDecomposerActivity: number;
+}
+
 export const BASE_HISTORY_INTERVAL = 10;
 export const MAX_HISTORY_SAMPLES = 600;
+
+/**
+ * Measure ecosystem-wide decomposition metrics across all cells.
+ * @param world - the world to measure
+ * @param constants - simulation constants for decomposer activity calculation
+ * @returns decomposition metrics including total corpse biomass and activity levels
+ */
+export function measureDecomposition(
+  world: World,
+  constants?: Partial<SimulationConstants>
+): DecompositionMetrics {
+  let totalCorpseBiomass = 0;
+  let cellsWithCorpses = 0;
+  let totalDecomposerActivity = 0;
+  let maxDecomposerActivity = 0;
+  let cellsAnalyzed = 0;
+
+  for (let y = 0; y < world.height; y++) {
+    for (let x = 0; x < world.width; x++) {
+      const cell = world.getCell(x, y);
+      if (cell.corpseBiomass && cell.corpseBiomass > 0) {
+        totalCorpseBiomass += cell.corpseBiomass;
+        cellsWithCorpses++;
+      }
+
+      // Calculate decomposer activity for this cell
+      const activity = calculateDecomposerActivity(
+        cell.temperature,
+        cell.moisture,
+        cell.toxicity,
+        cell.corpseBiomass || 0,
+        constants
+      );
+      totalDecomposerActivity += activity;
+      maxDecomposerActivity = Math.max(maxDecomposerActivity, activity);
+      cellsAnalyzed++;
+    }
+  }
+
+  return {
+    totalCorpseBiomass,
+    cellsWithCorpses,
+    averageDecomposerActivity: cellsAnalyzed > 0 ? totalDecomposerActivity / cellsAnalyzed : 0,
+    maxDecomposerActivity,
+  };
+}
 
 export function createEcosystemHistorySample(
   tick: number,
@@ -50,7 +106,8 @@ export function createEcosystemHistorySample(
   events: SimEvent[],
   world?: World,
   reproductionPressure?: ReproductionPressureHistory,
-  dispersal?: DispersalHistory
+  dispersal?: DispersalHistory,
+  constants?: Partial<SimulationConstants>
 ): EcosystemHistorySample {
   const species = new Map<string, number>();
   const lineages = new Set<string>();
@@ -86,6 +143,7 @@ export function createEcosystemHistorySample(
     ...(world ? { biomass: measureBiomass(world, creatures) } : {}),
     ...(reproductionPressure ? { reproductionPressure } : {}),
     ...(dispersal ? { dispersal } : {}),
+    ...(world ? { decomposition: measureDecomposition(world, constants) } : {}),
   };
 }
 

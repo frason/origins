@@ -254,6 +254,8 @@ export interface Cell {
   temperature: number;
   biome: Biome;
   producerArchetype: ProducerArchetype;
+  corpseBiomass?: number; // Aggregated biomass from decaying corpses
+  decompserActivity?: number; // Decomposer activity rate (0-1)
 }
 
 /**
@@ -299,6 +301,8 @@ export class World {
           nutrients: 0,
           producerBiomass: 0,
           toxicity: 0,
+          corpseBiomass: 0,
+          decompserActivity: 0,
           ...terrain[y][x],
         };
       }

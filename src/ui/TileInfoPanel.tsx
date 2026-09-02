@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useStore } from '../state/store';
 import { getProducerTraits } from '../simulation/producerTypes';
 import { buildTileLineageSummaries, buildTileMutationContext } from './tileInspectionModel';
-import { buildTileBiomassContext } from './biomassObservability';
+import { buildTileBiomassContext, buildTileDecompositionContext } from './biomassObservability';
 import { getCorpseDecayStage, getToxicityHazard } from '../simulation/toxicity';
 import { creatureColor, rgbToCss } from './creatureColor';
 
@@ -45,6 +45,7 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
     { cell, waterRelief }
   );
   const biomass = buildTileBiomassContext(cell, living, constants);
+  const decomposition = buildTileDecompositionContext(cell);
   const toxicity = getToxicityHazard(cell.toxicity);
   const mutation = buildTileMutationContext(
     selectedTile.x,
@@ -108,6 +109,11 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
             <div><dt>Grazing pressure</dt><dd>{biomass.grazingLabel} ({biomass.grazingCapacity.toFixed(0)} max)</dd></div>
             <div><dt>Recovery</dt><dd>{biomass.recoveryLabel} ({biomass.recoveryPerTick >= 0 ? '+' : ''}{biomass.recoveryPerTick.toFixed(2)}/tick)</dd></div>
             <div><dt>Growth rate</dt><dd>{producerTraits.growthMultiplier.toFixed(2)}×</dd></div>
+            <div><dt>Corpse biomass</dt><dd>{decomposition.corpseBiomass.toFixed(1)}</dd></div>
+            <div><dt>Decomposition</dt><dd>{decomposition.decompserLabel} ({Math.round(decomposition.decompserActivity * 100)}%)</dd></div>
+            {decomposition.corpseBiomass > 0 && decomposition.estimatedCycleTime !== Number.POSITIVE_INFINITY && (
+              <div><dt>Est. cycle time</dt><dd>{decomposition.estimatedCycleTime} ticks</dd></div>
+            )}
           </dl>
           <p className="tile-inspector__mechanics-note">
             Grazing estimates the food these animals could remove this tick. Recovery predicts the next producer-growth step from sunlight, nutrients, toxicity, and biome limits.

@@ -62,6 +62,8 @@ import { evaluateWatchesForTick } from './simulation/watchIntegration';
 import { loadWatches, saveWatches } from './state/watchPersistence';
 import WatchesPanel from './ui/WatchesPanel';
 import AlertBanner from './ui/AlertBanner';
+import CompareAlert from './ui/CompareAlert';
+import type { EcosystemAlert } from './simulation/watches';
 
 function browserStorage(): Storage | null {
   return typeof window === 'undefined' ? null : window.localStorage;
@@ -94,6 +96,7 @@ export default function App() {
   const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
   const [legendOpen, setLegendOpen] = useState(false);
   const [watchesPanelOpen, setWatchesPanelOpen] = useState(false);
+  const [comparedAlert, setComparedAlert] = useState<EcosystemAlert | null>(null);
   const worldName = worldNameFromSeed(worldSeed);
 
   const openSettings = useCallback((tab?: SettingsTab) => {
@@ -547,7 +550,23 @@ export default function App() {
       />
       <FirstRunOnboarding />
       <ObservatoryGuide />
-      <AlertBanner />
+      <AlertBanner
+        onCompare={(alert) => setComparedAlert(alert)}
+        onFocus={(alert) => {
+          // Focus already handled in AlertBanner via setSelectedTile
+          // This callback is optional but can be used for custom focus handling
+        }}
+        onPause={() => {
+          // Pause already handled in AlertBanner via setRunning
+          // This callback is optional but can be used for custom pause handling
+        }}
+      />
+      {comparedAlert && (
+        <CompareAlert
+          alert={comparedAlert}
+          onClose={() => setComparedAlert(null)}
+        />
+      )}
       {watchesPanelOpen && (
         <div className="modal-overlay" onClick={() => setWatchesPanelOpen(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>

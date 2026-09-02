@@ -95,6 +95,31 @@ export const CORPSE_TOXICITY_PER_TICK = 1;
 /** Radius, in cells, affected by a decaying corpse */
 export const CORPSE_TOXICITY_RADIUS = 3;
 
+/** Maximum aggregated corpse biomass per cell before decomposition caps */
+export const MAX_CORPSE_BIOMASS_PER_CELL = 200;
+
+// ============================================================================
+// Decomposer Activity Constants
+// ============================================================================
+
+/** Temperature optimal point for decomposer activity (0-1) */
+export const DECOMPOSER_TEMP_OPTIMUM = 0.5;
+
+/** Temperature sensitivity: controls width of bell curve (affects falloff rate) */
+export const DECOMPOSER_TEMP_SENSITIVITY = 4;
+
+/** Moisture optimal point for decomposer activity (0-1) */
+export const DECOMPOSER_MOISTURE_OPTIMUM = 0.6;
+
+/** Moisture sensitivity: controls width of bell curve */
+export const DECOMPOSER_MOISTURE_SENSITIVITY = 2.5;
+
+/** Toxicity inhibition rate: exponential decay coefficient */
+export const DECOMPOSER_TOXICITY_INHIBITION = 1.5;
+
+/** Biomass availability factor: log-scale sensitivity (higher = slower saturation) */
+export const DECOMPOSER_BIOMASS_SATURATION_SCALE = 101;
+
 /** Fraction of existing cell toxicity retained each tick */
 export const TOXICITY_RETENTION = 0.2;
 
@@ -189,8 +214,15 @@ export interface SimulationConstants {
   minimumCarrionEnergy: number;
   corpseToxicityPerTick: number;
   corpseToxicityRadius: number;
+  maxCorpseBiomassPerCell: number;
   toxicityRetention: number;
   scavengingRate: number;
+  decomposerTempOptimum: number;
+  decomposerTempSensitivity: number;
+  decomposerMoistureOptimum: number;
+  decomposerMoistureSensitivity: number;
+  decomposerToxicityInhibition: number;
+  decomposerBiomassSaturationScale: number;
   defaultMutationRate: number;
   mutationDrift: number;
   monocultureDominanceThreshold: number;
@@ -238,8 +270,15 @@ export const SIMULATION_CONSTANTS: SimulationConstants = {
   minimumCarrionEnergy: MINIMUM_CARRION_ENERGY,
   corpseToxicityPerTick: CORPSE_TOXICITY_PER_TICK,
   corpseToxicityRadius: CORPSE_TOXICITY_RADIUS,
+  maxCorpseBiomassPerCell: MAX_CORPSE_BIOMASS_PER_CELL,
   toxicityRetention: TOXICITY_RETENTION,
   scavengingRate: SCAVENGING_RATE,
+  decomposerTempOptimum: DECOMPOSER_TEMP_OPTIMUM,
+  decomposerTempSensitivity: DECOMPOSER_TEMP_SENSITIVITY,
+  decomposerMoistureOptimum: DECOMPOSER_MOISTURE_OPTIMUM,
+  decomposerMoistureSensitivity: DECOMPOSER_MOISTURE_SENSITIVITY,
+  decomposerToxicityInhibition: DECOMPOSER_TOXICITY_INHIBITION,
+  decomposerBiomassSaturationScale: DECOMPOSER_BIOMASS_SATURATION_SCALE,
   defaultMutationRate: DEFAULT_MUTATION_RATE,
   mutationDrift: MUTATION_DRIFT,
   monocultureDominanceThreshold: MONOCULTURE_DOMINANCE_THRESHOLD,
