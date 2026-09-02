@@ -57,6 +57,11 @@ import {
 import Phase0Harness from './prototype/Phase0Harness';
 import LLMSettingsPanel from './ui/LLMSettingsPanel';
 import AdaptationEvidence from './ui/AdaptationEvidence';
+import ObservatoryGuide from './ui/ObservatoryGuide';
+import { evaluateWatchesForTick } from './simulation/watchIntegration';
+import { loadWatches, saveWatches } from './state/watchPersistence';
+import WatchesPanel from './ui/WatchesPanel';
+import AlertBanner from './ui/AlertBanner';
 
 function browserStorage(): Storage | null {
   return typeof window === 'undefined' ? null : window.localStorage;
@@ -88,6 +93,7 @@ export default function App() {
   const [checkpointTicks, setCheckpointTicks] = useState<number[]>([]);
   const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
   const [legendOpen, setLegendOpen] = useState(false);
+  const [watchesPanelOpen, setWatchesPanelOpen] = useState(false);
   const worldName = worldNameFromSeed(worldSeed);
 
   const openSettings = useCallback((tab?: SettingsTab) => {
@@ -103,8 +109,33 @@ export default function App() {
     if (engine.tick > 0 && !engine.creatures.some((creature) => creature.lifecycleState === 'alive')) {
       store.setRunning(false);
     }
+
+    // Evaluate watches and generate alerts
+    const { updatedWatches, newAlerts } = evaluateWatchesForTick(
+      store.ecosystemWatches,
+      engine
+    );
+    if (updatedWatches.length > 0) {
+      // Update watches with rate-limiting state
+      store.ecosystemWatches.forEach((watch) => {
+        const updated = updatedWatches.find((w) => w.id === watch.id);
+        if (updated && (updated.lastAlertTick !== watch.lastAlertTick || updated.lastAlertValue !== watch.lastAlertValue)) {
+          store.updateWatch(watch.id, {
+            lastAlertTick: updated.lastAlertTick,
+            lastAlertValue: updated.lastAlertValue,
+          });
+        }
+      });
+    }
+    if (newAlerts.length > 0) {
+      store.addAlerts(newAlerts);
+    }
+
     const storage = browserStorage();
-    if (storage) saveBrowserWorld(storage, engine);
+    if (storage) {
+      saveBrowserWorld(storage, engine);
+      saveWatches(storage, store.ecosystemWatches);
+    }
   }, []);
 
   const recordCheckpoint = useCallback((engine: EngineState) => {
@@ -323,6 +354,15 @@ export default function App() {
         store.updateConstants(restored.constants);
         setWorldSeed(restored.seed);
       }
+      // Load watches from storage
+      if (storage) {
+        const loadedWatches = loadWatches(storage);
+        if (loadedWatches.length > 0) {
+          loadedWatches.forEach((watch) => {
+            store.addWatch(watch);
+          });
+        }
+      }
       recordCheckpoint(engine);
       publish(engine);
     }
@@ -506,6 +546,23 @@ export default function App() {
         backend={feedbackBackend}
       />
       <FirstRunOnboarding />
+      <ObservatoryGuide />
+      <AlertBanner />
+      {watchesPanelOpen && (
+        <div className="modal-overlay" onClick={() => setWatchesPanelOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <WatchesPanel onClose={() => setWatchesPanelOpen(false)} />
+          </div>
+        </div>
+      )}
+      <button
+        className="watches-fab"
+        onClick={() => setWatchesPanelOpen(!watchesPanelOpen)}
+        aria-label="Open ecosystem watches"
+        title="Ecosystem Watches"
+      >
+        👁️
+      </button>
     </div>
   );
 }
