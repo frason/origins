@@ -1,0 +1,8 @@
+## Summary
+Fixed two broken tests in scout.test.ts: moved stranded scout off base tile to prevent recharge, and moved inBubble=false before discovery recording to allow sync. All 39 tests now pass. Changes committed to git (7e9225d).
+
+## Changes
+- src/tests/scout.test.ts: fixed "clamps battery at 0" test (moved scout from base to y=70) and "does not double-count" test (set inBubble=false before discovery check)
+
+## Caveats / follow-up
+None — implementation from prior attempt was correct. Only test bugs needed fixing per Karen's feedback. npm test passes.

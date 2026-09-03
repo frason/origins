@@ -1,0 +1,16 @@
+## Summary
+
+Fixed all gaps in Observatory watch and alert system: Focus navigation now works for all watch types (not just regional), Compare action is verified wired, and all alerts have meaningful locations for navigation.
+
+## Changes
+- src/simulation/watchEngine.ts: `findAlertLocation()` now always returns valid x/y coordinates; species watches find representative creature or fallback to world center; global watches (energy-depletion, biomass-collapse) find critical cells
+- src/ui/AlertBanner.tsx: Removed disabled state from Focus button; updated labels; all alerts now have navigable coordinates
+- src/tests/issue169-verification.test.ts: New 11-test suite verifying all watch types have x/y, extinct species fallback to world center, evidence completeness, and Focus button availability
+
+## Caveats / follow-up
+- Extinct species watches navigate to world center instead of last known location (requires historical tracking if higher precision desired)
+- Energy-depletion and biomass-collapse watches locate to cell with highest metric (not a region); intentional by design but can be refined per future requirements
+- All changes maintain determinism: watch evaluation is read-only on simulation state
+- Tests: watchEngine.test.ts (10/10 pass), alertBanner.test.tsx (11/11 pass), issue169-verification.test.ts (11/11 pass)
+
+Changed files: src/simulation/watchEngine.ts, src/ui/AlertBanner.tsx, src/tests/issue169-verification.test.ts

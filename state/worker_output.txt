@@ -1,16 +1,8 @@
-## Summary (#253 — Phase A: Wire Tier 2/3 LLM crisis responses end-to-end)
-Integrated BYOK provider adapter (#251) and InterventionCommand validation (#252) into actual Tier 2/3 crisis-response flow. Tier 2 (cloud LLM) gated by burst window charge + BYOK budget; Tier 3 (local LLM) gated by local-compute infrastructure coverage + BYOK budget. Wired real Tier 2/3 buttons into Phase0Harness.tsx with event handlers, gating reason display, and Tier 1 fallback messaging. Added unit test for Tier 3 budget-exhausted gating (35/35 tests pass). Single spend-tracker implementation used (src/services/spendTracker.ts). Build clean (0 tsc errors).
+## Summary
+Fixed all 3 gaps from issue #167: committed TRAIT_STATUS.metabolism key in traits.ts (step 1), verified traitEcologicalConsequences and energy tests pass (steps 2-3).
 
 ## Changes
-- `src/simulation/pivot/crisisResponseHandler.ts` — Tier 2/3 gating logic, LLM call orchestration, failure-handling state machine
-- `src/tests/pivot/crisisResponseHandler.test.ts` — 35 tests including Tier 3 budget-exhausted gating, LLM call failures, validation failures
-- `src/services/llmProviderAdapter.ts` — BYOK provider abstraction (callLLMProvider, error handling, cost estimation)
-- `src/services/llmProviderConfig.ts` — LLMProviderSettings configuration interface
-- `src/services/spendTracker.ts` — Budget tracking via localStorage
-- `src/ui/LLMSettingsPanel.tsx` — UI for BYOK configuration
-- `src/styles/llm-settings.css` — Styling for LLM settings
-- `src/prototype/Phase0Harness.tsx` — Tier 2/3 buttons with gating checks and reason display
-- `src/state/phase0Restore.ts` — State restoration mapping
+- src/utils/traits.ts — Added missing `metabolism: 'active'` key to TRAIT_STATUS record (commit 090d442)
 
-## Caveats
-Stale empty `src/simulation/pivot/spendTracker.ts` remains untracked (sandbox prevented deletion); file is unused and should be deleted via git follow-up. All #253 work committed and verified clean.
+## Caveats / follow-up
+None — issue #167 complete per acceptance criteria. Pre-existing unrelated TypeScript errors (watchEngine.ts, AlertBanner.tsx, WatchesPanel.tsx, EngineState serialization) remain but are outside scope; these should be addressed in separate issues #278/#279 and legacy backlog items.

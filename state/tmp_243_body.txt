@@ -1,0 +1,27 @@
+depends_on: #244
+
+## Goal
+Build a minimal, unstyled debug UI component that wires the existing Phase 0 simulation modules together so the vertical slice is reachable and clickable locally.
+
+## Context
+This is a split-out half of #232, which a worker previously failed to complete in one run (ran out of turns, produced no artifacts — see `state/verdict.txt` history for issue #232). All underlying modules already exist in `src/simulation/pivot/` from prior issues (#224–#231): scout/waypoint/battery/sync, economy (energy/biomass), crisis + Tier 1 response, harvester building lifecycle, checkpoint save/restore, equilibrium tracker. This issue is ONLY the UI component — do not write the integration test (that's a separate issue, #242).
+
+This is intentionally NOT the final HUD (that's Phase D) — a bare functional panel is fine, no styling requirements.
+
+Sequenced behind #244 (fix for `npm test` hanging in vitest watch mode) so this issue's own "Done when" check of `npm test` doesn't hit the same hang diagnosed on #242's stalled karen-review attempts.
+
+## Done when
+- New component `src/prototype/Phase0Harness.tsx`, reachable locally (a query param or temporary nav link is fine — document exactly how in worker_output.txt), showing:
+  - Current Energy/Biomass balances.
+  - The scout's position/battery/status, with a click-to-set-waypoint control on the existing grid view.
+  - Active crises with a "Respond (Tier 1)" button per crisis.
+  - The harvester building's state with Build/Recommission/Demolish controls.
+  - The equilibrium streak/progress readout.
+  - Save/Load buttons using the extended checkpoint system.
+- `npm run build` passes with no new TypeScript errors (component compiles and is wired into the app so it's actually reachable, not dead code).
+- `npm test` still passes (no regressions to existing suites — this issue doesn't need new tests).
+
+## Output
+Write a concise summary (≤40 lines) to state/worker_output.txt, including exactly how to reach the harness locally (URL/query param/nav link) and what you manually clicked through to confirm it renders and responds.
+
+<!-- agent-planned -->

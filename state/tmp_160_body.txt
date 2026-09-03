@@ -1,0 +1,48 @@
+depends_on: #163, #161
+
+Parent: #157
+
+## Goal
+Commit the overlays/legends/accessibility/perf-budget work that already exists in the working
+tree. 9 consecutive karen verification rounds confirm every substantive functional criterion
+now PASSES (7 overlays, keyboard nav, legend wiring, 60/60 tests) — the sole remaining blocker
+each round is that nothing was ever committed. Fix the 2 small remaining gaps below, then
+commit — do not redesign anything.
+
+## Context
+- Sequenced behind #163 (core Living World, commits first) and #161 (semantic zoom, commits
+  second) so you're extending a clean, already-committed baseline instead of a 90-path
+  uncommitted pile, and so overlapping edits to shared files (`App.tsx`, `ThreeWorldView.tsx`)
+  don't collide.
+- Files that belong to this issue: `src/ui/ThreeWorldLegend.tsx`, `src/ui/ThreeWorldLegend.css`,
+  `src/ui/ThreeWorldOverlayControl.tsx`, `src/ui/performanceBudgets.ts`,
+  `src/styles/live-three-world-view.css` (overlay-related portions),
+  `src/tests/threeWorldOverlay.test.tsx`, `docs/THREEWORLD_INFORMATION_ARCHITECTURE.md`,
+  `docs/THREEWORLD_RENDERER_CONTRACT.md`.
+- Do NOT touch files belonging to other issues (already committed by #163/#161, or belonging to
+  #165/#270/#271): `src/simulation/soundEcology.ts`, `src/simulation/adaptationMetrics.ts`,
+  `src/simulation/traitFrequency.ts`, `src/ui/AdaptationEvidence.tsx`.
+
+## Remaining concrete gaps (fix these, then commit)
+1. The profiling script referenced by the performance-budget tests/docs is not actually
+   executable — there is no `ts-node`/`tsx` devDependency to run it. Either add `tsx` as a
+   devDependency and a matching `npm run` script, or rewrite the profiling entry point as a
+   plain `.mjs`/compiled script that runs with plain `node`. Confirm it actually runs.
+2. Remove the 2 small dead-code leftovers flagged in the last karen verdict (check
+   `state/verdict.txt` history / recent worker_output.txt files for #160 if still present, or
+   re-derive via `npx tsc --noEmit -p .` and unused-export lint output — the two are minor and
+   should be obvious).
+
+## Done when
+- The 2 gaps above are fixed.
+- `npx tsc --noEmit -p .` and `npm run build` report zero errors.
+- Relevant test suites pass (60/60 previously reported).
+- **Commit as soon as tests are green — do not save the commit for the end of your turn
+  budget.** Run `git add <the files listed above> && git commit -m "..."` then confirm with
+  `git log --stat -1` that the files actually appear in the commit.
+- `git status --short` no longer lists these files.
+
+## Output
+Write a concise summary (<=40 lines) to state/worker_output.txt.
+
+<!-- agent-planned -->

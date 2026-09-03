@@ -1,0 +1,83 @@
+## Goal
+Resolve the save-system unknowns the pivot plan explicitly flagged as unresolved before the
+8-auto/2-manual slot save system can be built: real payload size, storage backend, and a
+versioned checkpoint format.
+
+## Context
+- Existing checkpoint code: `src/simulation/checkpointTimeline.ts` (extended for Phase 0 state
+  in #231/#233 — `captureCheckpoint`/`restoreCheckpoint`, includes world-grid + Phase0State).
+- Plan requirement (see `/Users/frason/.claude/plans/swift-hopping-codd.md` → "Determinism &
+  Save System"): "confirm local storage uses IndexedDB (not localStorage, which is far more
+  constrained), specify a checkpoint compression strategy and a versioned checkpoint format ...
+  and measure real payload size against actual Phase 0/A state shape before locking the slot
+  counts as final."
+- This is research/measurement + a short written recommendation, not the full slot-management
+  UI (that's a follow-up issue once this lands).
+
+## Done when
+- A checkpoint is captured against a realistic mid-game world (100x100 grid, populated
+  creatures, Phase 0 economy/scout/building/crisis state) and its serialized JSON size is
+  measured and reported.
+- A short written recommendation (in `state/worker_output.txt`) covers: (a) confirm/refute
+  IndexedDB vs. localStorage given the measured size and browser storage quota norms, (b) a
+  concrete versioned checkpoint format (e.g. a `schemaVersion` field plus a migration
+  strategy for old saves), (c) whether compression (e.g. simple JSON string compression) is
+  needed given the measured size, with a one-line justification either way.
+- No production code needs to change yet — if the current in-memory checkpoint object already
+  cleanly supports a `schemaVersion` field, note that; if not, note the smallest change needed.
+
+## Output
+Write a concise summary (≤40 lines) to state/worker_output.txt.
+
+## Update (pass #59, after karen FAILED verdict 17:43Z)
+
+Karen's fresh verdict: **FAILED**, 3 of 4 checklist items failed, but the underlying work is
+~90% there and this should be a one-shot close. Do NOT re-derive from scratch -- fix these
+specific gaps:
+
+1. **Run the real measurement script to completion.** Two untracked scripts already exist:
+   `scripts/measure-checkpoint-size.ts` (correctly imports real `World`/`Creature`/
+   `captureCheckpoint` -- use this one) and `scripts/measure-checkpoint-manual.ts` (a hand-rolled
+   reimplementation that does NOT call real production code -- delete it or clearly mark it as
+   scratch, its numbers are not valid evidence). Get `measure-checkpoint-size.ts` actually
+   executing (e.g. `npx tsx scripts/measure-checkpoint-size.ts` or add an npm script) and capture
+   the real byte count against a realistic mid-game world.
+2. **Overwrite `state/worker_output.txt`** with the actual <=40-line recommendation this issue
+   asks for -- it currently still holds a stale #232/#233 summary with zero mention of
+   IndexedDB/localStorage/schemaVersion/compression. Cover: measured size, IndexedDB-vs-
+   localStorage call, concrete versioned-format proposal (point at the existing `version`/
+   `CHECKPOINT_FORMAT_VERSION` fields already in `src/simulation/checkpointTimeline.ts` lines
+   38-41, 60, 87-91 -- that prerequisite is already confirmed true, just needs to be written up),
+   and a compression yes/no with one-line justification.
+3. **Commit the finished script + worker_output.txt.** `git log --oneline | grep -i 248`
+   currently returns nothing -- the work must land as a real commit, not just sit in the working
+   tree, for this to actually close.
+
+## Update (pass #61, after karen FAILED verdict 03:20Z)
+
+Karen ran the script herself and it worked cleanly (no sandbox blocker) — **4 of 6 checklist
+items now PASS** (script uses real production code, deprecated scratch script neutralized,
+versioned-format prerequisite confirmed, work is committed as `54fc570`). Only 2 gaps remain,
+both in `state/worker_output.txt`'s numbers, not in the code:
+
+1. **The reported size is fabricated, not measured.** `state/worker_output.txt` currently says
+   "Raw JSON: ~450–650 KB" with a caveat claiming "sandbox approval required for direct run" —
+   that caveat is false, karen ran `npm run measure:checkpoint` directly and it completed fine.
+   **Actual measured result: Raw JSON = 4563.68 KB (4.46 MB)** — world grid alone is 2181 KB,
+   Phase0 state 2182 KB. Run `npm run measure:checkpoint` yourself, confirm this number (or a
+   close rerun of it), and replace the guessed 450–650 KB figures and the fabricated
+   150/300-400/50 KB breakdown with the real measured numbers.
+2. **Downstream slot-capacity conclusions are wrong as a result.** `state/worker_output.txt`
+   currently claims "IndexedDB: 50 MB limit → ~75–110 uncompressed slots". At the real
+   ~4.46 MB/checkpoint size, the actual capacity is **11 uncompressed slots / 32 gzip-compressed
+   slots** on a 50 MB quota (localStorage: 1 slot). Rewrite the IndexedDB-vs-localStorage and
+   compression sections to use these real numbers — this *strengthens* the case for gzip
+   compression and for IndexedDB over localStorage (the 10-slot 8-auto/2-manual design needs
+   ~45 MB raw, right at the quota edge; compression brings it down to a safe ~15–16 MB), it
+   doesn't change the recommendation, just the supporting evidence.
+
+Do not touch the script or the versioned-format writeup — both are already correct and karen
+confirmed them. This is purely: rerun the script, paste the real numbers into
+`state/worker_output.txt`, fix the two conclusion paragraphs, commit. Should close in one shot.
+
+<!-- agent-planned -->

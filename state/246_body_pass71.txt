@@ -1,0 +1,61 @@
+## Goal
+Finish cleanup on the `npm test` hang fix: the 20+ minute hang itself is CONFIRMED FIXED
+(karen has run a full `time npm test` to completion twice now: 248.04s and 281.73s, both well
+under the original hang). What remains is a small, fully-diagnosed list of cleanup items — do
+NOT re-investigate the hang itself, it is done. (This issue's body was rewritten in lead pass
+#71 to consolidate 8 prior update-log entries into one clean, current instruction set — do not
+be confused by shorter issue comment history; this body is the single source of truth.)
+
+## Context
+- `package.json`'s `test` script is `vitest run` (not watch mode).
+- Root cause of the original hang: `src/tests/sustainability.test.ts` ran with too large a tick
+  horizon. That has already been reduced (`TICK_HORIZON`/`LONG_RUN_HORIZON` cut) in an earlier
+  pass — this part of the fix is done and confirmed by karen; do not touch those constants
+  further.
+- Do NOT modify files under `src/simulation/pivot/` or `src/tests/pivot/` — that is issue #252's
+  territory (a separate, unrelated multi-parameter validation pipeline). Karen has confirmed
+  these files are currently clean/untouched — keep them that way.
+- **Known bug in the worker/verification loop, not your fault if it recurs:**
+  `state/worker_output.txt` is a single shared file. On the most recent attempt it was found
+  containing stale content from issue #252's worker run instead of #246's, causing an automatic
+  FAIL. Issue #252 may run concurrently with this issue. To protect against this: write your own
+  content to that file as your LAST step, right after your own completed `npm test` run, so
+  nothing else can overwrite it afterward in your own process, and re-read the file immediately
+  after writing to confirm it actually contains your #246-specific content before finishing.
+
+## Remaining work (in order)
+1. Delete these 9 scratch/artifact files (confirm gone via `git status --short` before moving
+   on — two of them are actually being picked up and executed as real test suite members, which
+   is itself a bug): `bisect_tests.py`, `test_first_half_0.txt`, `test_first_half_1.txt`,
+   `test_second_half_0.txt`, `test_second_half_1.txt`, `src/tests/karen_verify_tmp.test.ts`,
+   `src/tests/pivot/__karen_oob_check.test.ts`, `state/karen_test_gate.sh`, `tmp_karen_check.ts`.
+2. Fix `src/tests/sustainability.test.ts` around line 54/93: the seed-diversity/survival-ticks
+   assertion still expects the OLD (pre-reduction) horizon value (`toBeGreaterThanOrEqual(100)`,
+   actual is 80 now). Make the literal(s) consistent with the already-reduced tick horizon. Do
+   not loosen any other assertion beyond what's already been loosened in prior passes.
+3. Fix `src/tests/biomassDiagnostics.test.ts:79` (`firstStarvationTick` expected non-null, got
+   null) and `src/tests/biomassMetrics.test.ts:165` (inline snapshot mismatch, ~599k vs ~326k
+   totalBiomass expected). Both are almost certainly downstream fallout from the same
+   tick-horizon/constant reductions applied to fix the hang, never re-validated after. Prefer
+   updating the stale expected values to match current correct deterministic output; only treat
+   it as a real simulation bug if the actual numbers look objectively wrong (e.g. negative
+   biomass, obviously broken math).
+4. Run `time npm test` yourself to full completion (do not background it, wait for it to exit,
+   read the final summary line). Confirm 0 failing tests and note the wall-clock time.
+5. Overwrite (not append) `state/worker_output.txt` with your own #246-specific summary: which
+   files you touched, the confirmed real wall-clock time, and final pass/fail counts. Re-read the
+   file after writing to confirm it stuck.
+
+## Done when
+- Full `npm test` completes in well under 5 minutes with a clean 0-failing summary — no hang, no
+  regressions.
+- The 9 scratch files are gone.
+- `state/worker_output.txt` contains real, #246-specific, post-completion content (not another
+  issue's leftover content, not "investigation in progress").
+
+## Output
+Write a concise summary (≤40 lines) to `state/worker_output.txt` per step 5 above. This has
+failed verification 8 consecutive times on this exact output-file requirement — read step 5's
+extra guidance about the shared-file race carefully.
+
+<!-- agent-planned -->

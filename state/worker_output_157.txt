@@ -1,0 +1,28 @@
+## BLOCKED
+
+Issue #157 is assigned but remains deprioritized per the Crisis-Response pivot plan. Here is the current status:
+
+## Summary
+Issue #157 (Epic: Three.js Living World renderer and semantic zoom) is technically unblocked since its dependency #233 (Phase 0 vertical slice) closed and was verified on 2026-08-19. However, the issue itself is sequenced as Phase B work in the pivot plan (see SPEC.md "Pivot: Crisis-Response Reframe"), which comes after the currently-active Phase A (core systems). The issue description explicitly states it is "Paused pending pivot decision" with "Phase B of the pivot resequences the 3D rendering work."
+
+## Current Pivot Status
+- Phase 0 (vertical slice): CLOSED, verified by karen in pass #55
+- Phase A (core systems): ACTIVE as of pass #55
+  - 6 issues opened: #248, #249, #252, #250, #251, #254, #253
+  - Focus: save-system rewrite, win-condition completion, 3-tier crisis backend (LLM integration pending client response #250)
+- Phase B (rendering foundation): NOT YET STARTED
+  - Phase B is where #157 and other pre-pivot 3D rendering work (#155, #158–180, #200, #223) are sequenced
+  - Status.md notes: "Single-worker dispatch means only one issue gets worked at a time regardless of queue size"
+
+## Blocker
+Phase A work is the approved active phase (per the client-confirmed pivot plan and pass #55's implementation sequencing). Issue #157 is part of Phase B, which is scheduled after Phase A. Unless the lead/dispatcher explicitly prioritizes Phase B work over Phase A, this issue cannot proceed.
+
+The issue was re-evaluated and auto-promoted to `agent-todo` when #233 closed, but remains logically gated behind Phase A completion per the pivot's "Suggested Implementation Sequencing" (see SPEC.md).
+
+## Next Steps for Lead
+- Confirm whether Phase B work should commence (parallel with Phase A, or Phase A first?)
+- If proceeding with #157, clarify whether this is still the full production renderer epic, or scoped per the pivot's Phase B resequencing ("bare scene before archetype rigs/foot IK")
+- No code changes attempted; issue awaits strategic prioritization decision
+
+## Caveats / Follow-up
+None. The issue is well-documented and the blocker is clear. Awaits lead direction on phase sequencing.

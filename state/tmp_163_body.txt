@@ -1,0 +1,53 @@
+depends_on: #269, #272
+
+Parent: #157
+
+## Goal
+Commit the Living World integration that already exists and passes in the working tree. 9
+consecutive karen verification rounds confirm the functionality works — every round has failed
+solely because nothing was ever committed. **This issue is ONLY about landing that commit.**
+Do not add new features and do not fix the 2D-fallback-toggle gap (tracked separately in the
+followup issue linked from this one).
+
+## Context
+- Karen's latest verdict (see `state/verdict.txt` for full detail) confirms, in the *current
+  uncommitted* working tree:
+  - `src/App.tsx` imports and mounts `<LiveThreeWorldView />`.
+  - `npx vitest run src/tests/liveThreeWorldIntegration.test.tsx` -> 14/14 pass (mount, canvas,
+    keyboard nav, ARIA, inspector sync, mobile viewport, determinism-preservation).
+  - `npx vitest run src/tests/prototypeWorldSnapshot.test.ts` -> 2/2 pass.
+  - `npx vitest run src/tests/appAccessibility.test.tsx src/tests/threeWorldOverlay.test.tsx` ->
+    24/24 pass.
+  - `npx vitest run src/tests/renderSnapshot.integration.test.tsx` -> 13/13 pass.
+  - WebGL context loss/resize/DPR handling exists in `src/prototype/ThreeWorldView.tsx`
+    (OrbitControls, `webglcontextlost`/`restored`, `ResizeObserver`, `setPixelRatio`).
+- **Do not rewrite any logic.** Only verify the above still holds, then commit.
+- Sequenced behind #269 (fixes a pre-existing `ThreeWorldView.tsx` syntax error blocking `tsc`)
+  and #272 (fixes a stray `enginePersistence.ts` diff blocking `tsc`) so `tsc --noEmit` is clean
+  before you commit.
+- `git status --short` currently shows ~90+ modified/untracked paths — most belong to THIS
+  feature (`App.tsx`, `LiveThreeWorldView.tsx`, `ThreeWorldView.tsx`, `worldSnapshot.ts`, related
+  CSS/docs, the test files named above). Some belong to OTHER open issues and must be left
+  alone — do not `git add -A`, add specific paths only. Leave these untouched: anything under
+  `src/simulation/soundEcology.ts`, `src/simulation/adaptationMetrics.ts`,
+  `src/simulation/traitFrequency.ts`, `src/ui/AdaptationEvidence.tsx`,
+  `src/ui/ThreeWorldLegend.*`, `src/ui/ThreeWorldOverlayControl.tsx`,
+  `src/ui/performanceBudgets.ts`, `src/prototype/semanticZoom.ts`, `src/prototype/densityGlyph.ts`,
+  `src/prototype/ThreeWorldViewWithSemanticZoom.tsx`, `src/prototype/Canvas2DFallback.tsx`,
+  `src/simulation/pivot/spendTracker.ts`, and anything under `state/`.
+- **Commit as your very first action once tests are green** — do not leave the commit for the
+  end of your turn budget. If you run out of turns after committing, that's fine; if you run out
+  before committing, this issue fails again for the 10th time.
+
+## Done when
+- `npx tsc --noEmit -p .` reports zero errors.
+- The test suites listed above pass.
+- `git add` exactly the files that make up this feature (not the excluded list above).
+- Commit with a message that closes #163.
+- `git log --oneline -1` shows the new commit; `git status --short` no longer lists these files.
+
+## Output
+Write a concise summary (<=40 lines) to state/worker_output.txt, including the exact file list
+you committed.
+
+<!-- agent-planned -->

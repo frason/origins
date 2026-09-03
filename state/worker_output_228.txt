@@ -1,0 +1,16 @@
+## Summary
+Fixed off-by-one error in toxicity crisis detection (changed `>=` to `>`), verified all 22 crisis tests pass, and committed `src/simulation/pivot/crisis.ts` to git history. Phase 0 crisis system is now complete and working.
+
+## Changes
+- `src/simulation/pivot/crisis.ts`: Fixed logic to detect crisis only when toxicity **strictly exceeds** threshold (not equal). Updated comment to match implementation.
+- Commit: `53ceeea` — Implement Phase 0: Localized Toxicity Spike crisis detection and Tier 1 response
+
+## Test Results
+- `npm test` passes entirely: 503 tests across 68 test files ✓
+- `src/tests/crisis.test.ts`: All 22 tests pass including threshold boundary cases ✓
+- Crisis detection: correctly fires only once per upward crossing, not on equality or while above threshold ✓
+- Tier 1 response: correctly builds InterventionCommand, validates, spends exactly 20 Energy, applies reduction ✓
+- Insufficient funds: correctly rejects and leaves crisis active unchanged ✓
+
+## Caveats / follow-up
+None — deliverable complete and committed. Ready for verification.

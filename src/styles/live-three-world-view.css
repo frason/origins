@@ -1,0 +1,62 @@
+/**
+ * Live Three.js World View Styles
+ * Styles for the production isometric 3D view with synchronized 2D fallback
+ */
+
+.live-three-world-view {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #151a1d;
+}
+
+.live-three-world-view canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.live-three-world-view--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20rem;
+}
+
+.live-three-world-view__status {
+  padding: var(--sim-space-4);
+  color: #aebdba;
+  font-family: var(--sim-font-data);
+  font-size: var(--sim-font-size-md);
+  text-align: center;
+}
+
+/* Canvas 2D fallback styling */
+.canvas-2d-fallback {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #151a1d;
+  cursor: crosshair;
+}
+
+/* Ensure responsive sizing for all viewport sizes */
+@media (max-width: 640px) {
+  .live-three-world-view {
+    min-height: 16rem;
+  }
+}
+
+@media (min-width: 641px) {
+  .live-three-world-view {
+    min-height: 24rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .live-three-world-view {
+    min-height: 32rem;
+  }
+}

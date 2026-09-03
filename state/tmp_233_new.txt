@@ -1,0 +1,35 @@
+depends_on: #232
+
+## Goal
+Verify the Phase 0 vertical slice (crisis-response pivot) meets SPEC.md's "Pivot: Crisis-Response Reframe" requirements before Phase A starts.
+
+## Context
+Read SPEC.md "Pivot: Crisis-Response Reframe" in full. All of #224–#232 should be closed and merged by the time this runs. Load `src/prototype/Phase0Harness.tsx` (or however #232 documented reaching it) and exercise the loop manually, plus review the automated tests.
+
+**Note on the first Done-when item (updated pass #51):** the full `npm test` suite has a known intermittent 20+min hang unrelated to the pivot code, tracked separately in **#246**. Do NOT run the bare `npm test` full suite here — it will burn your turn budget waiting on it and has caused 6 consecutive verification attempts to exhaust turns with no verdict. Use the scoped command below instead; it covers every pivot-relevant file and is fast/deterministic.
+
+## Done when checklist
+- `npm run build` passes with no TS/build errors, AND `npx vitest run src/tests/pivot src/tests/scout.test.ts src/tests/crisis.test.ts src/tests/checkpointTimeline.test.ts src/tests/phase0Integration.test.ts` (adjust paths if they've moved, but stay scoped to pivot-relevant files — do not invoke the full untargeted `npm test`) passes with 0 failures.
+- Energy starts at 500, drains passively, floors at 0; Biomass starts at 0, is only earned via a real tile's `producerBiomass` being drawn down (verify a specific tile's value visibly drops).
+- Scout: waypoint movement works, comms bubble correctly gates sync, battery drains only outside the bubble, stranding at 0 battery outside the bubble discards unsynced discoveries.
+- One crisis type (toxicity spike) triggers, shows canned/templated text (confirm no LLM call anywhere in Phase 0 — grep for any LLM/API call in the pivot code, there should be none), Tier 1 response is instant and free of any external call, correctly spends Energy and reduces the tile's toxicity.
+- Building: full build → dormant → recommission (cost scales with decay) and separately build → dormant → auto-demolish (no refund) and build → manual demolish (partial refund) all work.
+- Checkpoint round-trip (save → reload) preserves all Phase 0 state exactly, including a `version` field AND the World grid tile mutations (toxicity/producerBiomass) that crises and harvesting produce — not just ledger/scout/buildings/crises.
+- Only validated `InterventionCommand`s ever appear in the command log — confirm an intentionally out-of-bounds (world-coordinate) or unwhitelisted command is rejected and never applied or logged.
+- Equilibrium tracker's streak resets on intervention, freezes on pause, and has a real serialize/restore path through the checkpoint (not just "happens to survive because the harness never touches the live object") — reload should preserve the streak via the checkpoint payload itself.
+
+## Output
+Write `state/verdict.txt` (PASSED/FAILED per item above). For any FAILED item, the lead will file a targeted fix issue.
+
+---
+**Update (lead pass #52, post karen FAILED verdict at 2026-08-19T14:15Z):** karen finally produced a real verdict (the pass #51 scoped-test-command fix worked — no more MAX-TURNS-EXHAUSTED). 5 of 8 checklist items PASS outright. The remaining 3 FAILs are narrow and the code fix for all 3 already exists **uncommitted in the working tree** (interventionCommand.ts, checkpointTimeline.ts, equilibrium.ts, Phase0Harness.tsx) — do NOT revert or redo that diff, it is correct. What's missing is committed **automated test coverage** proving it:
+
+1. A checkpoint round-trip test (save → reload) asserting a tile's toxicity/producerBiomass survive intact (currently no committed test exercises World grid persistence — only ledger/scout/buildings/crises are covered).
+2. A test asserting an out-of-bounds world-coordinate InterventionCommand is rejected by interventionCommand.ts and never appended to the command log (currently the only committed test coverage is for unwhitelisted-parameter rejection, not OOB coordinates).
+3. A test asserting EquilibriumTracker's streak survives a getState()/setState() round-trip through the checkpoint payload (currently no committed test exercises this; the class has the persistence methods in the uncommitted diff but nothing calls or tests them yet).
+
+Add these 3 tests (extend checkpointTimeline.test.ts / phase0Integration.test.ts / a new interventionCommand.test.ts as appropriate), confirm they pass alongside the existing scoped-test command in the Done-when checklist above, and leave the result for karen to re-verify. You do not need to git commit anything yourself — the dispatcher commits automatically the moment karen PASSes.
+
+Optional non-blocking polish noted by karen (fix only if time remains, don't let it block the 3 items above): Phase0Harness.tsx hardcodes BUBBLE_RADIUS=5 instead of the spec's 15, and 3 of its action handlers (setDormantAction, recommissionAction, respondToCrisisAction) return the same prev object reference after mutating nested state, so React won't visibly re-render on click even though the underlying mutation is correct.
+
+<!-- agent-planned -->

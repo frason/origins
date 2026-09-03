@@ -1,0 +1,93 @@
+depends_on: #251, #252
+
+## Goal
+Connect the BYOK provider adapter (#251) and the generalized InterventionCommand validation
+(#252) into the actual Tier 2 (cloud LLM, gated behind the quantum burst window) and Tier 3
+(local LLM, gated behind local-compute infrastructure coverage) crisis-response flow, including
+the defined failure-handling behavior.
+
+## Context
+- Full requirements: `/Users/frason/.claude/plans/swift-hopping-codd.md` → "3-Tier Crisis
+  Response" and "LLM Call Failure Handling". Every crisis alert stays templated/canned text
+  (no LLM) until the player actively picks Tier 2 or 3 for that crisis. Tier 2 requires the
+  comms link's burst window to be charged; Tier 3 requires the responding robot to be within
+  range of local-compute infrastructure (a building type/coverage check).
+- Failure handling (identical for both tiers): validation failure (well-formed but fails
+  bounds-check) → reject in full, clear "couldn't be translated" message, player can retry;
+  outright call failure (timeout/error/refusal) → first 2 failures show in-fiction message,
+  after 2nd failure offer retry-or-fall-back-to-Tier-1, a further failure shows a
+  fourth-wall-breaking troubleshooting message.
+- Only validated commands (passing #252's pipeline) are ever applied to state or recorded into
+  checkpoints/the command log — raw/rejected LLM output is never persisted.
+- Bare functional UI is fine here (Phase D does the real HUD) — this issue is about the
+  backend flow being correct and testable, exercised via the existing debug harness pattern
+  (`src/prototype/Phase0Harness.tsx` is the precedent).
+
+## THIS ISSUE HAS FAILED KAREN 3 TIMES — READ THIS SECTION FIRST
+Three consecutive attempts have landed on the same recurring pattern: a build-error fix
+introduces a *new* build error, and the single most important requirement (actually wiring
+Tier 2/3 into a reachable UI) has been skipped all 3 times in favor of scaffolding. Do the
+wiring step FIRST this time, not last, and do not leave it as unused imports again.
+
+**Current known state as of the 3rd FAILED verdict (do not re-derive this — start from it):**
+
+1. **Two divergent, incompatible `spendTracker` modules now exist.** The real #251 BYOK budget
+   module is `src/services/spendTracker.ts` (functional API: `getSpendHistory` etc., backed by
+   localStorage). A *second*, different one was created at
+   `src/simulation/pivot/spendTracker.ts` (class-based API: `canAfford`/`recordSpend`) and is
+   what `crisisResponseHandler.ts` actually imports. **Delete
+   `src/simulation/pivot/spendTracker.ts` and adapt `crisisResponseHandler.ts`
+   (`checkTier2Gating`/`checkTier3Gating`) to call the real `src/services/spendTracker.ts`
+   module instead** — there must be exactly one spend-tracker implementation in the repo.
+2. **Tier 2/3 are still not wired into `Phase0Harness.tsx`.** All 3 attempts only added imports
+   (`resolveTier2`, `resolveTier3`) and new fields to the `Phase0HarnessState` interface/init/
+   restore-mapper — grep for `Tier 2|Tier 3|resolveTier2(|resolveTier3(` in that file has
+   returned zero UI matches every single time. **Add actual buttons/handlers** in the harness
+   that let a tester pick Tier 2 or Tier 3 for the active crisis, call
+   `checkTier2Gating`/`checkTier3Gating` first and show the unavailable-reason text (burst not
+   charged / out of local-compute coverage / budget exhausted) when blocked, call
+   `resolveTier2`/`resolveTier3` when allowed, and show "Tier 1 still available" as a fallback
+   whenever Tier 2/3 is blocked or fails. Do this before touching anything else.
+3. **Build errors have moved around each attempt** (originally a `messages`/`LLMMessage[]`
+   typing issue — now fixed — then `Phase0HarnessState` missing new fields, then test-file
+   call-site signature mismatches from inserting a `spendTracker` param into
+   `resolveTier2`/`resolveTier3`'s argument list). After making the changes above, run
+   `npm run build` yourself and fix every remaining `tsc` error before finishing — do not
+   assume a partial fix is enough; the last 2 attempts each thought they were done and weren't.
+4. **Nothing from #253 (or apparently #251) has ever been committed.** `git status` has shown
+   `crisisResponseHandler.ts` + test, `llmProviderAdapter`/`llmProviderConfig` + tests,
+   `spendTracker.ts`, `LLMSettingsPanel` + test, and the `Phase0Harness.tsx` diff as untracked
+   on all 3 attempts. **You must `git add` and commit all of it** as part of finishing this
+   issue — an uncommitted fix does not count as done no matter how correct it is.
+5. **`state/worker_output.txt` has never once contained a #253 summary** across all 3 attempts
+   (it keeps reverting to a stale #260 summary). Overwrite it with an accurate #253-specific
+   summary as the very last step.
+
+Gating logic itself (burst-window / local-compute-coverage checks, Chebyshev distance) and the
+failure-handling state machine (2-strike → fallback → 4th-wall message) have already passed
+karen's review twice and do not need to be rewritten — only extend them for the budget-check
+gating condition and fix the spend-tracker plumbing described in item 1 above.
+
+## Done when
+- A player can select Tier 2 or Tier 3 for an active crisis (when its gating condition is
+  met) **from actual buttons/handlers in `Phase0Harness.tsx`** (not just imports/state
+  scaffolding), the request goes through the BYOK adapter, and a validated response is applied
+  to state and recorded in the command log — or is cleanly rejected per the failure-handling
+  flow above if invalid/failed.
+- Tier 2 is unavailable (visibly, in the harness UI) when the burst window isn't charged **or
+  the BYOK spend limit is exhausted**; Tier 3 is unavailable when the robot is outside
+  local-compute coverage **or the spend limit is exhausted**; both show "Tier 1 still
+  available" messaging. A successful Tier 2/3 call deducts its cost via the real
+  `src/services/spendTracker.ts` module (no second spend-tracker implementation exists).
+- Unit/integration tests cover the gating conditions (including the budget-exhausted case) and
+  both failure paths using a mocked LLM response (no real API calls in automated tests), and
+  the full test suite for this area passes (`npx vitest run src/tests/pivot/crisisResponseHandler.test.ts`
+  green, 0 failures).
+- `npm run build` passes with zero `tsc` errors — verify this yourself before finishing.
+- All new/changed files are committed (verify with `git status` — nothing left untracked).
+- `state/worker_output.txt` contains an accurate summary of this issue's actual work.
+
+## Output
+Write a concise summary (≤40 lines) to state/worker_output.txt, specific to this issue (#253).
+
+<!-- agent-planned -->

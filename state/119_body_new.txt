@@ -1,0 +1,62 @@
+## Priority
+High
+
+## Goal
+Replace effectively constant producer abundance with a deterministic biomass ecology where dense animal populations can exhaust local resources, damage habitat, and trigger meaningful starvation, reduced reproduction, migration, and adaptation.
+
+## Problem
+The current system removes biomass when herbivores feed, but every cell receives additive producer growth each tick from a persistent solar-energy value. Growth does not consume or require nutrients or moisture, corpse nutrients can permanently increase cell energy, producer biomass has no maintenance loss, and grazers can remove more biomass than their remaining energy capacity can use. Global biomass across 10,000 cells also hides severe local depletion. This lets dense colonies remain indefinitely concentrated in productive regions.
+
+## Scope
+- Separate renewable energy flux from stored/consumable ecological resources so solar input does not behave like an endlessly reusable stock.
+- Replace additive producer growth with bounded logistic growth based on current biomass and carrying capacity.
+- Make growth respond to locally available nutrients and, after #41 decisions, moisture/soil conditions.
+- Limit grazing consumption by animal energy headroom and producer edibility/defense.
+- Add deterministic producer maintenance or mortality so biomass does not remain permanently at carrying capacity.
+- Model overgrazing pressure and gradual habitat recovery without hardcoded map-side or species favoritism.
+- Preserve biome-specific producer archetypes and God Mode controls.
+- Add local/regional observability: occupied-tile biomass, depleted-area share, grazing pressure, and recovery trend; keep total world biomass but do not present it alone.
+
+## Done when
+- [ ] A dense herbivore colony measurably reduces local biomass faster than it regrows.
+- [ ] Sustained overgrazing lowers local food availability and affects animal energy, reproduction, or survival.
+- [ ] Abandoned depleted cells recover gradually rather than instantly or never.
+- [ ] An animal never consumes more producer biomass than it can convert into available energy capacity.
+- [ ] Nutrients influence producer growth and are consumed or otherwise bounded; corpse recycling cannot permanently ratchet solar productivity upward.
+- [ ] Desert, tundra, grassland, forest, and wetland retain meaningfully different productivity and recovery behavior.
+- [ ] UI metrics distinguish global abundance from scarcity where animals actually live.
+- [ ] Same seed and settings produce identical biomass and creature state.
+- [ ] Tests cover depletion, recovery, carrying capacity, appetite-limited grazing, nutrient bounds, biome differences, and deterministic replay.
+- [ ] Long-run sustainability and performance tests pass without weakening existing ecosystem quality gates.
+
+## Implementation notes
+Treat this as an ecological systems change, not a visual redistribution shortcut. Calibrate against several fixed seeds and compare both local habitat occupancy and whole-world totals. Consider splitting implementation into producer growth/consumption, soil-moisture integration, and UI metrics if the issue becomes too large.
+
+---
+**Priority note (2026-08-13):** the client-approved Crisis-Response pivot (see SPEC.md "Pivot: Crisis-Response Reframe") is now the active build target. This was an ungated `agent-todo` item left off the 2026-08-11 pause batch by oversight — gating it the same way as its sibling pre-pivot roadmap issues (#116, #118, #120-126, #155-180) so it doesn't compete with Phase 0/A worker time. Re-evaluated once Phase 0 (#233) is verified.
+
+<!-- agent-planned -->
+
+---
+**Re-gated (pass #58):** paused behind Phase A per SPEC.md's "Legacy roadmap note." Confirmed this pass that dispatcher worker-selection is oldest-issue-number-first (scripts/dispatcher.sh), which was letting this lower-numbered legacy issue win worker+karen cycles ahead of the higher-numbered Phase A issues (#248/#249/#252) every pass since Phase A opened (pass #55) -- concretely confirmed by a fresh karen FAILED verdict on #116 this pass while #248/#249/#252 still show zero worker attempts. Re-gating behind #247 (Phase A epic), same treatment as the 6 epics re-gated pass #56, so Phase A actually gets worked next. Re-evaluate once #247 closes.
+
+depends_on: #247
+
+---
+**Narrow fix scope after 2nd karen FAIL (pass 45, 2026-08-26):** everything else in this issue
+is now karen-verified PASSING (bounded logistic growth, nutrient caps, grazing headroom,
+biome productivity fix, observability, deterministic replay, calibration perf all confirmed
+via passing tests). **Exactly one Done-when item remains unmet:** "Long-run sustainability and
+performance tests pass." Root cause: `vitest.config.ts` line 11 unconditionally excludes
+`src/tests/sustainability.test.ts` (`exclude: [...configDefaults.exclude,
+'src/tests/sustainability.test.ts']`), and `npm run test:slow` reports "No test files found"
+because a CLI `--exclude` override cannot undo a config-level exclude. Do ONE of:
+1. Remove/scope that exclude so `npm run test:slow` actually executes
+   `sustainability.test.ts`, confirm it passes against the current biomass ecology, and report
+   the real pass/fail result — do not just claim it passes without running it, or
+2. If long-run sustainability verification is intentionally deferred to #158 (Engine scale
+   epic, per commit 8f2e55d), explicitly amend this issue's Done-when list to say so, and get
+   that documented before claiming done.
+Do not re-derive or re-touch the rest of the biomass logic — it is already correct and tested.
+
+<!-- agent-planned -->

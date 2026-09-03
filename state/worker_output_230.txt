@@ -1,0 +1,17 @@
+## Summary
+Implemented Phase 0 equilibrium-progress meter (`EquilibriumTracker`) that tracks ecosystem progress toward equilibrium by monitoring Order/Chaos/Exploration/Replacement conditions simultaneously over a 2,000-tick streak. Reuses existing ecosystemHealth scoring; handles intervention resets, pause freezing, and readyForCompletion signal per SPEC.md rules.
+
+## Changes
+- `src/simulation/pivot/equilibrium.ts` — New EquilibriumTracker class with recordTick() and getProgress() methods; checks Order≥50, Chaos≥40, Exploration≥40, Replacement mean[0.95–1.05] & CV≤0.10
+- `src/tests/pivot/equilibrium.test.ts` — 36 unit tests covering tick accumulation, intervention reset, pause freeze, mean/CV math, boundary conditions, and readyForCompletion flip at streak=2000
+
+## Test Results
+- `npx vitest run src/tests/pivot/equilibrium.test.ts` → 36 passed
+- `npx vitest run src/tests/pivot` → 203 passed (all 4 pivot test suites)
+- `npx tsc --noEmit -p .` → exit 0, no type errors
+- Implementation committed to main (commit 08f3976)
+
+## Caveats / follow-up
+None — all requirements met; ready for deployment.
+
+Changed files: src/simulation/pivot/equilibrium.ts, src/tests/pivot/equilibrium.test.ts

@@ -1,0 +1,49 @@
+## Goal
+Find and fix why the full `npm test` (vitest run, ~118 files / ~990 tests) intermittently
+hangs or takes 20+ minutes with zero output, even though `npm run build` is clean and an
+isolated subset run finishes in seconds.
+
+## Context
+- `package.json`'s `test` script is already `vitest run` (not watch mode) — the earlier
+  watch-mode-never-exits hang was already fixed in issue #244 (closed). This is a *different*,
+  still-unresolved slowness/hang affecting a full run of the whole suite.
+- This is currently blocking issue #233 ("Verify: Phase 0 vertical slice") — karen's
+  verification requires a full `npm test` pass with no regressions, and has repeatedly hit this
+  hang (20+ min, zero stdout, process never completing) across multiple verification attempts.
+  One karen run explicitly logged: isolated re-run of just
+  `npx vitest run src/tests/pivot src/tests/scout.test.ts src/tests/checkpointTimeline.test.ts`
+  passed cleanly (279/279 tests, ~3s), but the full `npm test` did not complete in 20+ minutes —
+  see issue #233's comment history for the full verdict text.
+- Do NOT modify files under `src/simulation/pivot/`, `src/prototype/Phase0Harness.tsx`, or
+  `src/simulation/checkpointTimeline.ts` (source files) — there are unrelated uncommitted
+  changes to those files from other in-flight work; editing them risks merge conflicts. If your
+  fix requires touching tests for those areas specifically, check `git diff` first and only add
+  new content, don't overwrite unrelated hunks.
+- Suspect a hanging or pathologically slow test *outside* the `src/tests/pivot/` directory
+  (since isolated pivot-only runs are fast). Bisect by timing subsets of `src/tests/`, e.g.
+  `npx vitest run <dir-or-file>` on a few directories/files at a time, to isolate the culprit.
+- A named per-file timing breakdown from karen's most recent live repro (6+ min in, only 63/119
+  files done) already flagged several severe outliers worth starting with:
+  `src/tests/biomassDiagnostics.test.ts` (37.7s), `src/tests/diagnosticBundle.test.ts` (19.9s),
+  `src/tests/creatureSpatialIndex.test.ts` (13.4s), `src/tests/reproductionGovernance.test.ts`
+  (6.0s). None of these alone explain 20+ minutes, so there is likely at least one additional,
+  worse outlier or an outright hang further into the file list — keep bisecting past file 63.
+
+## Done when
+- Full `npm test` completes in well under 5 minutes with a clean pass/fail summary printed —
+  no indefinite hang, no silent zero-output stall.
+- All previously-passing tests still pass (no regressions from your fix).
+- If the root cause is a genuinely slow-but-correct test (not an actual hang), either speed it
+  up safely (e.g. fewer simulated ticks, fake timers) without weakening what it verifies, or
+  document clearly in your output why it can't be safely sped up.
+
+## Output
+Write a concise summary (≤40 lines) to `state/worker_output.txt`: which file(s)/test(s) were
+the hang/slowness culprit, what you changed, and confirmation of a timed full `npm test` run
+(include the wall-clock time it took). **This must be issue #246's own content — overwrite
+whatever is currently in that file, do not leave a stale summary from a previous issue in
+place.** The previous attempt at this issue produced no code change and left #232's old
+summary in `state/worker_output.txt` unchanged, which is why it failed verification — make
+sure this run actually edits real files and actually writes this file.
+
+<!-- agent-planned -->

@@ -1,0 +1,51 @@
+depends_on: #163
+
+Parent: #157
+
+## Goal
+Commit the semantic-zoom/density-glyph work that already exists in the working tree and has
+passed design review multiple times (37-43/43 unit tests, correct raycaster priority, correct
+lineage gating). 6+ consecutive prior attempts all failed for the identical reason: nothing was
+ever committed (`git log --all` shows zero commits ever touching `semanticZoom.ts` /
+`densityGlyph.ts`). Fix the 3 small remaining gaps below, then commit — do not redesign
+anything.
+
+## Context
+- Sequenced behind #163 (commits the core Living World integration first) so you're extending a
+  clean, already-committed baseline instead of a 90-path uncommitted pile.
+- Files that belong to this issue: `src/prototype/semanticZoom.ts`, `src/prototype/densityGlyph.ts`,
+  `src/prototype/Canvas2DFallback.tsx`, `src/tests/semanticZoom.test.ts`,
+  `src/tests/semanticZoomClickHandler.test.ts`, `src/tests/densityGlyph.test.ts`.
+- Do NOT touch or commit files belonging to other issues: `src/simulation/soundEcology.ts`,
+  `src/simulation/adaptationMetrics.ts`, `src/simulation/traitFrequency.ts`,
+  `src/ui/AdaptationEvidence.tsx`, `src/ui/ThreeWorldLegend.*`, `src/ui/ThreeWorldOverlayControl.tsx`,
+  `src/ui/performanceBudgets.ts` (those are #160's scope, sequenced after this issue).
+
+## Remaining concrete gaps (fix these, then commit)
+1. `semanticZoomClickHandler.test.ts` builds an object shaped like `EngineState` but should
+   build a `PrototypeWorldSnapshot` (`{version, source:{seed,tick}, world, creatures, events}`,
+   see `src/prototype/worldSnapshot.ts:32-38`). Confirm `npx tsc --noEmit` and `npm run build`
+   are clean of new errors afterward.
+2. Make zoom-level/glyph rebuild reactive to actual camera movement (call
+   `rebuildCreaturesAndGlyphs(newZoom)` from the render loop or an OrbitControls `change`
+   listener whenever `getZoomLevel(...)` changes) — currently it only rebuilds once at mount, so
+   scroll/pinch zoom never reveals individuals.
+3. Delete the orphaned `ThreeWorldViewWithSemanticZoom.tsx` and its standalone test — the real
+   integration lives in `ThreeWorldView.tsx`.
+
+## Done when
+- The 3 gaps above are fixed.
+- `npx tsc --noEmit -p .` and `npm run build` report zero errors.
+- Relevant test suites pass.
+- **Commit as soon as tests are green — do not save the commit for the end.** Run
+  `git add <the files listed above> && git commit -m "..."` then confirm with
+  `git log --stat -1` that the files actually appear in the commit. A worker that does not
+  produce a real commit will fail review regardless of code quality (this has now happened 6+
+  times in a row).
+- `git status --short` no longer lists these files.
+- `state/worker_output.txt` is written (skipped on every prior attempt).
+
+## Output
+Write a concise summary (<=40 lines) to state/worker_output.txt.
+
+<!-- agent-planned -->

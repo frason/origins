@@ -1,0 +1,85 @@
+## Goal
+This issue's scope has been NARROWED (pass #72) after 9 consecutive worker attempts failed to
+complete a larger 5-item list in one run. The underlying 20+ minute test hang is CONFIRMED FIXED
+(karen has run a full `time npm test` to completion twice: 248.04s and 281.73s). Do NOT
+re-investigate the hang. This issue is now ONLY the mechanical cleanup below — the remaining 3
+real test failures have been split into a separate issue (#256) so each worker run has a small,
+completable scope.
+
+## Context
+- Do NOT modify files under `src/simulation/pivot/` or `src/tests/pivot/` except deleting the
+  one scratch file named below — that directory is issue #252's territory (now closed/merged,
+  keep it clean).
+- `state/worker_output.txt` is a SHARED file across concurrently-running issues. Other issues
+  (e.g. #254, #256) may write to it around the same time as you. Write your own content as your
+  LAST step, then immediately re-read the file to confirm it still contains your #246-specific
+  content before finishing — do not trust that it stuck without re-reading it.
+
+## Remaining work (in order)
+1. Delete these 9 scratch/artifact files. Confirm each is gone via `git status --short` (for
+   tracked files) or a direct `ls` check (for untracked ones) before moving on. Two of them
+   (`src/tests/karen_verify_tmp.test.ts`, `src/tests/pivot/__karen_oob_check.test.ts`) are
+   actually being picked up and executed as real vitest suite members, which is itself a bug —
+   deleting them is part of the fix, not just hygiene:
+   - `bisect_tests.py`
+   - `test_first_half_0.txt`
+   - `test_first_half_1.txt`
+   - `test_second_half_0.txt`
+   - `test_second_half_1.txt`
+   - `src/tests/karen_verify_tmp.test.ts`
+   - `src/tests/pivot/__karen_oob_check.test.ts`
+   - `state/karen_test_gate.sh`
+   - `tmp_karen_check.ts`
+2. Check `git status --short` for any unrelated uncommitted diff to `src/utils/traits.ts` (an
+   `auditorySteal` trait addition unrelated to this issue, flagged by karen as stray
+   contamination). If present, revert just that file with `git checkout -- src/utils/traits.ts`.
+3. Overwrite (not append) `state/worker_output.txt` with a short summary: which of the 9 files
+   you deleted, confirmation `git status --short` shows them gone, and whether you reverted
+   `traits.ts`. Re-read the file immediately after writing to confirm it stuck.
+
+## Done when
+- All 9 named files are confirmed deleted (`git status --short` / `ls` clean).
+- `src/utils/traits.ts` has no stray uncommitted diff.
+- `state/worker_output.txt` contains real, #246-specific, post-completion content.
+
+## Output
+Write a concise summary (≤40 lines) to `state/worker_output.txt` per step 3. This exact
+requirement (don't leave another issue's stale content in this file) has failed verification 9
+consecutive times — re-read the file after writing, every time, no exceptions.
+
+## Update (pass #74)
+Karen's 10th verdict (15:50:41Z) is a clean **PASSED** — all 4 checklist items pass, no gaps
+listed. But the dispatcher's commit-gate then reported: "Verified but not committed. The worker
+summary needs a valid `Changed files: path, path` manifest, or the commit failed." This is now
+the ONLY remaining blocker — it is a reporting-format problem, not a code/content problem.
+
+Root cause (confirmed by reading `scripts/dispatcher.sh`): the commit-gate looks for a literal
+line starting with `Changed files:` (colon, not a markdown heading) inside the NUMBERED file
+`state/worker_output_246.txt` (not the generic `state/worker_output.txt`). The previous attempt
+wrote a `### Changed files` markdown heading followed by prose ("No source/test files were
+modified...") in `state/worker_output_246.txt` — that does not match the required pattern, so
+the primary manifest path failed. The dispatcher's fallback then tried to derive a manifest from
+`git diff --name-only`, but it explicitly excludes everything under `state/*`, and the ONLY
+tracked-file change this issue produces is `state/worker_output.txt` itself (the 9 deleted files
+were all untracked, so their deletion has no git diff to pick up) — so the fallback also finds
+nothing to commit.
+
+**Fix (do this exactly, nothing else):**
+1. Do NOT redo steps 1-3 above if they're already done (re-verify quickly with `git status
+   --short` and `ls` on the 9 paths — they should already be gone; if any exist, delete them).
+2. Overwrite `state/worker_output.txt` per step 3 as before (short #246-specific summary).
+3. ALSO write `state/worker_output_246.txt` (the NUMBERED file, separate from the generic one)
+   containing a short summary PLUS this exact literal line (verbatim, no markdown heading, no
+   extra formatting):
+   `Changed files: state/worker_output.txt`
+4. Re-read both files immediately after writing to confirm the content and the exact
+   `Changed files:` line stuck.
+
+## Done when (updated pass #74)
+- All 9 named files confirmed deleted.
+- `src/utils/traits.ts` has no stray uncommitted diff.
+- `state/worker_output.txt` contains real #246-specific content.
+- `state/worker_output_246.txt` exists and contains a literal line starting with
+  `Changed files:` listing `state/worker_output.txt`.
+
+<!-- agent-planned -->

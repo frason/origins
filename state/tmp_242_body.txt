@@ -1,0 +1,25 @@
+depends_on: #244
+
+## Goal
+Write a integration test that drives the Phase 0 simulation-side modules (not the React UI) through the full vertical-slice sequence and asserts final state.
+
+## Context
+This is a split-out half of #232, which a worker previously failed to complete in one run (ran out of turns, produced no artifacts — see `state/verdict.txt` history for issue #232). All underlying modules already exist in `src/simulation/pivot/` from prior issues (#224–#231): scout/waypoint/battery/sync, economy (energy/biomass), crisis + Tier 1 response, harvester building lifecycle, checkpoint save/restore, equilibrium tracker. This issue is ONLY the test file — do not build any UI component.
+
+Read SPEC.md "Pivot: Crisis-Response Reframe" for the scope recap if needed, but the modules and their public APIs are the source of truth — inspect `src/simulation/pivot/` directly rather than re-deriving behavior from the spec.
+
+Sequenced behind #244 (fix for `npm test` hanging in vitest watch mode) so this issue's own "Done when" check of `npm test` doesn't hit the same hang that stalled this issue's prior karen-review attempts for 8+ hours.
+
+## Done when
+- New file `src/tests/pivot/phase0Integration.test.ts` scripts, against the real modules (no mocks of the pivot logic itself):
+  1. Build a harvester building.
+  2. Advance ticks until biomass accrues from a real tile's `producerBiomass` being drawn down.
+  3. Trigger a crisis (toxicity spike) and resolve it with a Tier 1 response, asserting Energy is spent and the tile's toxicity is reduced.
+  4. Save a checkpoint, then restore it, and assert the restored state matches (energy, biomass, scout state, building state, crisis/command log, equilibrium streak).
+- `npm test` passes, including this new test file and all pre-existing suites (no regressions).
+- `npm run build` passes with no new TypeScript errors.
+
+## Output
+Write a concise summary (≤40 lines) to state/worker_output.txt, including the exact `npm test` output/pass count for the new file and confirmation `npm run build` succeeded.
+
+<!-- agent-planned -->

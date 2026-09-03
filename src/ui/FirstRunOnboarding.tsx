@@ -32,17 +32,22 @@ export default function FirstRunOnboarding() {
     localStorage.setItem('origins_onboarding_dismissed', 'true');
     setDismissed(true);
 
-    // Initialize observatory state for guided play loop
+    // Update observatory state to mark onboarding complete
+    // This ensures the guided play loop can start
     if (observatoryState === null) {
+      // If state hasn't been loaded yet, create fresh
       const fresh = createFreshObservatoryState();
       const onboarded = dismissOnboarding(fresh);
       setObservatoryState(onboarded);
       saveObservatoryState(onboarded);
     } else if (!observatoryState.isOnboarded) {
+      // If state was loaded but not onboarded, update it
       const onboarded = dismissOnboarding(observatoryState);
       setObservatoryState(onboarded);
       saveObservatoryState(onboarded);
     }
+    // If observatoryState.isOnboarded is already true, do nothing
+    // (guide has already started or this is a resumption)
 
     setRunning(true);
   };

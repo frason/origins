@@ -64,6 +64,10 @@ import WatchesPanel from './ui/WatchesPanel';
 import AlertBanner from './ui/AlertBanner';
 import CompareAlert from './ui/CompareAlert';
 import type { EcosystemAlert } from './simulation/watches';
+import { shouldAutoPauseForObservation, loadObservatoryState } from './ui/observatoryObjectives';
+import FieldJournal from './ui/FieldJournal';
+import { createFieldJournal } from './simulation/fieldJournal';
+import { recordJournalEntries, createLineageTracker } from './simulation/fieldJournalIntegration';
 
 function browserStorage(): Storage | null {
   return typeof window === 'undefined' ? null : window.localStorage;
@@ -77,8 +81,19 @@ export default function App() {
   }
 
   const engineRef = useRef<EngineState | null>(null);
+  const previousEngineRef = useRef<EngineState | null>(null);
   const recipeReplayRef = useRef<RecipeReplaySession | null>(null);
   const checkpointsRef = useRef<SimulationCheckpoint<EngineState>[]>([]);
+  const lineageTrackerRef = useRef(createLineageTracker());
+  const autoPauseStateRef = useRef<{
+    previousTick: number;
+    previousCreatureCount: number;
+    previousDeathCount: number;
+  }>({
+    previousTick: 0,
+    previousCreatureCount: 0,
+    previousDeathCount: 0,
+  });
   const isRunning = useStore((s) => s.isRunning);
   const speed = useStore((s) => s.speed);
   const tick = useStore((s) => s.tick);
@@ -113,6 +128,20 @@ export default function App() {
       store.setRunning(false);
     }
 
+    // Record journal entries from new events
+    if (store.fieldJournal) {
+      const updatedJournal = recordJournalEntries(
+        store.fieldJournal,
+        previousEngineRef.current,
+        engine,
+        lineageTrackerRef.current
+      );
+      if (updatedJournal !== store.fieldJournal) {
+        store.setFieldJournal(updatedJournal);
+      }
+    }
+    previousEngineRef.current = engine;
+
     // Evaluate watches and generate alerts
     const { updatedWatches, newAlerts } = evaluateWatchesForTick(
       store.ecosystemWatches,
@@ -139,6 +168,34 @@ export default function App() {
       saveBrowserWorld(storage, engine);
       saveWatches(storage, store.ecosystemWatches);
     }
+
+    // Check if we should auto-pause for observatory observation
+    // Only auto-pause if player is on-boarded and in the middle of objectives
+    const observatoryState = store.observatoryState;
+    if (observatoryState && observatoryState.isOnboarded && observatoryState.currentObjective) {
+      const creatureCount = engine.creatures.filter((c) => c.lifecycleState === 'alive').length;
+      const deathCount = engine.events.filter((e) => e.type === 'death').length;
+
+      if (
+        shouldAutoPauseForObservation(
+          engine.tick,
+          autoPauseStateRef.current.previousTick,
+          creatureCount,
+          autoPauseStateRef.current.previousCreatureCount,
+          deathCount,
+          autoPauseStateRef.current.previousDeathCount
+        )
+      ) {
+        store.setRunning(false);
+      }
+
+      // Update tracking state for next tick
+      autoPauseStateRef.current = {
+        previousTick: engine.tick,
+        previousCreatureCount: creatureCount,
+        previousDeathCount: deathCount,
+      };
+    }
   }, []);
 
   const recordCheckpoint = useCallback((engine: EngineState) => {
@@ -156,8 +213,17 @@ export default function App() {
     recipeReplayRef.current = null;
     setReplayActive(false);
     setReplayStatus(null);
+    autoPauseStateRef.current = {
+      previousTick: 0,
+      previousCreatureCount: 0,
+      previousDeathCount: 0,
+    };
     const engine = buildDemoEngine(worldSeed, store.constants);
     engineRef.current = engine;
+    previousEngineRef.current = null;
+    lineageTrackerRef.current = createLineageTracker();
+    const newJournal = createFieldJournal(worldSeed);
+    store.setFieldJournal(newJournal);
     checkpointsRef.current = [];
     recordCheckpoint(engine);
     publish(engine);
@@ -171,8 +237,17 @@ export default function App() {
     recipeReplayRef.current = null;
     setReplayActive(false);
     setReplayStatus(null);
+    autoPauseStateRef.current = {
+      previousTick: 0,
+      previousCreatureCount: 0,
+      previousDeathCount: 0,
+    };
     const engine = buildDemoEngine(seed, store.constants);
     engineRef.current = engine;
+    previousEngineRef.current = null;
+    lineageTrackerRef.current = createLineageTracker();
+    const newJournal = createFieldJournal(seed);
+    store.setFieldJournal(newJournal);
     checkpointsRef.current = [];
     recordCheckpoint(engine);
     setWorldSeed(seed);
@@ -217,6 +292,10 @@ export default function App() {
       store.clearFollowedLineages();
       store.updateConstants(engine.constants);
       engineRef.current = engine;
+      lineageTrackerRef.current = createLineageTracker();
+      // Initialize field journal for restored world
+      const newJournal = createFieldJournal(engine.seed);
+      store.setFieldJournal(newJournal);
       checkpointsRef.current = [];
       recordCheckpoint(engine);
       setWorldSeed(engine.seed);
@@ -247,6 +326,10 @@ export default function App() {
     setReplayActive(false);
     setReplayStatus(null);
     engineRef.current = engine;
+    lineageTrackerRef.current = createLineageTracker();
+    // Initialize field journal for restored world
+    const newJournal = createFieldJournal(engine.seed);
+    store.setFieldJournal(newJournal);
     checkpointsRef.current = [];
     recordCheckpoint(engine);
     setWorldSeed(engine.seed);
@@ -303,12 +386,31 @@ export default function App() {
     recipeReplayRef.current = null;
     setReplayActive(false);
     setReplayStatus(null);
+    autoPauseStateRef.current = {
+      previousTick: 0,
+      previousCreatureCount: 0,
+      previousDeathCount: 0,
+    };
     checkpointsRef.current = restored.checkpoints;
     setCheckpointTicks(restored.checkpoints.map((checkpoint) => checkpoint.tick));
     engineRef.current = restored.state;
     publish(restored.state);
     return null;
   }, [publish]);
+
+  const navigateToJournalTick = useCallback((tick: number): void => {
+    // Find the closest checkpoint at or before the target tick
+    const validCheckpoints = checkpointTicks.filter((t) => t <= tick).sort((a, b) => b - a);
+    if (validCheckpoints.length === 0) {
+      // No checkpoint before this tick, try to go to first checkpoint
+      if (checkpointTicks.length > 0) {
+        restoreToTick(checkpointTicks[0]);
+      }
+      return;
+    }
+    const closestTick = validCheckpoints[0];
+    restoreToTick(closestTick);
+  }, [checkpointTicks, restoreToTick]);
 
   const replayFromTick = useCallback((restoreTick: number): string | null => {
     const error = restoreToTick(restoreTick);
@@ -325,6 +427,10 @@ export default function App() {
       store.clearFollowedLineages();
       store.updateConstants(session.constants);
       engineRef.current = session.state;
+      lineageTrackerRef.current = createLineageTracker();
+      // Initialize field journal for replay
+      const newJournal = createFieldJournal(recipe.seed);
+      store.setFieldJournal(newJournal);
       checkpointsRef.current = [];
       recordCheckpoint(session.state);
       recipeReplayRef.current = session;
@@ -357,6 +463,13 @@ export default function App() {
         store.updateConstants(restored.constants);
         setWorldSeed(restored.seed);
       }
+      // Initialize field journal for this world
+      const newJournal = createFieldJournal(engine.seed);
+      store.setFieldJournal(newJournal);
+      lineageTrackerRef.current = createLineageTracker();
+      // Load observatory state from storage (first-run objectives progress)
+      const loadedObservatoryState = loadObservatoryState();
+      store.setObservatoryState(loadedObservatoryState);
       // Load watches from storage
       if (storage) {
         const loadedWatches = loadWatches(storage);
@@ -529,6 +642,7 @@ export default function App() {
             {settingsTab === 'remember' && (
               <>
                 <FollowedLineageNotices />
+                <FieldJournal onNavigateToTick={navigateToJournalTick} />
                 <SpeciesPanel />
                 <LineageHistory />
               </>

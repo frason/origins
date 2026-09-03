@@ -1,0 +1,40 @@
+depends_on: #254
+
+## Goal
+Fix the last two specific gaps from karen's most recent FAILED verdict on this issue. The
+manual-save feature itself (button, overwrite-picker, wiring to `manualSave`/
+`manualSaveWithOverwrite`) is already implemented and confirmed working in
+`src/prototype/Phase0Harness.tsx` — **do not rewrite it**. This is a narrow, surgical fix pass.
+
+## Context
+Karen's last verdict (full text also in the issue comment history) found exactly two remaining
+problems, nothing else:
+
+1. **Test selector collision** in `src/tests/Phase0HarnessManualSaveUI.test.tsx`, the test named
+   "should show overwrite picker when manual save pool is full" (around line 115). It currently
+   calls `getByText(/Choose a slot to overwrite/i)`, which throws because that text appears
+   twice on screen: once in a status banner ("Manual save pool is full. Choose a slot to
+   overwrite.") and once in the modal (`<p>Choose a slot to overwrite:</p>`). Fix: change that
+   one query to `getAllByText(/Choose a slot to overwrite/i)[0]` (or a more specific query
+   scoped to the modal container) so it resolves to a single element.
+2. **Stale `state/worker_output.txt`** — the file currently on disk describes a deprecated test
+   file (`Phase0ManualSave.test.tsx`, an 8-line stub with zero tests) instead of the real
+   surviving test files (`Phase0HarnessManualSave.test.ts` and
+   `Phase0HarnessManualSaveUI.test.tsx`). It must be overwritten with an accurate summary.
+
+Do not touch `src/state/saveSlotManager.ts` or `src/tests/saveSlotSystem.test.ts` — both are
+correct and out of scope.
+
+## Done when
+- `npx vitest run src/tests/Phase0HarnessManualSaveUI.test.tsx` passes with all tests green (no
+  `getByText` multiple-match error).
+- `npx vitest run src/tests/Phase0HarnessManualSave.test.ts src/tests/Phase0HarnessManualSaveUI.test.tsx src/tests/saveSlotSystem.test.ts` all pass.
+- `npm run build` succeeds with zero TS errors.
+- `state/worker_output.txt` is overwritten (not appended) with a summary naming the real test
+  files above and real pass counts, written as the LAST step, then re-read from disk to confirm
+  it stuck before finishing (this file is shared with concurrent runs on other issues).
+
+## Output
+Write a concise summary (≤40 lines) to state/worker_output.txt.
+
+<!-- agent-planned -->

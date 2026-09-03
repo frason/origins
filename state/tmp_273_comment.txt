@@ -1,0 +1,40 @@
+Dug into the actual shared working tree directly (this cron repo is a git worktree of
+`frason/origins` checked out on `main` — the same directory every worker/karen run operates in).
+Confirmed root cause, and it's more widespread than just #160/#161:
+
+**Evidence**
+- `git status --short` right now: **93 uncommitted/untracked paths** — spanning #163 (Living
+  World core), #160 (overlays/legends), #161 (semantic zoom), #165 (adaptation evidence,
+  currently in agent-review), #270/#271 (sound ecology), plus assorted leftovers from older
+  closed issues.
+- `state/verdict.txt` (karen's latest run, this time against #163) shows the identical pattern
+  as #160/#161: 9th round, functional criteria pass (14/14, 24/24, 13/13, 2/2 across 4 test
+  suites), sole FAIL is "nothing committed."
+- `schedule.json`: `"worker_model": "haiku"`, `"max_turns": 25`. These issues each require
+  touching 6-12 files (new components, new modules, several test files, CSS, docs) plus running
+  `tsc`/`npm test`/`npm run build` to verify before committing. That easily consumes 25 turns on
+  a Haiku worker before it ever reaches the final `git add && git commit` step — which matches
+  the failure signature exactly: real, working, tested code sitting in the tree, zero commits,
+  every single time, regardless of how explicit the issue brief's commit instructions are.
+
+**Conclusion:** not a git identity/permissions/sandbox bug. It's task sizing vs. worker turn
+budget — large multi-file issues dispatched to a 25-turn Haiku worker reliably run out of turns
+before the commit step, no matter what the brief says.
+
+**What I've already done (no client input needed for this part):**
+- Narrowed #163 to a commit-only checkpoint (explicit file list, explicit "commit first, polish
+  never" instruction, gated behind #269/#272 so `tsc` is clean first).
+- Rewrote #161 and #160 the same way — small named remaining gaps + commit, sequenced #163 ->
+  #161 -> #160 so each worker extends an already-committed baseline instead of the full 93-path
+  pile, and dropped their dependency on this issue so they're not stuck waiting on it.
+- Filed #275 to audit/reconcile the remaining unclaimed leftover files.
+- Going forward I'll keep issues sized so a single worker run's file/verification footprint
+  fits comfortably inside the turn budget, and add "commit as your first action once green, not
+  your last" to any issue that touches more than ~3-4 files.
+
+**What I still need from you:** whether to raise `max_turns` (currently 25) and/or use a
+stronger model than Haiku for issues that legitimately can't be split smaller (e.g. anything
+requiring a full `npm run build` + multi-suite test pass before a meaningful commit is even
+possible). That's a cost/budget tradeoff (`soft_budget_usd_per_5h` is currently 7.5) I'd rather
+you set than guess at. Not blocking anything in the meantime — the mitigations above are already
+live on the board.

@@ -1,0 +1,20 @@
+depends_on: #242, #243, #244
+
+## Goal
+Finalize the Phase 0 vertical-slice integration: confirm the scripted integration test (#242) and the debug harness UI (#243) both exist, actually wire the same underlying modules consistently, and the whole thing builds/tests cleanly together.
+
+## Context
+This issue was originally a single large integration task; a worker ran out of turns on it and produced no artifacts (see `state/verdict.txt` history for this issue's prior FAILED verdict). It has been split into #242 (integration test only) and #243 (debug UI only), both now closed/merged. This issue is the final consolidation step, not new feature work.
+
+Also depends on #244 (fix for `npm test` hanging in watch mode) — this issue's "Done when" literally requires `npm test` to pass/terminate, so it must land after that fix to avoid the same turn-exhaustion failure mode diagnosed on #242.
+
+## Done when
+- `src/tests/pivot/phase0Integration.test.ts` (from #242) and `src/prototype/Phase0Harness.tsx` (from #243) both exist and reference the same `src/simulation/pivot/` modules (no drift/duplication between them).
+- `npm test` passes in full (no regressions).
+- `npm run build` passes with no TypeScript errors.
+- `state/worker_output.txt` is rewritten to describe the full Phase 0 slice end-to-end: how to reach the harness locally, and confirmation the integration test's scripted sequence (build → biomass accrual → crisis → Tier 1 → checkpoint save/restore) passes.
+
+## Output
+Write a concise summary (≤40 lines) to state/worker_output.txt per the "Done when" above.
+
+<!-- agent-planned -->

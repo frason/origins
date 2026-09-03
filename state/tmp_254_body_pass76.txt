@@ -1,0 +1,56 @@
+depends_on: #248
+
+## Goal
+Build the real save-slot system per the pivot plan, using the storage backend/format decided
+in #248's research.
+
+## Context
+- Read #248's `state/worker_output.txt` recommendation (storage backend, versioned format,
+  compression decision) before starting — this issue implements that recommendation, it does
+  not re-decide it.
+- Requirements: `/Users/frason/.claude/plans/swift-hopping-codd.md` → "Determinism & Save
+  System". 8 rotating auto-save slots (oldest evicted first), fired at start/finish of every
+  crisis-response scenario; 2 fixed manual slots (separate pool); before an eviction that would
+  actually happen, a one-time non-blocking banner naming the specific save at risk with a
+  one-click "protect this save" action that promotes it into the manual pool; when both manual
+  slots are full and the player saves manually, they must pick an existing manual slot to
+  overwrite; no silent loss ever; ambient slot counter always visible; no blocking modals.
+- Bare functional UI is fine (Phase D does the real HUD polish).
+
+## Done when
+- Auto-save fires at scenario start/finish, rotates through 8 slots, evicts oldest when full.
+- Manual save has its own 2 fixed slots with an overwrite-picker when both are full.
+- The pre-eviction warning banner and "protect this save" flow work and are tested.
+- Save/load round-trips full Phase 0 + A state correctly (reuse/extend existing
+  `captureCheckpoint`/`restoreCheckpoint` round-trip tests as the model).
+- `npm run build` and relevant tests pass.
+
+## Update (pass #76) — 1st worker attempt: 4/8 items already PASS, 4 concrete gaps remain
+Karen's verdict (2026-08-20T17:23:40Z): the core save-slot logic in `src/state/
+saveSlotManager.ts` is solid and correctly tested — auto-save 8-slot rotation/eviction, manual
+2-slot overwrite-picker, and checkpoint round-trip all PASS via `npx vitest run src/tests/
+saveSlotSystem.test.ts` (19/19 green). Do NOT rewrite `saveSlotManager.ts`'s core logic — it's
+correct. Four concrete gaps remain, in priority order:
+
+1. **Fix the build break** (hard blocker): `npm run build` currently fails with 2 `tsc` errors
+   in `src/tests/saveSlotSystem.test.ts` — line 54's `constants` object is missing ~34 required
+   `SimulationConstants` fields (give it a complete/valid object, e.g. reuse an existing test
+   fixture's full constants), and line 263 accesses `creatures[0].id` on a value typed `object`
+   (fix the type/cast). Fix both so `npm run build` passes clean.
+2. **Wire the backend functions to real UI**, not just unit tests: add a bare banner component
+   that reads `pendingEviction` from the Zustand store and offers a one-click "protect this
+   save" button calling `protectAutoSave`; add a bare ambient always-visible slot-counter
+   component reading `saveSlotStatus`. Wire `setPendingEviction`/`updateSaveSlotStatus` to
+   actually be called (e.g. after every `autoSave`/`manualSave` call) — currently nothing calls
+   them outside the manager/test files, and no banner/counter component exists anywhere in
+   `src` (confirmed via `find`/`grep`, zero hits).
+3. **Wire `autoSave()` into the real crisis-response scenario lifecycle** — call it at scenario
+   start and finish (e.g. from `src/simulation/pivot/crisis.ts` or wherever scenarios begin/end).
+   Currently `autoSave` is never called anywhere except the manager file and its own test.
+4. Write a real, #254-specific summary to `state/worker_output.txt` (the last attempt left the
+   dispatcher's placeholder in place and never wrote it).
+
+## Output
+Write a concise summary (≤40 lines) to state/worker_output.txt.
+
+<!-- agent-planned -->

@@ -1,0 +1,60 @@
+depends_on: #248
+
+## Goal
+Land the auto-save full-state fix for #254 by fixing the narrow remaining blocker: 17
+TypeScript compile errors in the round-trip test fixture. The functional wiring and the
+round-trip test **already exist correctly** in the working tree — this issue is now a
+mechanical type-fixing + cleanup + commit task, not a design task.
+
+## Context
+Prior worker attempts already did the hard part (confirmed live, 2026-08-24):
+- `serializePhase0HarnessToPersistedState` (`src/prototype/Phase0Harness.tsx:109-128`) now
+  delegates to `serializePhase0State` and is called from the real auto-save path inside
+  `tickSimulation` (`Phase0Harness.tsx:184-187`, via `autoSaveAndUpdateStore`) — confirmed wired,
+  not dead code.
+- `src/tests/saveSlotSystem.test.ts` (lines ~378-612) already has round-trip tests that save a
+  full phase0 payload (ledger, scout, buildings, crises, equilibrium, worldGrid) and assert every
+  field survives — `npx vitest run src/tests/saveSlotSystem.test.ts` passes 21/21.
+- **The only real blocker:** `npm run build` fails with 17 TS errors, all inside
+  `src/tests/saveSlotSystem.test.ts`, because the test's mock fixtures don't match the real
+  types. Live error list (re-run `npm run build` to reconfirm current line numbers, they may
+  have shifted slightly):
+  - `line 422`: `Type 'string' is not assignable to type 'Discovery'` — fixture uses a raw
+    string where a `Discovery` value is expected.
+  - `line 431`: `Object literal may only specify known properties, and 'constructedAt' does not
+    exist in type 'Building'` — remove/rename the field to match the real `Building` shape.
+  - `line 439`: `Type '"toxicity"' is not assignable to type '"toxicity_spike"'` — the crisis
+    type literal must be `'toxicity_spike'` (see `src/simulation/pivot/crisis.ts:41`).
+  - `line 461`, `595`: `'allConditionsMet' does not exist in type 'EquilibriumTrackerState'` —
+    check the real `EquilibriumTrackerState`/`EquilibriumTracker` shape in
+    `src/simulation/pivot/equilibrium.ts` (note: there are two different `Building` interfaces
+    in the codebase — `src/simulation/pivot/building.ts:29` and
+    `src/simulation/pivot/equilibrium.ts:23` — make sure the test imports/matches the one
+    `Phase0State`/`enginePersistence.ts` actually uses).
+  - `lines 499, 510, 528-531`: `'phase0.buildings'/'phase0.crises'/'phase0.worldGrid' possibly
+    'undefined'` plus `Property 'width'/'height'/'cells' does not exist on type 'object'` — these
+    fields are optional on `Phase0State`; add non-null assertions or narrowing (`if
+    (!phase0.worldGrid) throw ...` or `phase0.worldGrid!.width`) at each access.
+  - `line 573`: `Type '"exploring"' is not assignable to type '"active" | "stranded"'` — fix the
+    scout status literal to a valid value.
+  - `lines 608-610`: `Object is possibly 'undefined'` — same narrowing pattern as above.
+- Two prior attempts also left unrelated stray edits in the working tree (`state/STATUS.md`,
+  generic `state/worker_output.txt`) — do not touch those files in this attempt; only touch
+  `src/tests/saveSlotSystem.test.ts` (and, if truly necessary, the source files it tests) to fix
+  the type errors.
+- Prior attempts also never committed and never wrote the required per-issue output file — both
+  are required this time.
+
+## Done when
+- `npm run build` passes with **zero** TypeScript errors (`tsc && vite build` clean).
+- `npx vitest run src/tests/saveSlotSystem.test.ts` still passes (don't break the round-trip
+  assertions while fixing types).
+- The fix is committed to git (not left as an uncommitted working-tree diff).
+- `state/worker_output_254.txt` (per-issue file, not the generic `state/worker_output.txt`)
+  contains a real, #254-specific summary with a `Changed files:` manifest line.
+
+## Output
+Write a concise summary (≤40 lines) to state/worker_output_254.txt (the dispatcher creates this
+per-issue path automatically — do not use the generic state/worker_output.txt).
+
+<!-- agent-planned -->

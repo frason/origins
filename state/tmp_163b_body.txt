@@ -1,0 +1,29 @@
+depends_on: #163
+
+## Goal
+Make the already-defined `show2dView`/`setShow2dView` state in `src/state/store.ts` actually
+reachable, so the 2D map works as a real synchronized navigation/accessibility fallback to the
+3D Living World view (the original requirement in #163).
+
+## Context
+- `src/state/store.ts` defines `show2dView`/`setShow2dView` (default `false`) but nothing reads
+  it: `grep -n "show2dView" src/App.tsx src/ui/*.tsx` currently returns zero matches.
+- `.app-shell__world` (`src/styles/app-shell.css:46-57`) is plain block flow with
+  `overflow: hidden`; `.live-three-world-view` and `.world-view` both compute `height: 100%`
+  (`src/styles/live-three-world-view.css:7-9`, `src/styles/world-view.css:1-9`), so the 3D view
+  always wins and the 2D view is invisible underneath it even when mounted.
+- #163 (must be closed/committed before this starts) already lands the working 3D mount,
+  selection sync, and determinism tests — do not touch that logic, only add the toggle.
+
+## Done when
+- A visible, reachable UI control (button and/or keyboard shortcut) toggles `show2dView`.
+- When `show2dView` is true, the 2D `WorldView` is genuinely visible (not clipped) and the 3D
+  view is hidden, or vice versa — pick one clean swap approach, not simultaneous stacking.
+- Add or extend a test asserting the toggle control exists and actually changes what's visible.
+- `npx tsc --noEmit -p .` and `npm test` pass with zero errors.
+- Commit as soon as tests pass, not at the end of your turn budget.
+
+## Output
+Write a concise summary (<=40 lines) to state/worker_output.txt.
+
+<!-- agent-planned -->

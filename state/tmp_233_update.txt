@@ -1,0 +1,13 @@
+
+---
+**Update (lead pass #52, post karen FAILED verdict at 2026-08-19T14:15Z):** karen finally produced a real verdict (the pass #51 scoped-test-command fix worked — no more MAX-TURNS-EXHAUSTED). 5 of 8 checklist items PASS outright. The remaining 3 FAILs are narrow and the code fix for all 3 already exists **uncommitted in the working tree** (interventionCommand.ts, checkpointTimeline.ts, equilibrium.ts, Phase0Harness.tsx) — do NOT revert or redo that diff, it is correct. What's missing is committed **automated test coverage** proving it:
+
+1. A checkpoint round-trip test (save → reload) asserting a tile's toxicity/producerBiomass survive intact (currently no committed test exercises World grid persistence — only ledger/scout/buildings/crises are covered).
+2. A test asserting an out-of-bounds world-coordinate InterventionCommand is rejected by interventionCommand.ts and never appended to the command log (currently the only committed test coverage is for unwhitelisted-parameter rejection, not OOB coordinates).
+3. A test asserting EquilibriumTracker's streak survives a getState()/setState() round-trip through the checkpoint payload (currently no committed test exercises this; the class has the persistence methods in the uncommitted diff but nothing calls or tests them yet).
+
+Add these 3 tests (extend checkpointTimeline.test.ts / phase0Integration.test.ts / a new interventionCommand.test.ts as appropriate), confirm they pass alongside the existing scoped-test command in the Done-when checklist above, and leave the result for karen to re-verify. You do not need to git commit anything yourself — the dispatcher commits automatically the moment karen PASSes.
+
+Optional non-blocking polish noted by karen (fix only if time remains, don't let it block the 3 items above): Phase0Harness.tsx hardcodes BUBBLE_RADIUS=5 instead of the spec's 15, and 3 of its action handlers (setDormantAction, recommissionAction, respondToCrisisAction) return the same prev object reference after mutating nested state, so React won't visibly re-render on click even though the underlying mutation is correct.
+
+<!-- agent-planned -->

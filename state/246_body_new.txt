@@ -1,0 +1,118 @@
+## Goal
+Find and fix why the full `npm test` (vitest run, ~118 files / ~990 tests) intermittently
+hangs or takes 20+ minutes with zero output, even though `npm run build` is clean and an
+isolated subset run finishes in seconds.
+
+## Context
+- `package.json`'s `test` script is already `vitest run` (not watch mode) — the earlier
+  watch-mode-never-exits hang was already fixed in issue #244 (closed). This is a *different*,
+  still-unresolved slowness/hang affecting a full run of the whole suite.
+- This is currently blocking issue #233 ("Verify: Phase 0 vertical slice") — karen's
+  verification requires a full `npm test` pass with no regressions, and has repeatedly hit this
+  hang (20+ min, zero stdout, process never completing) across multiple verification attempts.
+  One karen run explicitly logged: isolated re-run of just
+  `npx vitest run src/tests/pivot src/tests/scout.test.ts src/tests/checkpointTimeline.test.ts`
+  passed cleanly (279/279 tests, ~3s), but the full `npm test` did not complete in 20+ minutes —
+  see issue #233's comment history for the full verdict text.
+- Do NOT modify files under `src/simulation/pivot/`, `src/prototype/Phase0Harness.tsx`, or
+  `src/simulation/checkpointTimeline.ts` (source files) — there are unrelated uncommitted
+  changes to those files from other in-flight work; editing them risks merge conflicts. If your
+  fix requires touching tests for those areas specifically, check `git diff` first and only add
+  new content, don't overwrite unrelated hunks.
+- Suspect a hanging or pathologically slow test *outside* the `src/tests/pivot/` directory
+  (since isolated pivot-only runs are fast). Bisect by timing subsets of `src/tests/`, e.g.
+  `npx vitest run <dir-or-file>` on a few directories/files at a time, to isolate the culprit.
+- A named per-file timing breakdown from karen's most recent live repro (6+ min in, only 63/119
+  files done) already flagged several severe outliers worth starting with:
+  `src/tests/biomassDiagnostics.test.ts` (37.7s), `src/tests/diagnosticBundle.test.ts` (19.9s),
+  `src/tests/creatureSpatialIndex.test.ts` (13.4s), `src/tests/reproductionGovernance.test.ts`
+  (6.0s). None of these alone explain 20+ minutes, so there is likely at least one additional,
+  worse outlier or an outright hang further into the file list — keep bisecting past file 63.
+
+## Done when
+- Full `npm test` completes in well under 5 minutes with a clean pass/fail summary printed —
+  no indefinite hang, no silent zero-output stall.
+- All previously-passing tests still pass (no regressions from your fix).
+- If the root cause is a genuinely slow-but-correct test (not an actual hang), either speed it
+  up safely (e.g. fewer simulated ticks, fake timers) without weakening what it verifies, or
+  document clearly in your output why it can't be safely sped up.
+
+## Output
+Write a concise summary (≤40 lines) to `state/worker_output.txt`: which file(s)/test(s) were
+the hang/slowness culprit, what you changed, and confirmation of a timed full `npm test` run
+(include the wall-clock time it took). **This must be issue #246's own content — overwrite
+whatever is currently in that file, do not leave a stale summary from a previous issue in
+place.** The previous attempt at this issue produced no code change and left #232's old
+summary in `state/worker_output.txt` unchanged, which is why it failed verification — make
+sure this run actually edits real files and actually writes this file.
+
+---
+**Update (lead pass #54, post karen FAILED verdict at 2026-08-19T18:28Z):** Real, non-trivial speedups landed for the known outliers (biomassDiagnostics, biomassMetrics, creatureSpatialIndex, diagnosticBundle, toxicityCalibration, snapshot — 9 files, tick counts cut), but the full `npm test` STILL hangs with zero stdout after 7+ minutes. The real culprit has not been found yet. `state/worker_output.txt` was also NOT overwritten (still stale #232 content) — this is now the 2nd attempt to fail on that specific instruction; it is a hard requirement, not optional.
+
+**Switch strategy to binary search instead of one-file-at-a-time bisection** (faster to converge, and the previous approach stalled at file 63/119 without finding it):
+1. List the full test file set and split it roughly in half.
+2. Time each half separately with `vitest run` on each half's file list. Whichever half is slow/hangs, split THAT half in half again. Repeat until you isolate the single file (or small handful of files) responsible for the actual hang (not just slowness) — a genuine hang looks like a process that produces zero output and does not exit even after several minutes, which is qualitatively different from a merely-slow-but-finishing file.
+3. Once isolated, inspect that file for the classic culprits: an unresolved/unawaited promise, a real timer without fake timers, an infinite loop in a simulation tick count, or a test waiting on a network/IO call that never resolves in CI.
+4. Fix it, then time a full `npm test` run start-to-finish and paste the wall-clock time + final pass/fail summary into `state/worker_output.txt` — overwrite it completely, do not leave #232's or a prior issue's content there; this has now failed verification twice for this exact reason.
+
+---
+**Update (lead pass #60, post karen FAILED verdict at 2026-08-19T18:51Z):** Root cause is now
+confirmed, not just suspected: `src/tests/sustainability.test.ts` takes **~26.7 minutes**
+(1604489ms) when run as part of a full/half-suite batch, versus its own in-file
+`it(..., 120_000)` (2 min) timeout — this is the actual hang/slowdown, found via ad-hoc
+bisection (`bisect_tests.py`, `test_first_half_*.txt`, `test_second_half_*.txt`, all
+untracked scratch files from the previous run). **No code change exists yet** — the file itself,
+`src/simulation/sustainability.ts`, and `vitest.config.ts` are all untouched.
+
+Next worker, do exactly this (should close in one shot):
+1. Open `src/tests/sustainability.test.ts` and the simulation code path it exercises
+   (`src/simulation/sustainability.ts` — check for `TICK_HORIZON`/`LONG_RUN_HORIZON` or similar
+   tick-count constants). Reduce the tick count / horizon so the test finishes in well under its
+   own 120s timeout, without weakening the assertions it makes (don't loosen thresholds just to
+   pass faster — actually reduce simulated work).
+2. Re-run the bisection (reuse `bisect_tests.py`/half-files if still present, or redo it) to
+   confirm no second outlier remains once this fix lands — the previous run only got through
+   evaluating one bad half, never fully confirmed the rest of the suite is clean.
+3. Run `time npm test` start-to-finish and paste the actual wall-clock duration + final
+   pass/fail summary into `state/worker_output.txt`, overwriting the stale #232 content that
+   has now persisted there through 5 consecutive failed verification cycles on this issue —
+   this is a hard requirement, not optional.
+4. Delete or gitignore the scratch bisection artifacts (`bisect_tests.py`,
+   `test_first_half_*.txt`, `test_second_half_*.txt`, `src/tests/karen_verify_tmp.test.ts`,
+   `src/tests/pivot/__karen_oob_check.test.ts`, `state/karen_test_gate.sh`) so they stop
+   showing up as untracked cruft in every verification pass.
+5. Revert the unrelated `src/utils/traits.ts` `auditorySteal` addition (+3 lines) — it has
+   nothing to do with this issue and has been flagged as stray in the last two verdicts.
+
+---
+**Update (lead pass #62, post karen FAILED verdict at ~2026-08-19T21:45Z, uncommitted diff):**
+The `sustainability.test.ts` tick-horizon reduction (`TICK_HORIZON` 300→120, `LONG_RUN_HORIZON`
+500→150) is a real, correct edit but is **NOT sufficient** — karen reran `time npm test` live
+after the fix and it still hung with **zero stdout** for 5-10+ minutes (PID still running,
+rising CPU time). This means either (a) `sustainability.test.ts` still isn't fast enough even
+at the reduced horizon, or more likely (b) **there is a second, still-unfound outlier** beyond
+the one already fixed — pass #60's bisection only ever isolated and confirmed one bad half, per
+its own note in the update above. Do not assume this is a repeat of the same file; re-verify.
+
+Next worker, do exactly this:
+1. **Re-run the binary-search bisection from scratch** (reuse `bisect_tests.py` /
+   `test_first_half_*.txt` / `test_second_half_*.txt` if still present — they are, as untracked
+   files) but this time keep going past the first outlier found. With the `sustainability.ts`
+   fix in place, split the suite again and time each half; whichever half is still slow/hangs,
+   keep bisecting until a second culprit (or confirmation there isn't one and the fix just needs
+   to go further) is found.
+2. Fix whatever is found the same way as before: reduce simulated ticks/work, not assertions.
+3. Run `time npm test` **start to finish, to actual completion**, and paste the real wall-clock
+   duration + final pass/fail summary into `state/worker_output.txt` — this is now the 6th
+   consecutive failed verification cycle on this exact "did you actually overwrite
+   worker_output.txt with #246 content and confirm a completed run" requirement. Do not claim
+   success without a completed run in hand.
+4. Delete these 9 confirmed scratch/artifact files (not gitignore — just delete, they're
+   throwaway): `bisect_tests.py`, `test_first_half_0.txt`, `test_first_half_1.txt`,
+   `test_second_half_0.txt`, `test_second_half_1.txt`, `src/tests/karen_verify_tmp.test.ts`,
+   `src/tests/pivot/__karen_oob_check.test.ts`, `state/karen_test_gate.sh`, `tmp_karen_check.ts`
+   (confirmed present via `git status --short` this pass).
+5. Confirm `src/utils/traits.ts` has no stray diff (karen's pass-#61 verdict already found it
+   clean — just don't reintroduce anything there).
+
+<!-- agent-planned -->

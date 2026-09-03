@@ -1,0 +1,52 @@
+depends_on: #269, #272
+
+## Goal
+Audit and reconcile the remaining uncommitted files in the working tree that don't belong to
+any currently-open Three.js/evolution-truth/sound-ecology issue, so `git status --short` stops
+carrying stale leftovers that could confuse future workers.
+
+## Context
+- `git status --short` currently lists ~90+ paths. Most are already claimed by open issues
+  (#163, #161, #160, #165, #270/#271) — leave anything matching these alone, they are being
+  handled by those issues:
+  `src/App.tsx`, `src/prototype/*`, `src/ui/ThreeWorldLegend.*`, `src/ui/ThreeWorldOverlayControl.tsx`,
+  `src/ui/performanceBudgets.ts`, `src/ui/LiveThreeWorldView.tsx`, `src/styles/live-three-world-view.css`,
+  `src/simulation/adaptationMetrics.ts`, `src/simulation/traitFrequency.ts`,
+  `src/ui/AdaptationEvidence.tsx`, `src/simulation/soundEcology.ts`,
+  `src/tests/liveThreeWorldIntegration.test.tsx`, `src/tests/renderSnapshot.integration.test.tsx`,
+  `src/tests/semanticZoom*.test.ts`, `src/tests/densityGlyph.test.ts`,
+  `src/tests/threeWorldOverlay.test.tsx`, `src/tests/adaptationMetrics.test.ts`,
+  `src/tests/traitFrequency.test.ts`, `docs/THREEWORLD_*.md`.
+- Focus only on these unclaimed leftovers:
+  - `src/tests/Phase0HarnessManualSave.test.ts`, `Phase0HarnessManualSave.test.tsx`,
+    `Phase0HarnessManualSaveUI.test.tsx`, `Phase0ManualSave.test.tsx`,
+    `Phase0SaveLoadIntegration.test.ts` — the manual-save/load features these test
+    (#254/#257/#258) are already closed and committed. Check with `git log --oneline -- <path>`
+    whether an equivalent committed test already covers this behavior. If yes and these are
+    stale duplicates, delete them. If they cover something the committed version doesn't, commit
+    them standalone with a clear message.
+  - `src/simulation/pivot/spendTracker.ts` — check `git log --oneline -- src/simulation/pivot/`
+    for context (likely related to the closed Phase A LLM budget work, #251/#252). If it's dead/
+    unused (`grep -rn "spendTracker" src --include=*.ts --include=*.tsx` finds no importers
+    outside itself), delete it. If it's imported anywhere, commit it.
+  - Root-level scratch scripts: `jsdom_check_tmp.mjs`, `karen_perf_check.mjs`,
+    `profile-sustainability.ts` — if these are ad hoc debugging scratch with no references from
+    `package.json` scripts or source imports, delete them. If referenced, leave them and note why
+    in your summary.
+  - `src/state/store.ts`, `src/simulation/engine.ts` modified diffs, if any remain after #163/
+    #161/#160 land — re-check `git diff` for these two files once those issues are closed; if
+    the diff is now fully explained by committed feature work, this issue is a no-op for them.
+- When in doubt, do NOT delete — commit as-is or leave a note in worker_output.txt for lead
+  review instead of guessing.
+
+## Done when
+- Every file in the "unclaimed leftovers" list above is either committed (with a reason) or
+  deleted (with a reason), documented in worker_output.txt.
+- `npx tsc --noEmit -p .` and `npm test` still pass with zero errors.
+- `git status --short` no longer lists any of the unclaimed-leftover paths.
+
+## Output
+Write a concise summary (<=40 lines) to state/worker_output.txt, listing each file and what you
+did with it (commit vs delete vs left alone) and why.
+
+<!-- agent-planned -->

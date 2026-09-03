@@ -1,0 +1,190 @@
+/**
+ * Legend for Three.js Living World overlays.
+ * Explains each toggleable overlay and how to interpret the colors.
+ */
+
+.three-world-legend {
+  position: relative;
+  max-width: 28rem;
+}
+
+.three-world-legend.sim-panel {
+  padding: 0;
+  border: var(--sim-border-thin) solid #4f5d5d;
+  background: #192125;
+}
+
+.three-world-legend--open {
+  background: #1a2630;
+}
+
+.three-world-legend__toggle {
+  width: 100%;
+  padding: var(--sim-space-3);
+  border: none;
+  border-bottom: var(--sim-border-thin) solid #4f5d5d;
+  color: #eaf2ed;
+  background: #192125;
+  cursor: pointer;
+  font-size: var(--sim-font-size-md);
+  font-weight: 500;
+  text-align: left;
+  transition: background-color 150ms ease;
+}
+
+.three-world-legend__toggle:hover {
+  background: #203035;
+}
+
+.three-world-legend--open .three-world-legend__toggle {
+  border-bottom-color: #ffe08a;
+}
+
+.three-world-legend__details {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 200ms ease;
+}
+
+.three-world-legend--open .three-world-legend__details {
+  max-height: 120rem;
+}
+
+.three-world-legend__intro {
+  padding: var(--sim-space-3);
+  border-bottom: var(--sim-border-thin) solid #4f5d5d;
+  color: #aebdba;
+  font-size: var(--sim-font-size-sm);
+  line-height: 1.5;
+}
+
+.three-world-legend__intro p {
+  margin: 0;
+}
+
+.three-world-legend__controls {
+  padding: var(--sim-space-3);
+  border-bottom: var(--sim-border-thin) solid #4f5d5d;
+  display: grid;
+  gap: var(--sim-space-2);
+}
+
+.three-world-legend__overlay-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--sim-space-2);
+  cursor: pointer;
+  user-select: none;
+}
+
+.three-world-legend__overlay-toggle input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.three-world-legend__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  font-size: var(--sim-font-size-md);
+}
+
+.three-world-legend__label {
+  flex: 1;
+  color: #eaf2ed;
+  font-size: var(--sim-font-size-sm);
+}
+
+.three-world-legend__entries {
+  padding: var(--sim-space-3);
+  border-bottom: var(--sim-border-thin) solid #4f5d5d;
+  display: grid;
+  gap: var(--sim-space-3);
+}
+
+.three-world-legend__entry {
+  display: grid;
+  gap: var(--sim-space-2);
+}
+
+.three-world-legend__entry-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sim-space-2);
+}
+
+.three-world-legend__swatch {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: var(--sim-border-thin) solid #d9e4df;
+  border-radius: 2px;
+  flex-shrink: 0;
+  background: var(--swatch-color, #888888);
+}
+
+.three-world-legend__swatch[data-color] {
+  background: attr(data-color color, #888888);
+}
+
+/* Fallback for data-color attribute if attr() not supported */
+.three-world-legend__swatch[data-color="#b6d967"] {
+  background: #b6d967;
+}
+
+.three-world-legend__swatch[data-color="#ffed4e"] {
+  background: #ffed4e;
+}
+
+.three-world-legend__swatch[data-color="#dc5b43"] {
+  background: #dc5b43;
+}
+
+.three-world-legend__swatch[data-color="#ffd659"] {
+  background: #ffd659;
+}
+
+.three-world-legend__swatch[data-color="#8b6f55"] {
+  background: #8b6f55;
+}
+
+.three-world-legend__swatch[data-color="#70a85a"] {
+  background: #70a85a;
+}
+
+.three-world-legend__swatch[data-color="#ffffff"] {
+  background: #ffffff;
+}
+
+.three-world-legend__entry-title {
+  margin: 0;
+  color: #eaf2ed;
+  font-size: var(--sim-font-size-sm);
+  font-weight: 600;
+}
+
+.three-world-legend__entry-description {
+  margin: 0;
+  padding-left: 1.5rem;
+  color: #aebdba;
+  font-size: var(--sim-font-size-xs);
+  line-height: 1.4;
+}
+
+.three-world-legend__accessibility-note {
+  padding: var(--sim-space-3);
+  background: #11181b;
+  border-top: var(--sim-border-thin) solid #4f5d5d;
+  color: #aebdba;
+  font-size: var(--sim-font-size-xs);
+  line-height: 1.5;
+}
+
+.three-world-legend__accessibility-note p {
+  margin: 0;
+}
+
+.three-world-legend__accessibility-note strong {
+  color: #e4c979;
+}

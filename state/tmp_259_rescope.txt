@@ -1,0 +1,54 @@
+## Goal
+Stop `sustainability.test.ts` from silently taking ~20 minutes inside the default `npm test`
+run, without attempting to speed up the simulation engine itself (that's a much bigger, already
+separately-tracked project — see "Do NOT do" below).
+
+## Context
+- **Do NOT run the full `sustainability.test.ts` or `biomassCalibration.test.ts` suites as part
+  of this task** — that is very likely why prior attempts on this issue crashed / ran out of
+  turns (waiting ~20 minutes for a single command burns the whole attempt). The real-world
+  timings are already measured and confirmed (karen, 2026-08-21, two isolated `npx vitest run`
+  runs): `sustainability.test.ts` took 1,234,604ms and 1,236,034ms (~20.6 min) each time. Treat
+  these numbers as ground truth; do not re-run the file to "confirm" them.
+- **Root cause is understood, not mysterious:** `buildEvaluationWorld` in
+  `src/simulation/sustainability.ts` builds a 100×100 (10,000-cell) world, and
+  `evaluateSustainability` calls `tickEngine` up to `tickHorizon` times (100–120), with 4 presets
+  and 3 seeds run across the file's two `it()` blocks. The per-tick cost inside `tickEngine`
+  (creature perception/decision scanning) is the same cost profile already tracked as its own
+  epic — **"Engine scale" (#158, #173: DecisionIntent to avoid repeated perception/neighborhood
+  scans, #174/#175: subsystem streams + Web Worker ticking)**. Actually fixing that cost is a
+  multi-issue project already scoped and correctly parked in the backlog behind Phase A — **do
+  not attempt an engine perf fix here.**
+- `biomassCalibration.test.ts`'s `expect(elapsed).toBeLessThan(120_000)` assertion (line ~51)
+  already has an explanatory comment directly above it (lines ~47-49) about CPU contention with
+  concurrent probes, and karen confirmed it passes in isolation (64s, well under 120s) — this
+  file is very likely fine/flaky-only-under-load, not a real bug. Don't spend much effort here;
+  a one-line comment clarification is enough if anything.
+- `vitest.config.ts` currently has no `exclude` list — `"test": "vitest run"` in `package.json`
+  runs every test file, including this ~20-minute one, on every `npm test` invocation (used by
+  karen/dispatcher for verification on many unrelated issues too, so this slowness has a
+  systemic cost beyond just this one file).
+
+## Done when (pick this path — do not attempt an engine speed fix)
+1. `sustainability.test.ts` is excluded from the default `npm test` (`vitest run`) — e.g. add an
+   `exclude` entry in `vitest.config.ts` for this file (keep default excludes like
+   `node_modules` too), AND add a separate `npm` script (e.g. `"test:slow"`) that runs it
+   explicitly, so it's still runnable on demand.
+2. Inside `sustainability.test.ts`, correct the declared per-test timeouts (`30_000` /
+   `120_000`) to real measured values with headroom (e.g. ~25 minutes) and add a short comment
+   explaining why it's slow (grid size × tick horizon × per-tick creature scans) with a pointer
+   to `#158` (Engine scale epic) as the real long-term fix — this is defense-in-depth in case
+   someone runs it directly via `test:slow`.
+3. `biomassCalibration.test.ts` — leave functionally as-is; only touch it if the existing
+   contention comment genuinely needs a one-line clarification.
+4. `npm test` (default) no longer includes `sustainability.test.ts` — verify by running `npm
+   test -- --reporter=verbose 2>&1 | grep sustainability` and confirming no output (or by
+   checking vitest's file list), NOT by timing the whole suite.
+5. `state/worker_output_259.txt` (per-issue file) contains a real, #259-specific summary with a
+   `Changed files:` manifest line.
+
+## Output
+Write a concise summary (≤40 lines) to state/worker_output_259.txt (the dispatcher creates this
+per-issue path automatically — do not use the generic state/worker_output.txt).
+
+<!-- agent-planned -->

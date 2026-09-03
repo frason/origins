@@ -1,0 +1,52 @@
+---
+**Update (lead pass #71, post karen FAILED verdict at 2026-08-20T12:16:21Z, 8th consecutive
+failure on the same hard requirement):** The hang itself is fixed and confirmed twice now
+(248.04s, then 281.73s — both under the 5-min ceiling, though margin is shrinking; investigate
+why runtime crept up ~34s between attempts once other items below are fixed, but do not treat
+that alone as blocking). This attempt's real problem: `state/worker_output.txt` contained
+leftover content from a *different issue's* worker run (#252's InterventionCommand
+config-table work), not a missed write — meaning this worker's own run either crashed before
+its final write step or never actually executed the fix work, and karen caught it only via file
+content, not absence. Also two *new* real regressions surfaced this run that were not present in
+pass #69's data (`biomassDiagnostics.test.ts:79` — `firstStarvationTick` expected non-null,
+got null; `biomassMetrics.test.ts:165` — inline snapshot totally mismatched, ~599k vs ~326k
+totalBiomass) — likely fallout cascading from the same earlier tick-horizon/constant cuts as
+`sustainability.test.ts`, never fully re-validated. Do these steps in this exact order:
+
+1. **First, before touching any test file:** delete the 9 scratch/artifact files (still present
+   per `git status --short`): `bisect_tests.py`, `test_first_half_0.txt`,
+   `test_first_half_1.txt`, `test_second_half_0.txt`, `test_second_half_1.txt`,
+   `src/tests/karen_verify_tmp.test.ts`, `src/tests/pivot/__karen_oob_check.test.ts`,
+   `state/karen_test_gate.sh`, `tmp_karen_check.ts`. Two of these
+   (`karen_verify_tmp.test.ts`, `__karen_oob_check.test.ts`) are actually being picked up
+   and executed as real suite members — confirm `git status --short` shows none of the 9 left
+   before moving on.
+2. Fix `src/tests/sustainability.test.ts` line ~54/~93: the seed-diversity assertion still
+   references the pre-tick-horizon-reduction expectation (`toBeGreaterThanOrEqual(100)`, got
+   80). Make the literal consistent with the already-reduced `TICK_HORIZON`/
+   `LONG_RUN_HORIZON` constants — do not loosen any other threshold further.
+3. Investigate and fix `src/tests/biomassDiagnostics.test.ts:79` and
+   `src/tests/biomassMetrics.test.ts:165`. Both are almost certainly downstream of the same
+   tick-horizon/constant changes from earlier passes (pass #54) that were never re-validated
+   after later horizon edits — check whether the fix is updating stale expected values to match
+   current deterministic output (preferred, if the underlying sim behavior is correct) vs. a
+   real simulation bug (only if the numbers look genuinely wrong, e.g. negative biomass).
+4. Confirm `src/simulation/pivot/interventionCommand.ts` and its test file are untouched (karen
+   confirmed clean this cycle — leave them alone, that is issue #252's territory, not this
+   issue's).
+5. Run `time npm test` yourself, wait for it to actually finish (do not background it, do not
+   assume completion), read its final summary line, and confirm 0 failing tests.
+6. **Last step, only after #5 succeeds:** overwrite (do not append) `state/worker_output.txt`
+   with a plain-text summary containing: the confirmed real wall-clock time from your own run,
+   the exact final pass/fail counts, and one sentence per fix made above. If your run is
+   interrupted before reaching this step, do not leave stale content from a prior/different
+   issue in that file — write whatever partial status is true instead.
+
+This is the 8th consecutive miss on the worker-output-content requirement specifically; if this
+9th attempt also fails on that same point (wrong or missing content, not real test/hang
+failures), the next lead pass should stop editing this issue body further and flag it as a
+worker-harness execution problem (e.g. `state/worker_output.txt` not being reset/scoped
+per-issue between concurrent worker runs — #252 is running in parallel against the same file)
+rather than an instruction-clarity problem.
+
+<!-- agent-planned -->
