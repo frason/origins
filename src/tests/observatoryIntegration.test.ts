@@ -31,10 +31,10 @@ function mockSetItem(key: string, value: string) {
 describe('Observatory integration: persistence and resumption', () => {
   beforeEach(() => {
     mockStorage.clear();
-    (global as any).localStorage = {
+    globalThis.localStorage = {
       getItem: mockGetItem,
       setItem: mockSetItem,
-    };
+    } as Storage;
   });
 
   afterEach(() => {

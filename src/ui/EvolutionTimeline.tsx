@@ -1,38 +1,442 @@
+'use client';
+
+import { useState, useRef, useCallback } from 'react';
 import { useStore } from '../state/store';
 import { buildEvolutionTimeline } from './evolutionTimelineModel';
+import type { EventPin } from './evolutionTimelineModel';
+
+const CHART_PADDING = { top: 12, right: 40, bottom: 30, left: 50 };
+const CHART_WIDTH = 100 - CHART_PADDING.left - CHART_PADDING.right;
+const CHART_HEIGHT = 100 - CHART_PADDING.top - CHART_PADDING.bottom;
+
+type MetricType = 'population' | 'species' | 'lineages';
+type EventType = 'birth' | 'death' | 'extinction' | 'speciation' | 'intervention' | 'mutation';
+
+interface FilterState {
+  metrics: Set<MetricType>;
+  eventTypes: Set<EventType>;
+  speciesFilter: Set<string> | null;
+}
 
 export default function EvolutionTimeline() {
   const world = useStore((state) => state.worldState);
   const tick = useStore((state) => state.tick);
   const model = buildEvolutionTimeline(world?.history, world, tick);
+
+  // Filter state
+  const [filterState, setFilterState] = useState<FilterState>({
+    metrics: new Set(['population', 'species', 'lineages']),
+    eventTypes: new Set(['birth', 'extinction', 'speciation', 'intervention']),
+    speciesFilter: null,
+  });
+
+  const [hoveredEvent, setHoveredEvent] = useState<EventPin | null>(null);
+  const [zoomX, setZoomX] = useState(0);
+  const [zoomScale, setZoomScale] = useState(1);
+  const [panX, setPanX] = useState(0);
+  const [showFilters, setShowFilters] = useState(false);
+  const svgRef = useRef<SVGSVGElement>(null);
+
   if (!model) return null;
+
+  const toggleMetric = (metric: MetricType) => {
+    setFilterState((prev) => {
+      const newMetrics = new Set(prev.metrics);
+      newMetrics.has(metric) ? newMetrics.delete(metric) : newMetrics.add(metric);
+      return { ...prev, metrics: newMetrics };
+    });
+  };
+
+  const toggleEventType = (eventType: EventType) => {
+    setFilterState((prev) => {
+      const newEventTypes = new Set(prev.eventTypes);
+      newEventTypes.has(eventType) ? newEventTypes.delete(eventType) : newEventTypes.add(eventType);
+      return { ...prev, eventTypes: newEventTypes };
+    });
+  };
+
+  const toggleSpeciesFilter = (speciesId: string) => {
+    setFilterState((prev) => {
+      if (prev.speciesFilter?.has(speciesId)) {
+        const newFilter = new Set(prev.speciesFilter);
+        newFilter.delete(speciesId);
+        return { ...prev, speciesFilter: newFilter.size > 0 ? newFilter : null };
+      }
+      const newFilter = new Set(prev.speciesFilter ?? []);
+      newFilter.add(speciesId);
+      return { ...prev, speciesFilter: newFilter };
+    });
+  };
+
+  const filteredEventPins = model.eventPins.filter((pin) => {
+    if (!filterState.eventTypes.has(pin.type)) return false;
+    if (filterState.speciesFilter && pin.event.speciesId && !filterState.speciesFilter.has(pin.event.speciesId)) return false;
+    return true;
+  });
+
+  const handleWheel = useCallback((e: React.WheelEvent<SVGSVGElement>) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    const newScale = Math.max(1, zoomScale + (e.deltaY > 0 ? -0.1 : 0.1));
+    setZoomScale(newScale);
+  }, [zoomScale]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'ArrowLeft') setPanX((prev) => Math.max(-CHART_WIDTH * (zoomScale - 1), prev - 5));
+    if (e.key === 'ArrowRight') setPanX((prev) => Math.min(0, prev + 5));
+    if (e.key === '+' || e.key === '=') setZoomScale((prev) => Math.min(3, prev + 0.1));
+    if (e.key === '-') setZoomScale((prev) => Math.max(1, prev - 0.1));
+    if (e.key === '0') {
+      setZoomScale(1);
+      setPanX(0);
+    }
+  };
+
+  const isZoomed = zoomScale > 1.05;
+  const transformedPolyline = (polylineStr: string) => {
+    const points = polylineStr.split(' ').map((p) => {
+      const [x, y] = p.split(',').map(Number);
+      const transformedX = CHART_PADDING.left + (x / 100) * CHART_WIDTH;
+      return `${transformedX},${y}`;
+    });
+    return points.join(' ');
+  };
 
   return (
     <details open style={{ border: '1px solid #384348', borderRadius: 7, padding: '0.55rem', marginBottom: '0.7rem' }}>
       <summary style={{ cursor: 'pointer', color: '#b8ccd4', fontWeight: 600 }}>
-        Evolution over time
+        Observatory: Evolution Timeline
       </summary>
-      <svg
-        viewBox="0 0 100 100"
-        role="img"
-        aria-labelledby="evolution-chart-title evolution-chart-description"
-        style={{ display: 'block', width: '100%', height: 'clamp(90px, 20vw, 145px)', marginTop: '0.4rem', background: '#191d1f', borderRadius: 5 }}
-      >
-        <title id="evolution-chart-title">Population and diversity timeline</title>
-        <desc id="evolution-chart-description">{model.description}</desc>
-        <line x1="0" y1="92" x2="100" y2="92" stroke="#41484b" strokeWidth="0.7" />
-        <polyline points={model.populationPolyline} fill="none" stroke="var(--sim-color-screen-positive-soft)" strokeWidth="1.8" vectorEffect="non-scaling-stroke" />
-        <polyline points={model.speciesPolyline} fill="none" stroke="#d5b96f" strokeWidth="1.3" vectorEffect="non-scaling-stroke" />
-        <polyline points={model.lineagePolyline} fill="none" stroke="#ad91d5" strokeWidth="1.3" vectorEffect="non-scaling-stroke" />
-      </svg>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem', marginTop: '0.35rem', color: 'var(--sim-color-screen-muted-blue)', fontSize: '0.65rem' }}>
-        <span style={{ color: 'var(--sim-color-screen-positive-soft)' }}>— Population</span>
-        <span style={{ color: '#d5b96f' }}>— Species</span>
-        <span style={{ color: '#ad91d5' }}>— Lineages</span>
-      </div>
-      <div style={{ color: '#7f898d', fontSize: '0.66rem', lineHeight: 1.4, marginTop: '0.3rem' }}>
-        Peak {model.peakPopulation} · {model.dominanceChanges} dominance {model.dominanceChanges === 1 ? 'shift' : 'shifts'} ·{' '}
-        {model.currentDominantName ? `${model.currentDominantName} leads now` : 'no living leader'}
+
+      <div style={{ marginTop: '0.4rem' }} onKeyDown={handleKeyDown} tabIndex={0}>
+        {/* Filters Toggle */}
+        <div style={{ marginBottom: '0.3rem' }}>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            style={{
+              background: 'none',
+              border: '1px solid #5a6368',
+              color: '#9dc6d8',
+              padding: '0.3rem 0.5rem',
+              borderRadius: 3,
+              cursor: 'pointer',
+              fontSize: '0.65rem',
+              fontWeight: 600,
+            }}
+          >
+            {showFilters ? '▾' : '▸'} Filters & Events
+          </button>
+        </div>
+
+        {/* Collapsible Filter Panel */}
+        {showFilters && (
+          <div
+            style={{
+              background: '#1a2023',
+              border: '1px solid #384348',
+              borderRadius: 5,
+              padding: '0.5rem',
+              marginBottom: '0.5rem',
+              fontSize: '0.65rem',
+              color: '#9dc6d8',
+            }}
+          >
+            <div style={{ marginBottom: '0.3rem' }}>
+              <strong>Metrics:</strong>
+              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+                {(['population', 'species', 'lineages'] as MetricType[]).map((metric) => (
+                  <label
+                    key={metric}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.2rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filterState.metrics.has(metric)}
+                      onChange={() => toggleMetric(metric)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    {metric}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '0.3rem' }}>
+              <strong>Events:</strong>
+              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+                {(['birth', 'death', 'mutation', 'extinction', 'speciation', 'intervention'] as EventType[]).map((eventType) => (
+                  <label
+                    key={eventType}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.2rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filterState.eventTypes.has(eventType)}
+                      onChange={() => toggleEventType(eventType)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    {eventType}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {model.allSpeciesIds.size > 0 && (
+              <div>
+                <strong>Species ({model.allSpeciesIds.size}):</strong>
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '0.3rem',
+                    flexWrap: 'wrap',
+                    marginTop: '0.2rem',
+                    maxHeight: '80px',
+                    overflowY: 'auto',
+                  }}
+                >
+                  {[...model.allSpeciesIds].sort().map((speciesId) => (
+                    <button
+                      key={speciesId}
+                      onClick={() => toggleSpeciesFilter(speciesId)}
+                      style={{
+                        background: filterState.speciesFilter?.has(speciesId) ? '#ad91d5' : '#2a3235',
+                        color: filterState.speciesFilter?.has(speciesId) ? '#000' : '#9dc6d8',
+                        border: 'none',
+                        padding: '0.15rem 0.35rem',
+                        borderRadius: 3,
+                        cursor: 'pointer',
+                        fontSize: '0.6rem',
+                      }}
+                    >
+                      {speciesId.substring(0, 8)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Main Chart */}
+        <svg
+          ref={svgRef}
+          viewBox="0 0 100 100"
+          role="img"
+          aria-labelledby="evolution-chart-title evolution-chart-description"
+          onWheel={handleWheel}
+          style={{
+            display: 'block',
+            width: '100%',
+            height: 'clamp(200px, 35vw, 300px)',
+            background: '#191d1f',
+            borderRadius: 5,
+            cursor: isZoomed ? 'grab' : 'default',
+            touchAction: 'none',
+            overflow: 'visible',
+          }}
+        >
+          <title id="evolution-chart-title">Population and diversity timeline</title>
+          <desc id="evolution-chart-description">{model.description}</desc>
+
+          <defs>
+            <clipPath id="chart-area">
+              <rect x={CHART_PADDING.left} y={CHART_PADDING.top} width={CHART_WIDTH} height={CHART_HEIGHT} />
+            </clipPath>
+          </defs>
+
+          {/* Intervention shading */}
+          <g id="intervention-windows" clipPath="url(#chart-area)">
+            {model.interventionWindows.map((window, idx) => (
+              <rect
+                key={idx}
+                x={CHART_PADDING.left + (window.startX / 100) * CHART_WIDTH}
+                y={CHART_PADDING.top}
+                width={(Math.abs(window.endX - window.startX) / 100) * CHART_WIDTH}
+                height={CHART_HEIGHT}
+                fill="#70c7d8"
+                opacity="0.08"
+              />
+            ))}
+          </g>
+
+          {/* Background grid */}
+          <g id="grid" opacity="0.15">
+            {model.yAxisScale.ticks.slice(1, -1).map((tick, idx) => {
+              const y = CHART_PADDING.top + CHART_HEIGHT - (tick / model.peakPopulation) * CHART_HEIGHT;
+              return (
+                <line
+                  key={`grid-h-${idx}`}
+                  x1={CHART_PADDING.left}
+                  y1={y}
+                  x2={CHART_PADDING.left + CHART_WIDTH}
+                  y2={y}
+                  stroke="#41484b"
+                  strokeWidth="0.3"
+                  strokeDasharray="1,1"
+                />
+              );
+            })}
+          </g>
+
+          {/* Y-axis */}
+          <line
+            x1={CHART_PADDING.left}
+            y1={CHART_PADDING.top}
+            x2={CHART_PADDING.left}
+            y2={CHART_PADDING.top + CHART_HEIGHT}
+            stroke="#41484b"
+            strokeWidth="0.6"
+          />
+
+          {/* Y-axis ticks and labels */}
+          {model.yAxisScale.ticks.map((tick, idx) => {
+            const y = CHART_PADDING.top + CHART_HEIGHT - (tick / model.peakPopulation) * CHART_HEIGHT;
+            return (
+              <g key={`y-tick-${idx}`}>
+                <line x1={CHART_PADDING.left - 2} y1={y} x2={CHART_PADDING.left} y2={y} stroke="#41484b" strokeWidth="0.5" />
+                <text x={CHART_PADDING.left - 3} y={y + 1.5} fontSize="1.8" fill="#7f898d" textAnchor="end" dominantBaseline="middle">
+                  {model.yAxisScale.labels[idx]}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* X-axis */}
+          <line
+            x1={CHART_PADDING.left}
+            y1={CHART_PADDING.top + CHART_HEIGHT}
+            x2={CHART_PADDING.left + CHART_WIDTH}
+            y2={CHART_PADDING.top + CHART_HEIGHT}
+            stroke="#41484b"
+            strokeWidth="0.6"
+          />
+
+          {/* X-axis ticks and labels */}
+          {model.xAxisScale.ticks.map((tick, idx) => {
+            const x = CHART_PADDING.left + (tick / model.lastTick) * CHART_WIDTH;
+            return (
+              <g key={`x-tick-${idx}`}>
+                <line x1={x} y1={CHART_PADDING.top + CHART_HEIGHT} x2={x} y2={CHART_PADDING.top + CHART_HEIGHT + 2} stroke="#41484b" strokeWidth="0.5" />
+                <text x={x} y={CHART_PADDING.top + CHART_HEIGHT + 5} fontSize="1.8" fill="#7f898d" textAnchor="middle">
+                  {model.xAxisScale.labels[idx]}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Data lines */}
+          <g id="chart-lines" clipPath="url(#chart-area)">
+            {filterState.metrics.has('population') && (
+              <polyline
+                points={transformedPolyline(model.populationPolyline)}
+                fill="none"
+                stroke="var(--sim-color-screen-positive-soft)"
+                strokeWidth="1.2"
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
+            {filterState.metrics.has('species') && (
+              <polyline
+                points={transformedPolyline(model.speciesPolyline)}
+                fill="none"
+                stroke="#d5b96f"
+                strokeWidth="1"
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
+            {filterState.metrics.has('lineages') && (
+              <polyline
+                points={transformedPolyline(model.lineagePolyline)}
+                fill="none"
+                stroke="#ad91d5"
+                strokeWidth="1"
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
+          </g>
+
+          {/* Event pins */}
+          <g id="event-pins">
+            {filteredEventPins.map((pin) => {
+              const xPos = CHART_PADDING.left + (pin.x / 100) * CHART_WIDTH;
+              const yPos = CHART_PADDING.top + 3;
+              const pinColors: Record<string, string> = {
+                birth: '#78cf83',
+                extinction: '#ef7c7c',
+                speciation: '#d5b96f',
+                mutation: 'var(--sim-color-screen-accent)',
+                intervention: '#70c7d8',
+                death: '#ff6b6b',
+              };
+              const color = pinColors[pin.type] || '#9dc6d8';
+
+              return (
+                <g key={pin.id} onMouseEnter={() => setHoveredEvent(pin)} onMouseLeave={() => setHoveredEvent(null)}>
+                  <circle cx={xPos} cy={yPos} r="1.2" fill={color} opacity={hoveredEvent?.id === pin.id ? 1 : 0.65} style={{ cursor: 'pointer' }} />
+                  {hoveredEvent?.id === pin.id && (
+                    <title>{`${pin.type}: ${pin.detail} @ tick ${pin.tick}`}</title>
+                  )}
+                </g>
+              );
+            })}
+          </g>
+        </svg>
+
+        {/* Legend */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem', marginTop: '0.35rem', color: 'var(--sim-color-screen-muted-blue)', fontSize: '0.65rem' }}>
+          <span style={{ color: 'var(--sim-color-screen-positive-soft)' }}>— Population</span>
+          <span style={{ color: '#d5b96f' }}>— Species</span>
+          <span style={{ color: '#ad91d5' }}>— Lineages</span>
+          <span style={{ color: '#78cf83' }}>• Birth</span>
+          <span style={{ color: '#ef7c7c' }}>• Extinction</span>
+          <span style={{ color: '#70c7d8' }}>⚙ Intervention</span>
+        </div>
+
+        {/* Hovered Event Details */}
+        {hoveredEvent && (
+          <div
+            style={{
+              background: '#2a3235',
+              border: '1px solid #41484b',
+              borderRadius: 4,
+              padding: '0.4rem 0.5rem',
+              marginTop: '0.3rem',
+              fontSize: '0.65rem',
+              color: '#9dc6d8',
+            }}
+          >
+            <strong>{hoveredEvent.type}:</strong> {hoveredEvent.detail} @ tick {hoveredEvent.tick}
+          </div>
+        )}
+
+        {/* Info and Controls */}
+        <div style={{ color: '#7f898d', fontSize: '0.66rem', lineHeight: 1.4, marginTop: '0.3rem' }}>
+          <div>
+            Peak {model.peakPopulation} · {model.dominanceChanges} dominance {model.dominanceChanges === 1 ? 'shift' : 'shifts'} · {model.currentDominantName ? `${model.currentDominantName} leads now` : 'no living leader'}
+          </div>
+          <div style={{ marginTop: '0.2rem', opacity: 0.8 }}>
+            {isZoomed && (
+              <>
+                Zoom: {(zoomScale * 100).toFixed(0)}% | Scroll: Ctrl+Wheel | Pan: Arrow Keys | Reset: 0
+              </>
+            )}
+            {!isZoomed && (
+              <>
+                Ctrl+Scroll to zoom | Arrow Keys to pan | Press 0 to reset
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </details>
   );

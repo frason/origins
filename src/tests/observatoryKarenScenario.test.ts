@@ -39,10 +39,10 @@ function mockSetItem(key: string, value: string) {
 describe('Karen\'s scenario: Resume mid-flow after reload', () => {
   beforeEach(() => {
     mockStorage.clear();
-    (global as any).localStorage = {
+    globalThis.localStorage = {
       getItem: mockGetItem,
       setItem: mockSetItem,
-    };
+    } as Storage;
   });
 
   afterEach(() => {

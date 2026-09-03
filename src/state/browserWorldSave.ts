@@ -7,6 +7,8 @@ export interface StorageLike {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
   removeItem(key: string): void;
+  length?: number; // Optional: number of items in storage
+  key?(index: number): string | null; // Optional: get key at index
 }
 
 export interface BrowserWorldRestoreResult {

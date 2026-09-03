@@ -96,6 +96,11 @@ export default function FirstRunOnboarding() {
           </ul>
         </div>
 
+        <div className="first-run-onboarding__section">
+          <h2>Your worlds are deterministic</h2>
+          <p>Every world has a seed. The same seed always produces the same evolution, so you can replay and verify your interventions. When you make a change in God Mode, run it again with the same seed to confirm the cause-and-effect relationship.</p>
+        </div>
+
         <div className="first-run-onboarding__actions">
           <button
             type="button"

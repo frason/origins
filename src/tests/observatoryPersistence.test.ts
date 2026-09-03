@@ -22,10 +22,10 @@ describe('Observatory state persistence and resumption', () => {
   beforeEach(() => {
     mockStorage.clear();
     // Override localStorage for tests
-    (global as any).localStorage = {
+    globalThis.localStorage = {
       getItem: mockGetItem,
       setItem: mockSetItem,
-    };
+    } as Storage;
   });
 
   afterEach(() => {

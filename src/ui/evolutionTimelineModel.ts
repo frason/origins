@@ -1,6 +1,6 @@
 import type { EcosystemHistorySample } from '../simulation/ecosystemHistory';
 import { speciesDisplayName } from '../simulation/speciesNames';
-import type { WorldSnapshot } from '../state/store';
+import type { WorldSnapshot, EventSnapshot } from '../state/store';
 import { getLiveEventTotals } from './liveEventMetrics';
 
 export interface EvolutionTimelinePoint extends EcosystemHistorySample {
@@ -10,6 +10,31 @@ export interface EvolutionTimelinePoint extends EcosystemHistorySample {
   populationY: number;
   speciesY: number;
   lineageY: number;
+}
+
+export interface EventPin {
+  id: string;
+  tick: number;
+  x: number;
+  event: EventSnapshot;
+  type: 'birth' | 'death' | 'mutation' | 'speciation' | 'extinction' | 'intervention';
+  speciesName: string;
+  detail: string;
+}
+
+export interface InterventionWindow {
+  startTick: number;
+  endTick: number;
+  startX: number;
+  endX: number;
+  kind: 'species-introduction' | 'settings-change';
+}
+
+export interface AxisScale {
+  min: number;
+  max: number;
+  ticks: number[];
+  labels: string[];
 }
 
 export interface EvolutionTimelineModel {
@@ -22,6 +47,13 @@ export interface EvolutionTimelineModel {
   dominanceMoments: EvolutionDominanceMoment[];
   currentDominantName: string | null;
   description: string;
+  // New fields for enhanced timeline
+  eventPins: EventPin[];
+  interventionWindows: InterventionWindow[];
+  xAxisScale: AxisScale;
+  yAxisScale: AxisScale;
+  lastTick: number;
+  allSpeciesIds: Set<string>;
 }
 
 export interface EvolutionDominanceMoment {
@@ -41,6 +73,65 @@ function dominantSpecies(sample: EcosystemHistorySample): string | null {
     }
   }
   return dominant;
+}
+
+function generateAxisScale(min: number, max: number, targetTicks: number = 5): AxisScale {
+  if (min === max) {
+    return { min, max, ticks: [min], labels: [String(min)] };
+  }
+
+  const range = max - min;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(range)));
+  const normalized = range / magnitude;
+
+  let step = magnitude;
+  if (normalized < 2) step = magnitude * 0.2;
+  else if (normalized < 5) step = magnitude * 0.5;
+  else step = magnitude;
+
+  const ticks: number[] = [];
+  let current = Math.ceil(min / step) * step;
+  while (current <= max + step * 0.01) {
+    if (current >= min) ticks.push(current);
+    current += step;
+  }
+
+  return {
+    min,
+    max,
+    ticks,
+    labels: ticks.map((t) => (t < 1000 ? String(Math.round(t)) : `${(t / 1000).toFixed(1)}k`)),
+  };
+}
+
+function createEventPin(
+  event: EventSnapshot,
+  x: number,
+  lastTick: number
+): EventPin | null {
+  const speciesName = event.speciesId ? speciesDisplayName(event.speciesId) : 'Unknown';
+
+  let detail = '';
+  if (event.type === 'birth') detail = `${speciesName} birth`;
+  else if (event.type === 'death') detail = `${speciesName} death (${event.deathCause ?? 'unknown'})`;
+  else if (event.type === 'mutation') detail = `${speciesName} mutation`;
+  else if (event.type === 'speciation') detail = `${speciesName} speciation`;
+  else if (event.type === 'extinction') detail = `${speciesName} extinction`;
+  else if (event.type === 'intervention') {
+    detail = event.interventionKind === 'species-introduction'
+      ? `Introduced ${speciesName}`
+      : `Settings changed`;
+  }
+
+  return {
+    id: `${event.tick}-${event.type}-${event.speciesId ?? 'unknown'}`,
+    tick: event.tick,
+    x,
+    event,
+    type: event.type,
+    speciesName,
+    detail,
+  };
 }
 
 function currentSample(
@@ -116,6 +207,64 @@ export function buildEvolutionTimeline(
     points.map((point) => `${point.x.toFixed(2)},${point[key].toFixed(2)}`).join(' ');
   const currentDominantName = currentDominant ? speciesDisplayName(currentDominant) : null;
 
+  // Build event pins
+  const eventPins: EventPin[] = [];
+  const allSpeciesIds = new Set<string>();
+  for (const point of points) {
+    for (const species of point.speciesPopulations) {
+      allSpeciesIds.add(species.speciesId);
+    }
+  }
+
+  // Add events as pins
+  for (const event of world.events) {
+    if (
+      event.type === 'birth' ||
+      event.type === 'extinction' ||
+      event.type === 'speciation' ||
+      event.type === 'intervention'
+    ) {
+      const x = (event.tick / lastTick) * 100;
+      const pin = createEventPin(event, x, lastTick);
+      if (pin) eventPins.push(pin);
+    }
+  }
+
+  // Build intervention windows
+  const interventionWindows: InterventionWindow[] = [];
+  let interventionStart: EventSnapshot | null = null;
+  for (const event of world.events) {
+    if (event.type === 'intervention') {
+      if (!interventionStart) {
+        interventionStart = event;
+      }
+    } else if (interventionStart) {
+      // End of intervention window when we encounter a non-intervention event
+      interventionWindows.push({
+        startTick: interventionStart.tick,
+        endTick: event.tick,
+        startX: (interventionStart.tick / lastTick) * 100,
+        endX: (event.tick / lastTick) * 100,
+        kind: interventionStart.interventionKind ?? 'settings-change',
+      });
+      interventionStart = null;
+    }
+  }
+  // Handle trailing intervention window
+  if (interventionStart) {
+    interventionWindows.push({
+      startTick: interventionStart.tick,
+      endTick: tick,
+      startX: (interventionStart.tick / lastTick) * 100,
+      endX: 100,
+      kind: interventionStart.interventionKind ?? 'settings-change',
+    });
+  }
+
+  // Generate axis scales
+  const xAxisScale = generateAxisScale(0, lastTick, 6);
+  const yAxisScale = generateAxisScale(0, peakPopulation, 5);
+
   return {
     points,
     populationPolyline: polyline('populationY'),
@@ -126,5 +275,11 @@ export function buildEvolutionTimeline(
     dominanceMoments,
     currentDominantName,
     description: `${points.length} samples through tick ${tick}. Peak population ${peakPopulation}. ${dominanceChanges} dominance ${dominanceChanges === 1 ? 'shift' : 'shifts'}. ${currentDominantName ? `${currentDominantName} currently leads.` : 'No living species currently leads.'}`,
+    eventPins,
+    interventionWindows,
+    xAxisScale,
+    yAxisScale,
+    lastTick,
+    allSpeciesIds,
   };
 }

@@ -35,7 +35,7 @@ const OBJECTIVE_DEFAULTS: Record<ObjectiveType, Omit<ObjectiveState, 'isComplete
   observe: {
     id: 'observe',
     title: 'Observe a Trend',
-    description: 'Watch the ecosystem change in real time. Look for population shifts, species interactions, or resource patterns.',
+    description: 'Watch the ecosystem change in real time. Look for population shifts, species interactions, or resource patterns. You will use these observations as evidence of cause and effect.',
     hint: 'Watch the colored dots (creatures) and the green areas (plant food). Notice how populations grow and shrink.',
   },
   inspect: {
@@ -47,14 +47,14 @@ const OBJECTIVE_DEFAULTS: Record<ObjectiveType, Omit<ObjectiveState, 'isComplete
   intervene: {
     id: 'intervene',
     title: 'Make an Intervention',
-    description: 'Use God Mode to adjust world settings. Try a small change and predict what will happen.',
+    description: 'Use God Mode to adjust world settings. Try a small change and predict what will happen. You can replay with the same seed later to verify cause and effect.',
     hint: 'Open the Control Panel on the right, then find "God Mode / Intervention" to adjust a setting.',
   },
   evaluate: {
     id: 'evaluate',
     title: 'Evaluate the Result',
-    description: 'Review how your intervention affected the ecosystem. Did it help or harm? What changed?',
-    hint: 'Check the Intervention Impact panel (middle-right) to see what changed since your adjustment.',
+    description: 'Review how your intervention affected the ecosystem. The Intervention Impact panel shows evidence of what changed. Compare before and after to see the cause-and-effect relationship.',
+    hint: 'Check the Intervention Impact panel (middle-right) to see population changes, energy shifts, and other metrics that show the impact of your adjustment.',
   },
 };
 
