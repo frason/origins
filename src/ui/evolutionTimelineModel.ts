@@ -1,7 +1,10 @@
 import type { EcosystemHistorySample } from '../simulation/ecosystemHistory';
 import { speciesDisplayName } from '../simulation/speciesNames';
-import type { WorldSnapshot, EventSnapshot } from '../state/store';
+import type { WorldSnapshot, EventSnapshot, CreatureSnapshot } from '../state/store';
 import { getLiveEventTotals } from './liveEventMetrics';
+
+// Maximum number of events to scan for timeline rendering to prevent unbounded scaling
+const MAX_EVENTS_TO_SCAN = 5000;
 
 export interface EvolutionTimelinePoint extends EcosystemHistorySample {
   speciesCount: number;
@@ -17,9 +20,16 @@ export interface EventPin {
   tick: number;
   x: number;
   event: EventSnapshot;
-  type: 'birth' | 'death' | 'mutation' | 'speciation' | 'extinction' | 'intervention';
+  type: 'birth' | 'death' | 'mutation' | 'speciation' | 'extinction' | 'intervention' | 'environmental-shock';
   speciesName: string;
   detail: string;
+  // Navigation aids
+  creatureId?: string;
+  lineageId?: string;
+  tileX?: number;
+  tileY?: number;
+  // Region information (derived from coordinates)
+  region?: 'NW' | 'NE' | 'SW' | 'SE' | 'center';
 }
 
 export interface InterventionWindow {
@@ -28,6 +38,13 @@ export interface InterventionWindow {
   startX: number;
   endX: number;
   kind: 'species-introduction' | 'settings-change';
+  // Before/after comparison metrics
+  beforePopulation?: number;
+  afterPopulation?: number;
+  beforeSpecies?: number;
+  afterSpecies?: number;
+  populationDelta?: number;
+  speciesDelta?: number;
 }
 
 export interface AxisScale {
@@ -47,13 +64,16 @@ export interface EvolutionTimelineModel {
   dominanceMoments: EvolutionDominanceMoment[];
   currentDominantName: string | null;
   description: string;
-  // New fields for enhanced timeline
+  // Enhanced timeline fields
   eventPins: EventPin[];
   interventionWindows: InterventionWindow[];
   xAxisScale: AxisScale;
   yAxisScale: AxisScale;
   lastTick: number;
   allSpeciesIds: Set<string>;
+  allLineageIds: Set<string>;
+  // Filter support
+  allLineageLabels: Map<string, string>;
 }
 
 export interface EvolutionDominanceMoment {
@@ -73,6 +93,17 @@ function dominantSpecies(sample: EcosystemHistorySample): string | null {
     }
   }
   return dominant;
+}
+
+/** Determine grid region from coordinates (100x100 grid). */
+function getGridRegion(x?: number, y?: number): 'NW' | 'NE' | 'SW' | 'SE' | 'center' | undefined {
+  if (x === undefined || y === undefined) return undefined;
+  const centerX = 50, centerY = 50, tolerance = 15;
+  if (x < centerX - tolerance && y < centerY - tolerance) return 'NW';
+  if (x > centerX + tolerance && y < centerY - tolerance) return 'NE';
+  if (x < centerX - tolerance && y > centerY + tolerance) return 'SW';
+  if (x > centerX + tolerance && y > centerY + tolerance) return 'SE';
+  return 'center';
 }
 
 function generateAxisScale(min: number, max: number, targetTicks: number = 5): AxisScale {
@@ -112,15 +143,38 @@ function createEventPin(
   const speciesName = event.speciesId ? speciesDisplayName(event.speciesId) : 'Unknown';
 
   let detail = '';
-  if (event.type === 'birth') detail = `${speciesName} birth`;
-  else if (event.type === 'death') detail = `${speciesName} death (${event.deathCause ?? 'unknown'})`;
-  else if (event.type === 'mutation') detail = `${speciesName} mutation`;
-  else if (event.type === 'speciation') detail = `${speciesName} speciation`;
-  else if (event.type === 'extinction') detail = `${speciesName} extinction`;
-  else if (event.type === 'intervention') {
+  let type: EventPin['type'] = 'birth';
+  let region: EventPin['region'];
+
+  if (event.type === 'birth') {
+    detail = `${speciesName} birth`;
+    type = 'birth';
+    region = getGridRegion(event.interventionOrigin?.x, event.interventionOrigin?.y);
+  } else if (event.type === 'death') {
+    detail = `${speciesName} death (${event.deathCause ?? 'unknown'})`;
+    type = 'death';
+  } else if (event.type === 'mutation') {
+    detail = `${speciesName} mutation`;
+    type = 'mutation';
+  } else if (event.type === 'speciation') {
+    detail = `${speciesName} speciation`;
+    type = 'speciation';
+  } else if (event.type === 'extinction') {
+    detail = `${speciesName} extinction`;
+    type = 'extinction';
+  } else if (event.type === 'intervention') {
     detail = event.interventionKind === 'species-introduction'
       ? `Introduced ${speciesName}`
       : `Settings changed`;
+    type = 'intervention';
+    region = getGridRegion(event.interventionOrigin?.x, event.interventionOrigin?.y);
+  } else if (event.type === 'environmental-shock') {
+    const shockKind = (event as any).shockKind ?? 'unknown';
+    detail = `Environmental shock: ${shockKind}`;
+    type = 'environmental-shock';
+    region = getGridRegion((event as any).affectedRegion?.x, (event as any).affectedRegion?.y);
+  } else {
+    return null;
   }
 
   return {
@@ -128,9 +182,14 @@ function createEventPin(
     tick: event.tick,
     x,
     event,
-    type: event.type,
+    type,
     speciesName,
     detail,
+    creatureId: event.creatureId,
+    lineageId: event.lineageId,
+    tileX: event.interventionOrigin?.x,
+    tileY: event.interventionOrigin?.y,
+    region,
   };
 }
 
@@ -207,57 +266,103 @@ export function buildEvolutionTimeline(
     points.map((point) => `${point.x.toFixed(2)},${point[key].toFixed(2)}`).join(' ');
   const currentDominantName = currentDominant ? speciesDisplayName(currentDominant) : null;
 
-  // Build event pins
+  // Build event pins with bounded scanning
   const eventPins: EventPin[] = [];
   const allSpeciesIds = new Set<string>();
+  const allLineageIds = new Set<string>();
+  const allLineageLabels = new Map<string, string>();
+
   for (const point of points) {
     for (const species of point.speciesPopulations) {
       allSpeciesIds.add(species.speciesId);
     }
   }
 
-  // Add events as pins
-  for (const event of world.events) {
-    if (
-      event.type === 'birth' ||
-      event.type === 'extinction' ||
-      event.type === 'speciation' ||
-      event.type === 'intervention'
-    ) {
-      const x = (event.tick / lastTick) * 100;
-      const pin = createEventPin(event, x, lastTick);
-      if (pin) eventPins.push(pin);
-    }
+  // Gather all lineage IDs from creatures
+  for (const creature of world.creatures) {
+    const lineageId = `${creature.speciesId}:${creature.lineageId}`;
+    allLineageIds.add(lineageId);
+    allLineageLabels.set(lineageId, `${speciesDisplayName(creature.speciesId)}/${creature.lineageId.substring(0, 8)}`);
   }
 
-  // Build intervention windows
+  // Scan events with cap to prevent unbounded growth
+  const eventsToScan = world.events.length > MAX_EVENTS_TO_SCAN
+    ? world.events.slice(world.events.length - MAX_EVENTS_TO_SCAN)
+    : world.events;
+
+  // Add event pins for all event types (birth, death, mutation, speciation, extinction, intervention)
+  for (const event of eventsToScan) {
+    const x = (event.tick / lastTick) * 100;
+    const pin = createEventPin(event, x, lastTick);
+    if (pin) eventPins.push(pin);
+  }
+
+  // Helper to get metrics at a specific tick
+  const getMetricsAtTick = (targetTick: number) => {
+    const point = points.find(p => p.tick === targetTick);
+    if (point) {
+      return {
+        population: point.population,
+        species: point.speciesPopulations.length,
+      };
+    }
+    // Find nearest point if exact tick not found
+    let nearest = points[0];
+    for (const p of points) {
+      if (Math.abs(p.tick - targetTick) < Math.abs(nearest.tick - targetTick)) {
+        nearest = p;
+      }
+    }
+    return {
+      population: nearest.population,
+      species: nearest.speciesPopulations.length,
+    };
+  };
+
+  // Build intervention windows with before/after metrics
   const interventionWindows: InterventionWindow[] = [];
   let interventionStart: EventSnapshot | null = null;
-  for (const event of world.events) {
+  for (const event of eventsToScan) {
     if (event.type === 'intervention') {
       if (!interventionStart) {
         interventionStart = event;
       }
     } else if (interventionStart) {
       // End of intervention window when we encounter a non-intervention event
+      const beforeMetrics = getMetricsAtTick(interventionStart.tick);
+      const afterMetrics = getMetricsAtTick(event.tick);
       interventionWindows.push({
         startTick: interventionStart.tick,
         endTick: event.tick,
         startX: (interventionStart.tick / lastTick) * 100,
         endX: (event.tick / lastTick) * 100,
         kind: interventionStart.interventionKind ?? 'settings-change',
+        beforePopulation: beforeMetrics.population,
+        afterPopulation: afterMetrics.population,
+        beforeSpecies: beforeMetrics.species,
+        afterSpecies: afterMetrics.species,
+        populationDelta: afterMetrics.population - beforeMetrics.population,
+        speciesDelta: afterMetrics.species - beforeMetrics.species,
       });
       interventionStart = null;
     }
   }
   // Handle trailing intervention window
   if (interventionStart) {
+    const beforeMetrics = getMetricsAtTick(interventionStart.tick);
+    const afterMetrics = getMetricsAtTick(tick);
     interventionWindows.push({
       startTick: interventionStart.tick,
       endTick: tick,
       startX: (interventionStart.tick / lastTick) * 100,
       endX: 100,
       kind: interventionStart.interventionKind ?? 'settings-change',
+      beforePopulation: beforeMetrics.population,
+      afterPopulation: afterMetrics.population,
+      beforeSpecies: beforeMetrics.species,
+      afterSpecies: afterMetrics.species,
+      populationDelta: afterMetrics.population - beforeMetrics.population,
+      speciesDelta: afterMetrics.species - beforeMetrics.species,
     });
   }
 
@@ -281,5 +386,7 @@ export function buildEvolutionTimeline(
     yAxisScale,
     lastTick,
     allSpeciesIds,
+    allLineageIds,
+    allLineageLabels,
   };
 }

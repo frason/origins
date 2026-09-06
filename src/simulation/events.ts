@@ -1,7 +1,7 @@
 import type { Traits } from '../utils/traits';
 import type { SimulationConstants } from '../utils/constants';
 
-export type SimEventType = 'birth' | 'death' | 'mutation' | 'speciation' | 'extinction' | 'intervention';
+export type SimEventType = 'birth' | 'death' | 'mutation' | 'speciation' | 'extinction' | 'intervention' | 'environmental-shock';
 export type DeathCause =
   | 'predation'
   | 'starvation'
@@ -56,6 +56,8 @@ export interface SimEvent {
   prematureDeath?: boolean;
   ageAtDeath?: number;
   ancestralSpeciesId?: string;
+  shockKind?: 'temperature-spike' | 'drought' | 'flooding' | 'radiation' | 'toxicity-surge' | 'nutrient-collapse';
+  affectedRegion?: { x: number; y: number; radius: number };
 }
 
 /** Capture live setting changes in stable constant-key order. */
