@@ -54,6 +54,7 @@ function eventCounts(events: SimEvent[]): Record<SimEventType, number> {
     speciation: 0,
     extinction: 0,
     intervention: 0,
+    'environmental-shock': 0,
   };
   for (const event of events) counts[event.type] += 1;
   return counts;

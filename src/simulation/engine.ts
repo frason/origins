@@ -826,6 +826,7 @@ export function tickEngine(
         parentCreatureId: creature.id,
         mutationPressure,
         mutationRate,
+        affectedRegion: { x: child.x, y: child.y, radius: 0 },
       });
       if (child.lineageId !== creature.lineageId) {
         newEvents.push({
@@ -842,6 +843,7 @@ export function tickEngine(
             creature.speciesId,
             creature.lineageId
           )} → ${lineageDisplayName(child.speciesId, child.lineageId)}`,
+          affectedRegion: { x: child.x, y: child.y, radius: 0 },
         });
       }
     }
@@ -924,6 +926,7 @@ export function tickEngine(
         offspringCountAtDeath: creature.offspringCount,
         prematureDeath: creature.offspringCount === 0,
         ageAtDeath: creature.age,
+        affectedRegion: { x: creature.x, y: creature.y, radius: 0 },
       });
     }
   }
@@ -993,6 +996,26 @@ export function tickEngine(
 
   // Step 10: Nutrient Recycling
   recycleNutrients(newWorld);
+
+  // Detect environmental shocks (high toxicity spikes at specific locations)
+  const TOXICITY_SHOCK_THRESHOLD = 50; // Toxicity level that triggers shock detection
+  const MAX_SHOCKS_PER_TICK = 3; // Limit shocks to prevent spam
+  let shocksEmitted = 0;
+  for (let y = 0; y < newWorld.height && shocksEmitted < MAX_SHOCKS_PER_TICK; y++) {
+    for (let x = 0; x < newWorld.width && shocksEmitted < MAX_SHOCKS_PER_TICK; x++) {
+      const cell = newWorld.getCell(x, y);
+      if (cell.toxicity > TOXICITY_SHOCK_THRESHOLD) {
+        newEvents.push({
+          type: 'environmental-shock',
+          tick: state.tick,
+          shockKind: 'toxicity-surge',
+          affectedRegion: { x, y, radius: 2 },
+          detail: `Toxicity surge at (${x}, ${y})`,
+        });
+        shocksEmitted++;
+      }
+    }
+  }
 
   // Count living creatures per species (for extinction detection)
   const speciesLivingCount = new Map<string, number>();

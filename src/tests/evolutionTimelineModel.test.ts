@@ -343,4 +343,121 @@ describe('evolution timeline presentation model', () => {
       expect(model.lineagePolyline.split(' ').length).toBeGreaterThan(0);
     });
   });
+
+  describe('environmental-shock pin creation', () => {
+    it('creates pins for environmental-shock events', () => {
+      const testWorld = world([creature('a1', 'alpha', 'root')], [
+        { type: 'environmental-shock', tick: 5, speciesId: 'alpha', creatureId: 'c1', lineageId: 'l1', detail: 'Toxicity surge', shockKind: 'toxicity-surge', affectedRegion: { x: 25, y: 30, radius: 2 } } as any,
+      ]);
+      const model = buildEvolutionTimeline(history, testWorld, 10)!;
+      const shockPins = model.eventPins.filter((p) => p.type === 'environmental-shock');
+      expect(shockPins).toHaveLength(1);
+      expect(shockPins[0].detail).toContain('shock');
+    });
+
+    it('extracts region from affectedRegion on environmental-shock pins', () => {
+      const testWorld = world([creature('a1', 'alpha', 'root')], [
+        { type: 'environmental-shock', tick: 5, speciesId: 'alpha', creatureId: 'c1', lineageId: 'l1', detail: 'Toxicity surge', shockKind: 'toxicity-surge', affectedRegion: { x: 10, y: 10, radius: 2 } } as any,
+      ]);
+      const model = buildEvolutionTimeline(history, testWorld, 10)!;
+      const pin = model.eventPins[0];
+      expect(pin.type).toBe('environmental-shock');
+      expect(pin.region).toBeDefined();
+      expect(['NW', 'NE', 'SW', 'SE', 'center']).toContain(pin.region);
+    });
+  });
+
+  describe('region assignment across event types', () => {
+    it('assigns region from affectedRegion on birth events', () => {
+      const testWorld = world([creature('a1', 'alpha', 'root')], [
+        { ...event('birth', 5, 'alpha'), affectedRegion: { x: 75, y: 75, radius: 0 } } as any,
+      ]);
+      const model = buildEvolutionTimeline(history, testWorld, 10)!;
+      const pin = model.eventPins.find((p) => p.type === 'birth');
+      expect(pin).toBeDefined();
+      expect(pin!.region).toBeDefined();
+      expect(pin!.region).toBe('SE'); // x=75, y=75 is SE quadrant (x > 65, y > 65)
+    });
+
+    it('assigns region from affectedRegion on death events', () => {
+      const testWorld = world([creature('a1', 'alpha', 'root')], [
+        { ...event('death', 5, 'alpha'), deathCause: 'starvation', affectedRegion: { x: 10, y: 10, radius: 0 } } as any,
+      ]);
+      const model = buildEvolutionTimeline(history, testWorld, 10)!;
+      const pin = model.eventPins.find((p) => p.type === 'death');
+      expect(pin).toBeDefined();
+      expect(pin!.region).toBeDefined();
+      expect(pin!.region).toBe('NW'); // x=10, y=10 is NW quadrant (x < 35, y < 35)
+    });
+
+    it('assigns region from affectedRegion on mutation events', () => {
+      const testWorld = world([creature('a1', 'alpha', 'root')], [
+        { ...event('mutation', 5, 'alpha'), affectedRegion: { x: 70, y: 20, radius: 0 } } as any,
+      ]);
+      const model = buildEvolutionTimeline(history, testWorld, 10)!;
+      const pin = model.eventPins.find((p) => p.type === 'mutation');
+      expect(pin).toBeDefined();
+      expect(pin!.region).toBeDefined();
+      expect(pin!.region).toBe('NE'); // x=70, y=20 is NE quadrant (x > 65, y < 35)
+    });
+
+    it('populates tileX/tileY from affectedRegion when available', () => {
+      const testWorld = world([creature('a1', 'alpha', 'root')], [
+        { ...event('birth', 5, 'alpha'), affectedRegion: { x: 42, y: 37, radius: 0 } } as any,
+      ]);
+      const model = buildEvolutionTimeline(history, testWorld, 10)!;
+      const pin = model.eventPins[0];
+      expect(pin.tileX).toBe(42);
+      expect(pin.tileY).toBe(37);
+    });
+
+    it('prefers interventionOrigin over affectedRegion for intervention events', () => {
+      const testWorld = world([creature('a1', 'alpha', 'root')], [
+        { ...event('intervention', 5, 'alpha'), interventionKind: 'species-introduction', interventionOrigin: { x: 15, y: 25 } },
+      ]);
+      const model = buildEvolutionTimeline(history, testWorld, 10)!;
+      const pin = model.eventPins[0];
+      expect(pin.tileX).toBe(15);
+      expect(pin.tileY).toBe(25);
+    });
+
+    it('handles center region correctly', () => {
+      const testWorld = world([creature('a1', 'alpha', 'root')], [
+        { ...event('birth', 5, 'alpha'), affectedRegion: { x: 50, y: 50, radius: 0 } } as any,
+      ]);
+      const model = buildEvolutionTimeline(history, testWorld, 10)!;
+      const pin = model.eventPins[0];
+      expect(pin.region).toBe('center');
+    });
+  });
+
+  describe('mobile pan interaction', () => {
+    it('verifies EventPin structure supports mobile navigation', () => {
+      const testWorld = world([creature('a1', 'alpha', 'root')], [
+        { ...event('birth', 5, 'alpha'), affectedRegion: { x: 25, y: 30, radius: 0 } } as any,
+      ]);
+      const model = buildEvolutionTimeline(history, testWorld, 10)!;
+      const pin = model.eventPins[0];
+      // Verify navigation metadata is available for mobile clicks
+      expect(pin).toHaveProperty('tileX');
+      expect(pin).toHaveProperty('tileY');
+      expect(pin).toHaveProperty('creatureId');
+      expect(pin).toHaveProperty('lineageId');
+      expect(pin).toHaveProperty('region');
+    });
+
+    it('handles multiple event pins without data loss during zoom/pan', () => {
+      const testWorld = world([creature('a1', 'alpha', 'root')], [
+        { ...event('birth', 2, 'alpha'), affectedRegion: { x: 10, y: 10, radius: 0 } } as any,
+        { ...event('death', 4, 'alpha'), deathCause: 'starvation', affectedRegion: { x: 20, y: 20, radius: 0 } } as any,
+        { ...event('mutation', 6, 'alpha'), affectedRegion: { x: 30, y: 30, radius: 0 } } as any,
+      ]);
+      const model = buildEvolutionTimeline(history, testWorld, 10)!;
+      expect(model.eventPins).toHaveLength(3);
+      // All pins should retain their region info for region filtering during pan
+      for (const pin of model.eventPins) {
+        expect(pin.region).toBeDefined();
+      }
+    });
+  });
 });

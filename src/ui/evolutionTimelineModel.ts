@@ -149,13 +149,15 @@ function createEventPin(
   if (event.type === 'birth') {
     detail = `${speciesName} birth`;
     type = 'birth';
-    region = getGridRegion(event.interventionOrigin?.x, event.interventionOrigin?.y);
+    region = getGridRegion((event as any).affectedRegion?.x, (event as any).affectedRegion?.y);
   } else if (event.type === 'death') {
     detail = `${speciesName} death (${event.deathCause ?? 'unknown'})`;
     type = 'death';
+    region = getGridRegion((event as any).affectedRegion?.x, (event as any).affectedRegion?.y);
   } else if (event.type === 'mutation') {
     detail = `${speciesName} mutation`;
     type = 'mutation';
+    region = getGridRegion((event as any).affectedRegion?.x, (event as any).affectedRegion?.y);
   } else if (event.type === 'speciation') {
     detail = `${speciesName} speciation`;
     type = 'speciation';
@@ -177,6 +179,10 @@ function createEventPin(
     return null;
   }
 
+  // Determine tileX/tileY from either interventionOrigin or affectedRegion
+  const tileX = event.interventionOrigin?.x ?? (event as any).affectedRegion?.x;
+  const tileY = event.interventionOrigin?.y ?? (event as any).affectedRegion?.y;
+
   return {
     id: `${event.tick}-${event.type}-${event.speciesId ?? 'unknown'}`,
     tick: event.tick,
@@ -187,8 +193,8 @@ function createEventPin(
     detail,
     creatureId: event.creatureId,
     lineageId: event.lineageId,
-    tileX: event.interventionOrigin?.x,
-    tileY: event.interventionOrigin?.y,
+    tileX,
+    tileY,
     region,
   };
 }

@@ -102,6 +102,8 @@ export default function EvolutionTimeline() {
     });
   };
 
+  const isZoomed = zoomScale > 1.05;
+
   const filteredEventPins = model.eventPins.filter((pin) => {
     if (!filterState.eventTypes.has(pin.type)) return false;
     if (filterState.speciesFilter && pin.event.speciesId && !filterState.speciesFilter.has(pin.event.speciesId)) return false;
@@ -158,14 +160,27 @@ export default function EvolutionTimeline() {
     }
   }, [panX]);
 
+  const handlePointerMove = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+    if (e.isPrimary && (svgRef.current as any)._startX !== undefined && svgRef.current && isZoomed) {
+      const delta = e.clientX - (svgRef.current as any)._startX;
+      // Convert pixel delta to SVG coordinate space using actual rendered size
+      const rect = svgRef.current.getBoundingClientRect();
+      const svgWidthPx = rect.width;
+      const chartWidthSVG = CHART_WIDTH; // in SVG units
+      const pixelToSVG = chartWidthSVG / svgWidthPx;
+      const maxPan = chartWidthSVG * (zoomScale - 1);
+      const deltaSVG = delta * pixelToSVG;
+      const newPanX = (svgRef.current as any)._startPanX + deltaSVG;
+      setPanX(Math.max(-maxPan, Math.min(0, newPanX)));
+    }
+  }, [zoomScale, isZoomed]);
+
   const handlePointerUp = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
     if (e.isPrimary) {
       delete (svgRef.current as any)._startX;
       delete (svgRef.current as any)._startPanX;
     }
   }, []);
-
-  const isZoomed = zoomScale > 1.05;
 
   // SVG viewBox and transform for zoom/pan
   const chartMinX = CHART_PADDING.left + panX;
@@ -364,6 +379,7 @@ export default function EvolutionTimeline() {
           aria-labelledby="evolution-chart-title evolution-chart-description"
           onWheel={handleWheel}
           onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           style={{
             display: 'block',
