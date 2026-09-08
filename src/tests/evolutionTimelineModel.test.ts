@@ -401,6 +401,28 @@ describe('evolution timeline presentation model', () => {
       expect(pin!.region).toBe('NE'); // x=70, y=20 is NE quadrant (x > 65, y < 35)
     });
 
+    it('assigns region from affectedRegion on speciation events', () => {
+      const testWorld = world([creature('a1', 'alpha', 'root')], [
+        { ...event('speciation', 5, 'evolved:alpha:lineage'), affectedRegion: { x: 20, y: 70, radius: 0 } } as any,
+      ]);
+      const model = buildEvolutionTimeline(history, testWorld, 10)!;
+      const pin = model.eventPins.find((p) => p.type === 'speciation');
+      expect(pin).toBeDefined();
+      expect(pin!.region).toBeDefined();
+      expect(pin!.region).toBe('SW'); // x=20, y=70 is SW quadrant (x < 35, y > 65)
+    });
+
+    it('assigns region from affectedRegion on extinction events', () => {
+      const testWorld = world([creature('a1', 'alpha', 'root')], [
+        { ...event('extinction', 8, 'alpha'), affectedRegion: { x: 80, y: 10, radius: 0 } } as any,
+      ]);
+      const model = buildEvolutionTimeline(history, testWorld, 10)!;
+      const pin = model.eventPins.find((p) => p.type === 'extinction');
+      expect(pin).toBeDefined();
+      expect(pin!.region).toBeDefined();
+      expect(pin!.region).toBe('NE'); // x=80, y=10 is NE quadrant (x > 65, y < 35)
+    });
+
     it('populates tileX/tileY from affectedRegion when available', () => {
       const testWorld = world([creature('a1', 'alpha', 'root')], [
         { ...event('birth', 5, 'alpha'), affectedRegion: { x: 42, y: 37, radius: 0 } } as any,

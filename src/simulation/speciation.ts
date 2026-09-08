@@ -20,6 +20,8 @@ export interface IncipientSpecies {
   founderGeneration: number;
   firstSeenTick: number;
   divergence: number;
+  founderX?: number;
+  founderY?: number;
 }
 
 const relativeDifference = (value: number, founder: number) =>
@@ -58,7 +60,9 @@ export function createIncipientSpecies(
   traits: Traits,
   founderTraits: Traits,
   generation: number,
-  tick: number
+  tick: number,
+  founderX?: number,
+  founderY?: number
 ): IncipientSpecies | null {
   const divergence = traitDivergence(traits, founderTraits);
   if (divergence < SPECIATION_DIVERGENCE_THRESHOLD) return null;
@@ -70,6 +74,8 @@ export function createIncipientSpecies(
     founderGeneration: generation,
     firstSeenTick: tick,
     divergence,
+    founderX,
+    founderY,
   };
 }
 

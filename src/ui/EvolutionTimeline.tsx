@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { useStore } from '../state/store';
 import { buildEvolutionTimeline } from './evolutionTimelineModel';
+import { calculatePanX } from './panCalculation';
 import type { EventPin } from './evolutionTimelineModel';
 
 const CHART_PADDING = { top: 12, right: 40, bottom: 30, left: 50 };
@@ -163,15 +164,15 @@ export default function EvolutionTimeline() {
   const handlePointerMove = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
     if (e.isPrimary && (svgRef.current as any)._startX !== undefined && svgRef.current && isZoomed) {
       const delta = e.clientX - (svgRef.current as any)._startX;
-      // Convert pixel delta to SVG coordinate space using actual rendered size
       const rect = svgRef.current.getBoundingClientRect();
-      const svgWidthPx = rect.width;
-      const chartWidthSVG = CHART_WIDTH; // in SVG units
-      const pixelToSVG = chartWidthSVG / svgWidthPx;
-      const maxPan = chartWidthSVG * (zoomScale - 1);
-      const deltaSVG = delta * pixelToSVG;
-      const newPanX = (svgRef.current as any)._startPanX + deltaSVG;
-      setPanX(Math.max(-maxPan, Math.min(0, newPanX)));
+      const newPanX = calculatePanX({
+        startPanX: (svgRef.current as any)._startPanX,
+        zoomScale,
+        pixelDelta: delta,
+        svgWidthPx: rect.width,
+        chartWidthSVG: CHART_WIDTH,
+      });
+      setPanX(newPanX);
     }
   }, [zoomScale, isZoomed]);
 

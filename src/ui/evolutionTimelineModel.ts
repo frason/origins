@@ -161,9 +161,11 @@ function createEventPin(
   } else if (event.type === 'speciation') {
     detail = `${speciesName} speciation`;
     type = 'speciation';
+    region = getGridRegion((event as any).affectedRegion?.x, (event as any).affectedRegion?.y);
   } else if (event.type === 'extinction') {
     detail = `${speciesName} extinction`;
     type = 'extinction';
+    region = getGridRegion((event as any).affectedRegion?.x, (event as any).affectedRegion?.y);
   } else if (event.type === 'intervention') {
     detail = event.interventionKind === 'species-introduction'
       ? `Introduced ${speciesName}`

@@ -804,7 +804,9 @@ export function tickEngine(
             child.traits,
             profile.founderTraits,
             child.generation,
-            state.tick
+            state.tick,
+            child.x,
+            child.y
           );
           if (candidate) {
             child.incipientSpeciesId = candidate.id;
@@ -892,6 +894,9 @@ export function tickEngine(
       ancestralSpeciesId: candidate.ancestorSpeciesId,
       lineageId: candidate.founderLineageId,
       detail: `${speciesDisplayName(candidate.id)} emerged from ${speciesDisplayName(candidate.ancestorSpeciesId)}`,
+      affectedRegion: candidate.founderX !== undefined && candidate.founderY !== undefined
+        ? { x: candidate.founderX, y: candidate.founderY, radius: 0 }
+        : undefined,
     });
   }
   const livingCandidates = livingCandidateIds(creatures);
@@ -1019,12 +1024,15 @@ export function tickEngine(
 
   // Count living creatures per species (for extinction detection)
   const speciesLivingCount = new Map<string, number>();
+  const lastSpeciesLocation = new Map<string, { x: number; y: number }>();
   for (const creature of creatures) {
     if (creature.lifecycleState === 'alive') {
       speciesLivingCount.set(
         creature.speciesId,
         (speciesLivingCount.get(creature.speciesId) || 0) + 1
       );
+      // Track last known location of each species
+      lastSpeciesLocation.set(creature.speciesId, { x: creature.x, y: creature.y });
     }
   }
 
@@ -1045,10 +1053,14 @@ export function tickEngine(
 
   // Log extinction events (once per species)
   for (const speciesId of extinctSpecies) {
+    const lastLoc = lastSpeciesLocation.get(speciesId);
     newEvents.push({
       type: 'extinction',
       tick: state.tick,
       speciesId,
+      affectedRegion: lastLoc
+        ? { x: lastLoc.x, y: lastLoc.y, radius: 0 }
+        : undefined,
     });
   }
 
