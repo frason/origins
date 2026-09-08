@@ -2,16 +2,18 @@ import { Creature } from './creature';
 import { createEngine, type EngineState } from './engine';
 import { getBiomeProductivity, getNutrientCapacity } from './producer';
 import { buildStarterCreatures } from './starterWorld';
+import { StreamedRng } from './rng';
 import type { SimulationConstants } from '../utils/constants';
 import { createEcosystemHistorySample } from './ecosystemHistory';
 
 /** Build the playable demo world from an explicit seed so players can replay it exactly. */
 export function buildDemoEngine(seed: number, constants: SimulationConstants): EngineState {
   Creature.resetIdCounter();
+  const streamedRng = new StreamedRng(seed, 0);
   const engine = createEngine(
     seed,
     buildStarterCreatures(
-      seed, constants.worldWidth, constants.worldHeight, constants.corpseDecayDurationTicks
+      seed, constants.worldWidth, constants.worldHeight, constants.corpseDecayDurationTicks, streamedRng
     ),
     constants.worldWidth,
     constants.worldHeight,

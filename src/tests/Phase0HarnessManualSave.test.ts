@@ -25,11 +25,13 @@ import {
 import { listManualSaves } from '../state/indexedDbSaveSystem';
 import type { PersistedEngineState } from '../simulation/enginePersistence';
 import { AdaptationMetricsTracker } from '../simulation/adaptationMetrics';
+import { RNG_STREAM_VERSION } from '../simulation/rng';
 
 /** Create a minimal test checkpoint matching Phase 0 structure */
 function createTestCheckpoint(tick: number, seed: number = 12345): PersistedEngineState {
   return {
     version: 1,
+    rngStreamVersion: RNG_STREAM_VERSION,
     state: {
       tick,
       seed,

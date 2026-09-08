@@ -58,6 +58,8 @@ export interface SimEvent {
   ancestralSpeciesId?: string;
   shockKind?: 'temperature-spike' | 'drought' | 'flooding' | 'radiation' | 'toxicity-surge' | 'nutrient-collapse';
   affectedRegion?: { x: number; y: number; radius: number };
+  /** RNG stream used for this event (diagnostic information) */
+  rngStream?: string;
 }
 
 /** Capture live setting changes in stable constant-key order. */

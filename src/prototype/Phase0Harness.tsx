@@ -45,6 +45,7 @@ import {
   type Phase0State,
 } from '../simulation/checkpointTimeline';
 import type { PersistedEngineState } from '../simulation/enginePersistence';
+import { RNG_STREAM_VERSION } from '../simulation/rng';
 import { autoSaveAndUpdateStore, loadSaveById, manualSave, manualSaveWithOverwrite } from '../state/saveSlotManager';
 import { listAutoSaves, listManualSaves, type SaveSlot } from '../state/indexedDbSaveSystem';
 import { useStore } from '../state/store';
@@ -144,6 +145,7 @@ export function serializePhase0HarnessToPersistedState(state: Phase0HarnessState
   const phase0 = serializePhase0State(state);
   return {
     version: 1,
+    rngStreamVersion: RNG_STREAM_VERSION,
     state: {
       tick: state.tick,
       seed: 12345, // Mock seed for Phase 0

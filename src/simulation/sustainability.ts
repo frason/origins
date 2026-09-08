@@ -2,6 +2,7 @@ import { Creature } from './creature';
 import { createEngine, tickEngine, type EngineState } from './engine';
 import { getBiomeProductivity, getNutrientCapacity } from './producer';
 import { buildStarterCreatures } from './starterWorld';
+import { StreamedRng } from './rng';
 import type { SimulationConstants } from '../utils/constants';
 
 export interface SustainabilityPreset {
@@ -39,9 +40,10 @@ export function buildEvaluationWorld(
   Creature.resetIdCounter();
   const width = constants.worldWidth ?? 100;
   const height = constants.worldHeight ?? 100;
+  const streamedRng = new StreamedRng(seed, 0);
   const engine = createEngine(
     seed,
-    buildStarterCreatures(seed, width, height),
+    buildStarterCreatures(seed, width, height, 30, streamedRng),
     width,
     height,
     constants

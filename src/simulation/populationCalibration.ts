@@ -1,6 +1,6 @@
 import { measureBiomass } from './biomassMetrics';
 import { tickEngine } from './engine';
-import { createRng } from './rng';
+import { createRng, StreamedRng, RNG_STREAMS } from './rng';
 import { buildEvaluationWorld } from './sustainability';
 import {
   SIMULATION_CONSTANTS,
@@ -123,7 +123,9 @@ export function generateSeededPopulationCandidates(
   count: number,
   bounds: Partial<Record<CalibrationConstant, readonly [number, number]>>
 ): PopulationCalibrationCandidate[] {
-  const rng = createRng(seed);
+  const streamedRng = new StreamedRng(seed, 0);
+  const calibrationStream = streamedRng.getStream(RNG_STREAMS.CALIBRATION);
+  const rng = calibrationStream.fn;
   const entries = (Object.entries(bounds) as Array<[
     CalibrationConstant,
     readonly [number, number]

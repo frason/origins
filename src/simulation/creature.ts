@@ -423,7 +423,7 @@ export function scanEnvironment(
 
 /**
  * Decide what action a creature should take this tick.
- * Scans environment and returns the creature's decision.
+ * Scans environment once and returns both the decision and the perception data.
  *
  * Priority:
  * 1. If threatened by predators, flee
@@ -436,7 +436,7 @@ export function scanEnvironment(
  * @param world - the world grid
  * @param allCreatures - all creatures in the simulation
  * @param rng - deterministic RNG
- * @returns the decision type
+ * @returns object with decision type and perception scan (for reuse in movement phase)
  */
 export function decideTick(
   creature: Creature,
@@ -446,8 +446,8 @@ export function decideTick(
   spatialIndex?: CreatureSpatialIndex,
   scavengerForagingEnergyTarget = DEFAULT_SCAVENGER_FORAGING_ENERGY_TARGET,
   predationHungerThresholdShare = PREDATION_HUNGER_THRESHOLD_SHARE
-): DecisionType {
-  // Scan environment
+): { decision: DecisionType; scan: VisionScan } {
+  // Scan environment once per decision
   const scan = scanEnvironment(
     creature, world, allCreatures, rng, spatialIndex, predationHungerThresholdShare
   );
@@ -461,38 +461,98 @@ export function decideTick(
     creature.energy / scavengerCapacity < CRITICAL_SCAVENGER_ENERGY_SHARE &&
     findMigrationFoodTarget(creature, world, allCreatures) !== null;
 
+  let decision: DecisionType;
+
   // If threatened, flee
   if (scan.threats.length > 0 && !criticalScavengerForaging) {
-    return 'flee';
+    decision = 'flee';
+  } else if (criticalScavengerForaging && scan.foodCreatures.length === 0) {
+    decision = 'search';
+  } else {
+    // If at or near maximum energy, idle (no need to eat)
+    const MAX_ENERGY = creature.traits.energyStrategy === 'scavenger'
+      ? Math.max(creature.traits.size * MAX_ENERGY_MULTIPLIER, scavengerForagingEnergyTarget)
+      : creature.traits.size * MAX_ENERGY_MULTIPLIER;
+    if (creature.energy >= MAX_ENERGY) {
+      decision = 'idle';
+    } else {
+      // Creature is hungry (below max energy)
+      const isHungry = creature.energy < MAX_ENERGY;
+
+      // If there is food nearby, attempt to move toward it
+      if (scan.foodLocations.length > 0 || scan.foodCreatures.length > 0) {
+        decision = 'move-to-food';
+      } else if (isHungry) {
+        // If hungry but no food visible, search for food
+        decision = 'search';
+      } else {
+        // Default: idle
+        decision = 'idle';
+      }
+    }
   }
 
-  if (criticalScavengerForaging && scan.foodCreatures.length === 0) {
-    return 'search';
+  return { decision, scan };
+}
+
+/**
+ * Compute a movement target for a given decision using pre-scanned environment data.
+ * This is extracted from applyMovement to enable single-perception-pass intent generation.
+ *
+ * @param creature - the creature
+ * @param decision - the decision type
+ * @param scan - pre-scanned environment data
+ * @param world - the world grid
+ * @param allCreatures - all creatures in the simulation
+ * @returns target location or null if no movement
+ */
+export function computeMovementTarget(
+  creature: Creature,
+  decision: DecisionType,
+  scan: VisionScan,
+  world: World,
+  allCreatures: Creature[]
+): { x: number; y: number } | null {
+  if (decision === 'idle' || decision === 'eat' || decision === 'reproduce') {
+    return null;
   }
 
-  // If at or near maximum energy, idle (no need to eat)
-  const MAX_ENERGY = creature.traits.energyStrategy === 'scavenger'
-    ? Math.max(creature.traits.size * MAX_ENERGY_MULTIPLIER, scavengerForagingEnergyTarget)
-    : creature.traits.size * MAX_ENERGY_MULTIPLIER;
-  if (creature.energy >= MAX_ENERGY) {
-    return 'idle';
+  let targetLocation: { x: number; y: number } | null = null;
+
+  if (decision === 'move-to-food') {
+    // Combine all food targets
+    const allFoodTargets = [
+      ...scan.foodLocations,
+      ...scan.foodCreatures.map((c) => ({ x: c.x, y: c.y })),
+    ];
+    targetLocation = findNearestTarget(creature.x, creature.y, allFoodTargets);
+  } else if (decision === 'search') {
+    targetLocation = findMigrationFoodTarget(creature, world, allCreatures)
+      ?? getSearchTarget(creature, world);
+  } else if (decision === 'flee') {
+    // Move away from nearest threat
+    if (scan.threats.length > 0) {
+      const nearestThreat = findNearestTarget(
+        creature.x,
+        creature.y,
+        scan.threats.map((c) => ({ x: c.x, y: c.y }))
+      );
+
+      if (nearestThreat) {
+        // Calculate a point away from the threat
+        const dx = creature.x - nearestThreat.x;
+        const dy = creature.y - nearestThreat.y;
+
+        // Move away (direction opposite to threat)
+        const awayX = creature.x + (dx > 0 ? 1 : dx < 0 ? -1 : 0);
+        const awayY = creature.y + (dy > 0 ? 1 : dy < 0 ? -1 : 0);
+
+        targetLocation = { x: awayX, y: awayY };
+      }
+    }
   }
 
-  // Creature is hungry (below max energy)
-  const isHungry = creature.energy < MAX_ENERGY;
-
-  // If there is food nearby, attempt to move toward it
-  if (scan.foodLocations.length > 0 || scan.foodCreatures.length > 0) {
-    return 'move-to-food';
-  }
-
-  // If hungry but no food visible, search for food
-  if (isHungry) {
-    return 'search';
-  }
-
-  // Default: idle
-  return 'idle';
+  return targetLocation;
 }
 
 /**
@@ -668,8 +728,101 @@ export function findMigrationFoodTarget(
 }
 
 /**
+ * Apply movement to a creature based on its decision and pre-computed perception data.
+ * Mutates creature's x and y position.
+ *
+ * This variant uses pre-scanned perception data (from decideTick) to avoid rescanning
+ * the environment. It's the preferred method for normal creature movement.
+ *
+ * Decisions:
+ * - 'move-to-food': move toward nearest food (creature or biomass)
+ * - 'flee': move away from nearest threat
+ * - 'search': move in a direction to explore and find food
+ * - 'idle': no movement
+ * - 'eat': no movement (handled elsewhere)
+ * - 'reproduce': no movement (handled elsewhere)
+ * - 'disperse': move toward explicit target (requires explicitTarget parameter)
+ *
+ * Movement is capped by traits.speed and clamped to world bounds.
+ *
+ * @param creature - the creature to move (mutated in-place)
+ * @param decision - the decision type
+ * @param scan - pre-computed vision scan from decideTick
+ * @param world - the world grid
+ * @param allCreatures - all creatures in the simulation
+ * @param spatialIndex - optional spatial index for efficient queries
+ * @param explicitTarget - explicit movement target (used for 'disperse' decision)
+ */
+export function applyMovementWithScan(
+  creature: Creature,
+  decision: DecisionType,
+  scan: VisionScan,
+  world: World,
+  allCreatures: Creature[],
+  spatialIndex?: CreatureSpatialIndex,
+  explicitTarget?: { x: number; y: number }
+): void {
+  if (decision === 'idle' || decision === 'eat' || decision === 'reproduce') {
+    // No movement
+    return;
+  }
+
+  let targetLocation: { x: number; y: number } | null = null;
+
+  if (decision === 'disperse') {
+    targetLocation = explicitTarget ?? null;
+  } else if (decision === 'move-to-food') {
+    // Combine all food targets
+    const allFoodTargets = [
+      ...scan.foodLocations,
+      ...scan.foodCreatures.map((c) => ({ x: c.x, y: c.y })),
+    ];
+    targetLocation = findNearestTarget(creature.x, creature.y, allFoodTargets);
+  } else if (decision === 'search') {
+    targetLocation = findMigrationFoodTarget(creature, world, allCreatures)
+      ?? getSearchTarget(creature, world);
+  } else if (decision === 'flee') {
+    // Move away from nearest threat
+    if (scan.threats.length > 0) {
+      const nearestThreat = findNearestTarget(
+        creature.x,
+        creature.y,
+        scan.threats.map((c) => ({ x: c.x, y: c.y }))
+      );
+
+      if (nearestThreat) {
+        // Calculate a point away from the threat
+        const dx = creature.x - nearestThreat.x;
+        const dy = creature.y - nearestThreat.y;
+
+        // Move away (direction opposite to threat)
+        const awayX = creature.x + (dx > 0 ? 1 : dx < 0 ? -1 : 0);
+        const awayY = creature.y + (dy > 0 ? 1 : dy < 0 ? -1 : 0);
+
+        targetLocation = { x: awayX, y: awayY };
+      }
+    }
+  }
+
+  // Apply movement if we have a target
+  if (targetLocation) {
+    const previousX = creature.x;
+    const previousY = creature.y;
+    const nextPos = moveAcrossTerrain(creature, targetLocation, world);
+
+    // The terrain joins east to west, so movement must use the same seam.
+    creature.x = wrapCoordinate(nextPos.x, world.width);
+    creature.y = Math.max(0, Math.min(world.height - 1, nextPos.y));
+    spatialIndex?.move(creature, previousX, previousY);
+  }
+}
+
+/**
  * Apply movement to a creature based on its decision.
  * Mutates creature's x and y position.
+ *
+ * DEPRECATED: This function rescans the environment, causing redundant perception passes.
+ * Use applyMovementWithScan() instead, which takes pre-computed perception data.
  *
  * Decisions:
  * - 'move-to-food': move toward nearest food (creature or biomass)

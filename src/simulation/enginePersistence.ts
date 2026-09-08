@@ -3,11 +3,13 @@ import type { EngineState } from './engine';
 import { World } from './world';
 import type { Phase0State } from './checkpointTimeline';
 import { AdaptationMetricsTracker } from './adaptationMetrics';
+import { RNG_STREAM_VERSION } from './rng';
 
 export const ENGINE_SAVE_VERSION = 1;
 
 export interface PersistedEngineState {
   version: number;
+  rngStreamVersion: number;
   state: Omit<EngineState, 'world' | 'creatures'> & {
     world: ReturnType<World['toJSON']>;
     creatures: ReturnType<Creature['toJSON']>[];
@@ -24,6 +26,7 @@ export interface PersistedEngineState {
 export function createPersistedEngineState(state: EngineState): PersistedEngineState {
   return {
     version: ENGINE_SAVE_VERSION,
+    rngStreamVersion: RNG_STREAM_VERSION,
     state: {
       ...state,
       world: state.world.toJSON(),
@@ -51,6 +54,12 @@ export function deserializeEngineState(value: string): EngineState {
   }
   if (!payload || payload.version !== ENGINE_SAVE_VERSION || !payload.state) {
     throw new Error('Saved world uses an unsupported version');
+  }
+  if (payload.rngStreamVersion !== RNG_STREAM_VERSION) {
+    throw new Error(
+      `Saved world uses incompatible RNG stream version (version ${payload.rngStreamVersion}, ` +
+      `current is ${RNG_STREAM_VERSION}). Replay is not possible; results would differ.`
+    );
   }
   const saved = payload.state;
   if (!Number.isInteger(saved.tick) || !Number.isInteger(saved.seed) || !Array.isArray(saved.creatures) ||

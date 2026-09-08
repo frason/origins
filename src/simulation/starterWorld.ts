@@ -1,5 +1,5 @@
 import { Creature } from './creature';
-import { createRng, randChoice, type RngFn } from './rng';
+import { createRng, randChoice, type RngFn, StreamedRng, RNG_STREAMS } from './rng';
 import { generateTerrain } from './world';
 import { DEFAULT_TRAITS } from '../utils/traits';
 import { FOUNDER_SPECIES, type FounderSpeciesDefinition } from './founderSpecies';
@@ -85,9 +85,13 @@ export function buildStarterCreatures(
   seed: number,
   width: number,
   height: number,
-  corpseDecayTicks: number = 30
+  corpseDecayTicks: number = 30,
+  streamedRng?: StreamedRng
 ): Creature[] {
-  const rng = createRng(seed ^ 0x51a7e2);
+  // Use provided StreamedRng or create one with tick 0 (world generation phase)
+  const rngStreams = streamedRng ?? new StreamedRng(seed, 0);
+  const worldGenStream = rngStreams.getStream(RNG_STREAMS.WORLD_GENERATION);
+  const rng = worldGenStream.fn;
   const terrain = generateTerrain(width, height, seed);
   const habitable: Position[] = [];
 

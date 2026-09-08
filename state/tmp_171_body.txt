@@ -1,0 +1,51 @@
+Parent: #159
+
+## Outcome
+Preserve the stories and evidence of a world across time, including lineages that have gone extinct.
+
+## Rescoped (planning pass 85, 2026-09-06)
+This issue has had ~10 worker/karen rounds. The 3rd karen FAILED verdict (2026-09-07T03:12:42Z)
+confirmed most of the original scope is already implemented and PASSING: first-sighting/
+adaptation/speciation/intervention/extinction entry creation, timeline-moment linking, search/
+compare across living and extinct lineages, observed-evidence-vs-inferred-explanation
+distinction, and player notes/bookmarks. **Do not rewrite or re-touch any of that
+already-passing code.** Only the 4 gaps below are still open. Commit as soon as each gap's
+tests pass — do not wait until the end of your turn budget.
+
+## Gaps to close (only these 4)
+1. **Range-change entries.** No `createRangeChangeEntry` exists in `src/simulation/
+   fieldJournal.ts` (18 exports, none for it). Add it and call it from `recordJournalEntries` in
+   `src/simulation/fieldJournalIntegration.ts` when a lineage's occupied cells/region change
+   meaningfully. The `'range-change'` string already exists as a dead UI filter/color placeholder
+   in `src/ui/FieldJournal.tsx` (lines 78, 381) — wire real entries into it, don't add a new one.
+2. **Journal persistence across reload/save-load.** `src/state/fieldJournalPersistence.ts`
+   (`loadFieldJournal`/`saveFieldJournal`, 139 lines, 11/11 tests passing in isolation) is never
+   imported by `App.tsx`. Every reset/new-world/load path (`App.tsx` lines ~225, 249, 297, 331,
+   432, 467) currently calls `createFieldJournal(seed)`, wiping the journal. Wire the real
+   load/save calls into those paths so the journal survives reload and save/load.
+3. **Bound journal storage.** `boundJournalStorage()` is defined in `fieldJournal.ts:411` but has
+   zero call sites outside its own definition — never invoked, so storage is unbounded in
+   practice. Call it from the actual write path (e.g. inside `addJournalEntry` or right after
+   `recordJournalEntries`).
+4. **Map-region and lineage-ancestry navigation.** `FieldJournal.tsx:264-273` renders a static
+   "Grid (x, y)" with no click handler — add navigation that pans/jumps the world view there.
+   `ancestralSpeciesId` is already stored on speciation entries (`fieldJournal.ts:60,183`) but
+   never read/rendered in `FieldJournal.tsx` — add a clickable link/button on speciation entries
+   that filters/jumps to the parent lineage's entries.
+
+## Done when
+- All 4 gaps above are closed with passing tests (extend existing test files where they exist:
+  `fieldJournal.test.ts`, `fieldJournalIntegration.test.ts`, `fieldJournalPersistence.test.ts`,
+  plus `FieldJournal.tsx`'s own test file for the two navigation additions).
+- `npx tsc --noEmit -p .` and `npm test` pass with zero errors.
+- A player can reconstruct the full history of a lineage — including range changes — after it
+  disappears, even after reloading the page or loading a saved world.
+
+Builds on: #63, #67, #76, #103
+
+---
+**Unblocked (pass 49):** Phase A epic #247 closed; legacy backlog resumed per SPEC.md's "Legacy
+roadmap note" and client disposition #234. No remaining dependency — proceed with
+implementation.
+
+<!-- agent-planned -->

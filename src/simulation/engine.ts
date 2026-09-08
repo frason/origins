@@ -1,7 +1,7 @@
 import { computeSolarEnergyGrid, World } from './world';
 import { Creature } from './creature';
 import { CreatureSpatialIndex } from './creatureSpatialIndex';
-import { createRng, RngFn } from './rng';
+import { createRng, RngFn, StreamedRng, RNG_STREAMS } from './rng';
 import {
   WORLD_WIDTH,
   WORLD_HEIGHT,
@@ -36,8 +36,17 @@ import {
 import {
   decideTick,
   applyMovement,
+  applyMovementWithScan,
   DecisionType,
+  computeMovementTarget,
+  VisionScan,
 } from './creature';
+import {
+  DecisionIntent,
+  createDecisionIntent,
+  tieBreakCreatureOrder,
+  type DecisionMetrics,
+} from './decisionIntent';
 import {
   feedOnProducer,
   feedOnCreature,
@@ -483,8 +492,12 @@ export function tickEngine(
   );
   const deathCauses = new Map<string, DeathCause>();
 
-  // Create deterministic RNG from seed and tick
-  const rng = createRng(state.seed ^ state.tick);
+  // Create deterministic named RNG streams from seed and tick
+  const rngStreams = new StreamedRng(state.seed ^ state.tick, state.tick);
+
+  // Extract named streams for different subsystems
+  const mutationStream = rngStreams.getStream(RNG_STREAMS.MUTATION);
+  const biodiversityStream = rngStreams.getStream(RNG_STREAMS.BIODIVERSITY_PRESSURE);
 
   // Initialize sound event tracking
   let soundEventCounter = state.soundEventCounter;
@@ -494,7 +507,12 @@ export function tickEngine(
   growProducers(newWorld, 'solar', constants.producerGrowthRate, true, true);
 
   // Step 3 & 4: Creature Decisions and Movement
+  // Refactored to use single perception pass per creature decision + DecisionIntent pattern
   const decisions = new Map<string, DecisionType>();
+  const perceptionScans = new Map<string, VisionScan>();
+  let perceptionScanCount = 0;
+  const decisionIntents: DecisionIntent[] = [];
+
   const creatureIndex = new CreatureSpatialIndex(creatures);
   const localPressure = buildLocalResourcePressureCache(
     state.tick,
@@ -513,55 +531,83 @@ export function tickEngine(
   let dispersalMoves = 0;
   let dispersalEnergySpent = 0;
   let dispersalBiomeTransitions = 0;
-  for (const creature of creatures) {
-    if (creature.lifecycleState === 'alive') {
-      const pressure = localPressure.get(creature.id);
-      creature.localResourcePressure = pressure?.pressure ?? 0;
-      if (
-        pressure &&
-        shouldEvaluateDispersal(creature, state.tick, pressure.pressure, dispersalPolicy)
-      ) {
-        const target = findDispersalTarget(
-          creature,
-          newWorld,
-          creatureIndex,
-          pressure,
-          dispersalPolicy
-        );
-        if (target) {
-          creature.dispersalTargetX = target.x;
-          creature.dispersalTargetY = target.y;
-          creature.lastDispersalTick = state.tick;
-        }
-      }
-      let decision = decideTick(
+
+  // Phase 1: Generate DecisionIntents with deterministic tie-breaking order
+  // Sort creatures by tie-breaking order before decision phase
+  const aliveCreatures = creatures.filter(c => c.lifecycleState === 'alive');
+  const sortedCreatures = [...aliveCreatures].sort(tieBreakCreatureOrder);
+
+  for (const creature of sortedCreatures) {
+    const pressure = localPressure.get(creature.id);
+    creature.localResourcePressure = pressure?.pressure ?? 0;
+    if (
+      pressure &&
+      shouldEvaluateDispersal(creature, state.tick, pressure.pressure, dispersalPolicy)
+    ) {
+      const target = findDispersalTarget(
         creature,
         newWorld,
-        creatures,
-        rng,
         creatureIndex,
-        constants.reproductionEnergyThreshold * 0.8,
-        constants.predationHungerThresholdShare
+        pressure,
+        dispersalPolicy
       );
-      const hasDispersalTarget =
-        creature.dispersalTargetX !== null && creature.dispersalTargetY !== null;
-      if (hasDispersalTarget && decision !== 'flee') decision = 'disperse';
-      decisions.set(creature.id, decision);
+      if (target) {
+        creature.dispersalTargetX = target.x;
+        creature.dispersalTargetY = target.y;
+        creature.lastDispersalTick = state.tick;
+      }
+    }
+    // Get entity-level movement stream for stable per-creature randomness
+    const entityMovementStream = rngStreams.getEntityStream(RNG_STREAMS.MOVEMENT, creature.id);
+    // Single perception pass: decideTick now returns both decision and scan
+    const { decision: baseDecision, scan } = decideTick(
+      creature,
+      newWorld,
+      creatures,
+      entityMovementStream.fn,
+      creatureIndex,
+      constants.reproductionEnergyThreshold * 0.8,
+      constants.predationHungerThresholdShare
+    );
+    perceptionScanCount++;
+    perceptionScans.set(creature.id, scan);
+
+    let decision = baseDecision;
+    const hasDispersalTarget =
+      creature.dispersalTargetX !== null && creature.dispersalTargetY !== null;
+    if (hasDispersalTarget && decision !== 'flee') decision = 'disperse';
+    decisions.set(creature.id, decision);
+
+    // Create DecisionIntent bundling perception data with decision
+    const intent = createDecisionIntent(creature, decision, scan, newWorld, creatures);
+    decisionIntents.push(intent);
+  }
+
+  // Phase 2: Execute DecisionIntents in tie-breaking order (already sorted above)
+  for (const intent of decisionIntents) {
+    const creature = creatures.find(c => c.id === intent.creatureId)!;
+    if (creature.lifecycleState === 'alive') {
       const previousX = creature.x;
       const previousY = creature.y;
       const previousBiome = newWorld.getCell(previousX, previousY).biome;
-      applyMovement(
+
+      const hasDispersalTarget =
+        creature.dispersalTargetX !== null && creature.dispersalTargetY !== null;
+
+      // Use pre-computed scan from DecisionIntent (no rescanning)
+      applyMovementWithScan(
         creature,
-        decision,
+        intent.decision,
+        intent.scan,
         newWorld,
         creatures,
-        rng,
         creatureIndex,
         hasDispersalTarget
           ? { x: creature.dispersalTargetX!, y: creature.dispersalTargetY! }
           : undefined
       );
-      if (decision === 'disperse') {
+
+      if (intent.decision === 'disperse') {
         const distance = Math.max(
           Math.abs(creature.x - previousX),
           Math.abs(creature.y - previousY)
@@ -590,6 +636,15 @@ export function tickEngine(
       }
     }
   }
+
+  // DecisionIntent metrics: Track perception efficiency
+  // Performance improvement: single scan per decision eliminates redundant perception passes
+  const decisionMetrics: DecisionMetrics = {
+    totalCreatures: aliveCreatures.length,
+    perceptionScans: perceptionScanCount,
+    intentGenerationTime: 0, // Timing would be measured separately in performance tests
+    executionTime: 0,
+  };
 
   // Step 5: Feeding
   for (const creature of creatures) {
@@ -787,9 +842,11 @@ export function tickEngine(
         mutationPressure
       );
 
+      // Get entity-level mutation stream for stable per-creature mutation outcomes
+      const entityMutationStream = rngStreams.getEntityStream(RNG_STREAMS.MUTATION, creature.id);
       const child = reproduceCreature(
         creature,
-        rng,
+        entityMutationStream.fn,
         constants.mutationDrift,
         mutationRate,
         offspringEnergy
@@ -829,6 +886,7 @@ export function tickEngine(
         mutationPressure,
         mutationRate,
         affectedRegion: { x: child.x, y: child.y, radius: 0 },
+        rngStream: entityMutationStream.streamName,
       });
       if (child.lineageId !== creature.lineageId) {
         newEvents.push({
@@ -846,6 +904,7 @@ export function tickEngine(
             creature.lineageId
           )} → ${lineageDisplayName(child.speciesId, child.lineageId)}`,
           affectedRegion: { x: child.x, y: child.y, radius: 0 },
+          rngStream: entityMutationStream.streamName,
         });
       }
     }
@@ -869,7 +928,7 @@ export function tickEngine(
   }
 
   // Step 8.5: Biodiversity Pressure (density-dependent mortality and monoculture penalties)
-  for (const [creatureId, cause] of applyBiodiversityPressure(creatures, rng, constants)) {
+  for (const [creatureId, cause] of applyBiodiversityPressure(creatures, biodiversityStream.fn, constants)) {
     deathCauses.set(creatureId, cause);
   }
 
@@ -887,6 +946,7 @@ export function tickEngine(
       founderTraits: { ...candidate.founderTraits },
       establishedTick: state.tick,
     });
+    // Speciation is a result of mutations, so tag with mutation stream
     newEvents.push({
       type: 'speciation',
       tick: state.tick,
@@ -897,6 +957,7 @@ export function tickEngine(
       affectedRegion: candidate.founderX !== undefined && candidate.founderY !== undefined
         ? { x: candidate.founderX, y: candidate.founderY, radius: 0 }
         : undefined,
+      rngStream: mutationStream.streamName,
     });
   }
   const livingCandidates = livingCandidateIds(creatures);
@@ -921,18 +982,26 @@ export function tickEngine(
         creature.energy,
         Math.max(0, constants.minimumCarrionEnergy) * Math.max(0.25, creature.traits.size)
       );
-      newEvents.push({
-        type: 'death',
+      // Tag death event only if it resulted from a random decision
+      // Starvation, age, and environmental-stress deaths are deterministic checks with no RNG involvement
+      const deathCause = deathCauses.get(creature.id) ?? 'unknown';
+      const deathEvent = {
+        type: 'death' as const,
         tick: state.tick,
         creatureId: creature.id,
         speciesId: creature.speciesId,
         lineageId: creature.lineageId,
-        deathCause: deathCauses.get(creature.id) ?? 'unknown',
+        deathCause,
         offspringCountAtDeath: creature.offspringCount,
         prematureDeath: creature.offspringCount === 0,
         ageAtDeath: creature.age,
         affectedRegion: { x: creature.x, y: creature.y, radius: 0 },
-      });
+        // Only overcrowding and monoculture-pressure deaths used randomness (from biodiversityStream)
+        ...(deathCause === 'overcrowding' || deathCause === 'monoculture-pressure'
+          ? { rngStream: biodiversityStream.streamName }
+          : {}),
+      };
+      newEvents.push(deathEvent);
     }
   }
 
@@ -1016,6 +1085,7 @@ export function tickEngine(
           shockKind: 'toxicity-surge',
           affectedRegion: { x, y, radius: 2 },
           detail: `Toxicity surge at (${x}, ${y})`,
+          // Toxicity surge detection is deterministic (threshold check), not random
         });
         shocksEmitted++;
       }
@@ -1065,6 +1135,8 @@ export function tickEngine(
   for (const speciesId of speciesLivingCount.keys()) {
     if (speciesLivingCount.get(speciesId) === 0 && !currentLivingSpecies.has(speciesId)) {
       const lastLoc = lastSpeciesLocation.get(speciesId);
+      // Extinction is recorded as an event
+      // Extinction detection is deterministic (population counting), not random
       newEvents.push({
         type: 'extinction',
         tick: state.tick,

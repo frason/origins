@@ -4,6 +4,7 @@ import {
   DecisionType,
   decideTick,
   applyMovement,
+  applyMovementWithScan,
   scanEnvironment,
   chebyshevDistance,
   findNearestTarget,
@@ -252,8 +253,8 @@ describe('Movement and Decision Logic', () => {
         energy: 100,
       });
 
-      const decision = decideTick(creature, world, [creature], rng);
-      expect(decision).toBe('idle');
+      const result = decideTick(creature, world, [creature], rng);
+      expect(result.decision).toBe('idle');
     });
 
     it('should return move-to-food when food is nearby', () => {
@@ -270,8 +271,8 @@ describe('Movement and Decision Logic', () => {
       // Add nearby food
       world.setCell(55, 50, { producerBiomass: 10 });
 
-      const decision = decideTick(creature, world, [creature], rng);
-      expect(decision).toBe('move-to-food');
+      const result = decideTick(creature, world, [creature], rng);
+      expect(result.decision).toBe('move-to-food');
     });
 
     it('should return flee when threatened', () => {
@@ -298,8 +299,8 @@ describe('Movement and Decision Logic', () => {
       // Use RNG that always returns low values (always detects)
       const detectRng = () => 0.1; // Always less than 1 - camouflage
 
-      const decision = decideTick(herbivore, world, [herbivore, predator], detectRng);
-      expect(decision).toBe('flee');
+      const result = decideTick(herbivore, world, [herbivore, predator], detectRng);
+      expect(result.decision).toBe('flee');
     });
 
     it('should prioritize fleeing over moving to food', () => {
@@ -329,8 +330,8 @@ describe('Movement and Decision Logic', () => {
       // Use RNG that always detects
       const detectRng = () => 0.1;
 
-      const decision = decideTick(herbivore, world, [herbivore, predator], detectRng);
-      expect(decision).toBe('flee');
+      const result = decideTick(herbivore, world, [herbivore, predator], detectRng);
+      expect(result.decision).toBe('flee');
     });
 
     it('lets scavengers forage up to their reproductive reserve target', () => {
@@ -345,8 +346,8 @@ describe('Movement and Decision Logic', () => {
         x: 55, y: 50, energy: 80, lifecycleState: 'dead', corpseDecayTicks: 20,
       });
 
-      expect(decideTick(scavenger, world, [scavenger, corpse], rng))
-        .toBe('move-to-food');
+      const result = decideTick(scavenger, world, [scavenger, corpse], rng);
+      expect(result.decision).toBe('move-to-food');
     });
 
     it('does not flee scavengers from predators that are too well-fed to hunt', () => {
@@ -361,11 +362,13 @@ describe('Movement and Decision Logic', () => {
         x: 55, y: 50, energy: 180,
       });
 
-      expect(decideTick(scavenger, world, [scavenger, predator], rng)).not.toBe('flee');
+      const result1 = decideTick(scavenger, world, [scavenger, predator], rng);
+      expect(result1.decision).not.toBe('flee');
       // A size-one predator has a 200-energy capacity. Keep this below the
       // calibrated 45% hunt threshold so the scavenger correctly flees.
       predator.energy = 80;
-      expect(decideTick(scavenger, world, [scavenger, predator], rng)).toBe('flee');
+      const result2 = decideTick(scavenger, world, [scavenger, predator], rng);
+      expect(result2.decision).toBe('flee');
     });
 
     it('risks contested carrion only when a scavenger is critically hungry', () => {
@@ -385,11 +388,11 @@ describe('Movement and Decision Logic', () => {
         x: 70, y: 50, energy: 80, lifecycleState: 'dead', corpseDecayTicks: 20,
       });
 
-      expect(decideTick(scavenger, world, [scavenger, predator, corpse], rng))
-        .toBe('search');
+      const result1 = decideTick(scavenger, world, [scavenger, predator, corpse], rng);
+      expect(result1.decision).toBe('search');
       scavenger.energy = 60;
-      expect(decideTick(scavenger, world, [scavenger, predator, corpse], rng))
-        .toBe('flee');
+      const result2 = decideTick(scavenger, world, [scavenger, predator, corpse], rng);
+      expect(result2.decision).toBe('flee');
     });
 
     it('should return idle when at full energy even if food is nearby', () => {
@@ -407,8 +410,8 @@ describe('Movement and Decision Logic', () => {
       // Add nearby food that would normally trigger move-to-food
       world.setCell(55, 50, { producerBiomass: 10 });
 
-      const decision = decideTick(fullEnergyCreature, world, [fullEnergyCreature], rng);
-      expect(decision).toBe('idle');
+      const result = decideTick(fullEnergyCreature, world, [fullEnergyCreature], rng);
+      expect(result.decision).toBe('idle');
     });
 
     it('should move to food when below full energy', () => {
@@ -426,8 +429,8 @@ describe('Movement and Decision Logic', () => {
       // Add nearby food
       world.setCell(55, 50, { producerBiomass: 10 });
 
-      const decision = decideTick(partialEnergyCreature, world, [partialEnergyCreature], rng);
-      expect(decision).toBe('move-to-food');
+      const result = decideTick(partialEnergyCreature, world, [partialEnergyCreature], rng);
+      expect(result.decision).toBe('move-to-food');
     });
   });
 
@@ -686,8 +689,8 @@ describe('Movement and Decision Logic', () => {
       });
 
       // No food nearby - should trigger search
-      const decision = decideTick(creature, world, [creature], rng);
-      expect(decision).toBe('search');
+      const result = decideTick(creature, world, [creature], rng);
+      expect(result.decision).toBe('search');
     });
 
     it('should move when searching', () => {
@@ -806,11 +809,11 @@ describe('Movement and Decision Logic', () => {
       world.setCell(50, 40, { producerBiomass: 10 });
 
       const testRng = createRng(12345);
-      const decision = decideTick(creature, world, [creature], testRng);
+      const { decision, scan } = decideTick(creature, world, [creature], testRng);
       expect(decision).toBe('move-to-food');
 
-      const testRng2 = createRng(12345);
-      applyMovement(creature, decision, world, [creature], testRng2);
+      // Use the scan from decideTick to avoid rescanning
+      applyMovementWithScan(creature, decision, scan, world, [creature]);
 
       // Creature should have moved toward the food
       expect(creature.x).toBeGreaterThan(40);
@@ -840,10 +843,11 @@ describe('Movement and Decision Logic', () => {
       });
 
       const testRng = () => 0.1; // Always detect
-      const decision = decideTick(herbivore, world, [herbivore, predator], testRng);
+      const { decision, scan } = decideTick(herbivore, world, [herbivore, predator], testRng);
       expect(decision).toBe('flee');
 
-      applyMovement(herbivore, decision, world, [herbivore, predator], testRng);
+      // Use the scan from decideTick to avoid rescanning
+      applyMovementWithScan(herbivore, decision, scan, world, [herbivore, predator]);
 
       // Herbivore should move away from predator
       expect(herbivore.x).toBeLessThan(40);
