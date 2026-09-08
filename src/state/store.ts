@@ -25,6 +25,7 @@ import type { AdaptationObservation } from '../simulation/adaptationMetrics';
 import type { EcosystemWatch, EcosystemAlert } from '../simulation/watches';
 import type { ObservatoryState } from '../ui/observatoryObjectives';
 import type { FieldJournal, FieldJournalEntry } from '../simulation/fieldJournal';
+import { saveFieldJournal } from './fieldJournalPersistence';
 
 // Cell interface for world state
 export interface CellSnapshot {
@@ -343,7 +344,6 @@ export const useStore = create<StoreState>((set) => ({
 
       // Persist to storage
       if (typeof window !== 'undefined' && window.localStorage) {
-        const { saveFieldJournal } = require('../state/fieldJournalPersistence');
         saveFieldJournal(window.localStorage, updated);
       }
 
