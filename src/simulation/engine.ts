@@ -1023,45 +1023,57 @@ export function tickEngine(
   }
 
   // Count living creatures per species (for extinction detection)
+  // Initialize with 0 for all known species to detect extinctions correctly
   const speciesLivingCount = new Map<string, number>();
+  for (const profile of state.speciesProfiles) {
+    speciesLivingCount.set(profile.id, 0);
+  }
+
   const lastSpeciesLocation = new Map<string, { x: number; y: number }>();
   for (const creature of creatures) {
+    // Track last known location of each species (alive or dead for better accuracy)
+    lastSpeciesLocation.set(creature.speciesId, { x: creature.x, y: creature.y });
+
     if (creature.lifecycleState === 'alive') {
       speciesLivingCount.set(
         creature.speciesId,
         (speciesLivingCount.get(creature.speciesId) || 0) + 1
       );
-      // Track last known location of each species
-      lastSpeciesLocation.set(creature.speciesId, { x: creature.x, y: creature.y });
     }
   }
 
   // Remove fully decomposed creatures and detect extinctions
   const creaturesAfterDecomposition: Creature[] = [];
-  const extinctSpecies = new Set<string>();
 
   for (const creature of creatures) {
     if (creature.lifecycleState === 'dead' && creature.corpseDecayTicks <= 0) {
       // Fully decomposed; remove from simulation
-      if (speciesLivingCount.get(creature.speciesId) === 0) {
-        extinctSpecies.add(creature.speciesId);
-      }
     } else {
       creaturesAfterDecomposition.push(creature);
     }
   }
 
-  // Log extinction events (once per species)
-  for (const speciesId of extinctSpecies) {
-    const lastLoc = lastSpeciesLocation.get(speciesId);
-    newEvents.push({
-      type: 'extinction',
-      tick: state.tick,
-      speciesId,
-      affectedRegion: lastLoc
-        ? { x: lastLoc.x, y: lastLoc.y, radius: 0 }
-        : undefined,
-    });
+  // Detect extinct species (those with 0 living members in this tick)
+  // Only emit extinction event if the species existed before but is now gone
+  const currentLivingSpecies = new Set<string>();
+  for (const creature of creaturesAfterDecomposition) {
+    if (creature.lifecycleState === 'alive') {
+      currentLivingSpecies.add(creature.speciesId);
+    }
+  }
+
+  for (const speciesId of speciesLivingCount.keys()) {
+    if (speciesLivingCount.get(speciesId) === 0 && !currentLivingSpecies.has(speciesId)) {
+      const lastLoc = lastSpeciesLocation.get(speciesId);
+      newEvents.push({
+        type: 'extinction',
+        tick: state.tick,
+        speciesId,
+        affectedRegion: lastLoc
+          ? { x: lastLoc.x, y: lastLoc.y, radius: 0 }
+          : undefined,
+      });
+    }
   }
 
   const completeEvents = state.events.concat(newEvents);

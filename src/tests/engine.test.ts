@@ -605,6 +605,46 @@ describe('Simulation Engine', () => {
       expect(deathEvents.length).toBeGreaterThanOrEqual(1);
     });
 
+    it('should emit extinction events with affectedRegion when species dies', () => {
+      const creature = new Creature({
+        speciesId: 'species_1',
+        lineageId: 'lineage_1',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS },
+        x: 42,
+        y: 37,
+        energy: 1, // Will die quickly
+      });
+
+      let engine = createEngine(12345, [creature], 100, 100, {
+        maxCreatureAgeTicks: 2,
+        corpseDecayDurationTicks: 1,
+        baseMetabolism: 10, // High metabolism to ensure starvation
+      });
+
+      // Run ticks until species is extinct
+      for (let i = 0; i < 20; i++) {
+        engine = tickEngine(engine);
+      }
+
+      const deathEvents = engine.events.filter((e) => e.type === 'death');
+      expect(deathEvents.length).toBeGreaterThanOrEqual(1);
+
+      const extinctionEvents = engine.events.filter((e) => e.type === 'extinction');
+      expect(extinctionEvents.length).toBeGreaterThanOrEqual(1);
+
+      // Verify extinction event has affectedRegion
+      const extinctionEvent = extinctionEvents[0];
+      expect(extinctionEvent).toHaveProperty('affectedRegion');
+      expect(extinctionEvent.affectedRegion).toBeDefined();
+      if (extinctionEvent.affectedRegion) {
+        expect(extinctionEvent.affectedRegion).toHaveProperty('x');
+        expect(extinctionEvent.affectedRegion).toHaveProperty('y');
+        expect(extinctionEvent.affectedRegion.x).toBe(42);
+        expect(extinctionEvent.affectedRegion.y).toBe(37);
+      }
+    });
+
     it('should preserve event history', () => {
       const creature = new Creature({
         speciesId: 'species_1',
