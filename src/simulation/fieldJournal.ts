@@ -246,6 +246,47 @@ export function createExtinctionEntry(
 }
 
 /**
+ * Create a range-change entry when a lineage expands/contracts its occupied region
+ */
+export function createRangeChangeEntry(
+  speciesId: string,
+  lineageId: string,
+  tick: number,
+  previousCells: Array<{ x: number; y: number }>,
+  currentCells: Array<{ x: number; y: number }>,
+  population: number
+): FieldJournalEntry {
+  const expansion = currentCells.length - previousCells.length;
+  const description = expansion > 0
+    ? `${lineageDisplayName(speciesId, lineageId)} expanded range by ~${Math.abs(expansion)} cells`
+    : `${lineageDisplayName(speciesId, lineageId)} contracted range by ~${Math.abs(expansion)} cells`;
+
+  return {
+    id: createEntryId('range-change', tick, speciesId, lineageId),
+    type: 'range-change',
+    speciesId,
+    lineageId,
+    tick,
+    observed: {
+      description,
+      population,
+      evidence: ['spatial-expansion', `cell-count-${currentCells.length}`, 'range-census'],
+    },
+    inferred: {
+      explanation: expansion > 0
+        ? 'Successful dispersal or ecological advantage allowed the lineage to colonize new regions'
+        : 'Pressure from competition or resource scarcity forced the lineage to abandon marginal habitat',
+      confidence: 0.65,
+      reasoning: [
+        `Previously occupied ~${previousCells.length} cells`,
+        `Now occupies ~${currentCells.length} cells`,
+        expansion > 0 ? 'Expansion suggests favorable conditions' : 'Contraction suggests environmental stress',
+      ],
+    },
+  };
+}
+
+/**
  * Create an intervention entry when player changes world settings
  */
 export function createInterventionEntry(
@@ -294,13 +335,17 @@ export function addJournalEntry(journal: FieldJournal, entry: FieldJournalEntry)
     return journal; // Already exists, skip duplicate
   }
 
-  const updated = {
+  let updated = {
     ...journal,
     entries: [...journal.entries, { ...entry, createdAtMs: Date.now() }],
     lastUpdatedTick: Math.max(journal.lastUpdatedTick, entry.tick),
   };
 
   updated.entryIndex.set(entry.id, updated.entries[updated.entries.length - 1]);
+
+  // Bound storage to prevent unbounded growth
+  updated = boundJournalStorage(updated);
+
   return updated;
 }
 

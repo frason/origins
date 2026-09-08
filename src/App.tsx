@@ -68,6 +68,7 @@ import { shouldAutoPauseForObservation, loadObservatoryState } from './ui/observ
 import FieldJournal from './ui/FieldJournal';
 import { createFieldJournal } from './simulation/fieldJournal';
 import { recordJournalEntries, createLineageTracker } from './simulation/fieldJournalIntegration';
+import { loadFieldJournal, saveFieldJournal } from './state/fieldJournalPersistence';
 
 function browserStorage(): Storage | null {
   return typeof window === 'undefined' ? null : window.localStorage;
@@ -138,6 +139,11 @@ export default function App() {
       );
       if (updatedJournal !== store.fieldJournal) {
         store.setFieldJournal(updatedJournal);
+        // Persist journal to storage
+        const storage = browserStorage();
+        if (storage) {
+          saveFieldJournal(storage, updatedJournal);
+        }
       }
     }
     previousEngineRef.current = engine;
@@ -222,8 +228,10 @@ export default function App() {
     engineRef.current = engine;
     previousEngineRef.current = null;
     lineageTrackerRef.current = createLineageTracker();
-    const newJournal = createFieldJournal(worldSeed);
-    store.setFieldJournal(newJournal);
+    // Load journal from storage if available, otherwise create new
+    const storage = browserStorage();
+    const loadedJournal = storage ? loadFieldJournal(storage, worldSeed) : createFieldJournal(worldSeed);
+    store.setFieldJournal(loadedJournal);
     checkpointsRef.current = [];
     recordCheckpoint(engine);
     publish(engine);
@@ -246,8 +254,10 @@ export default function App() {
     engineRef.current = engine;
     previousEngineRef.current = null;
     lineageTrackerRef.current = createLineageTracker();
-    const newJournal = createFieldJournal(seed);
-    store.setFieldJournal(newJournal);
+    // Load journal from storage if available, otherwise create new
+    const storage = browserStorage();
+    const loadedJournal = storage ? loadFieldJournal(storage, seed) : createFieldJournal(seed);
+    store.setFieldJournal(loadedJournal);
     checkpointsRef.current = [];
     recordCheckpoint(engine);
     setWorldSeed(seed);
@@ -293,9 +303,10 @@ export default function App() {
       store.updateConstants(engine.constants);
       engineRef.current = engine;
       lineageTrackerRef.current = createLineageTracker();
-      // Initialize field journal for restored world
-      const newJournal = createFieldJournal(engine.seed);
-      store.setFieldJournal(newJournal);
+      // Load field journal from storage if available, otherwise create new
+      const storage = browserStorage();
+      const loadedJournal = storage ? loadFieldJournal(storage, engine.seed) : createFieldJournal(engine.seed);
+      store.setFieldJournal(loadedJournal);
       checkpointsRef.current = [];
       recordCheckpoint(engine);
       setWorldSeed(engine.seed);
@@ -327,9 +338,10 @@ export default function App() {
     setReplayStatus(null);
     engineRef.current = engine;
     lineageTrackerRef.current = createLineageTracker();
-    // Initialize field journal for restored world
-    const newJournal = createFieldJournal(engine.seed);
-    store.setFieldJournal(newJournal);
+    // Load field journal from storage if available, otherwise create new
+    const storage = browserStorage();
+    const loadedJournal = storage ? loadFieldJournal(storage, engine.seed) : createFieldJournal(engine.seed);
+    store.setFieldJournal(loadedJournal);
     checkpointsRef.current = [];
     recordCheckpoint(engine);
     setWorldSeed(engine.seed);
@@ -412,6 +424,18 @@ export default function App() {
     restoreToTick(closestTick);
   }, [checkpointTicks, restoreToTick]);
 
+  const navigateToTile = useCallback((x: number, y: number): void => {
+    // Pan/center the world view on the specified grid cell
+    const store = useStore.getState();
+    store.setSelectedTile({ x, y });
+  }, []);
+
+  const navigateToLineage = useCallback((speciesId: string, lineageId: string): void => {
+    // Switch to the remember tab to show the journal filtered to this lineage
+    // The journal component will handle the filtering via its onNavigateToLineage callback
+    setSettingsTab('remember');
+  }, []);
+
   const replayFromTick = useCallback((restoreTick: number): string | null => {
     const error = restoreToTick(restoreTick);
     if (!error) useStore.getState().setRunning(true);
@@ -428,9 +452,10 @@ export default function App() {
       store.updateConstants(session.constants);
       engineRef.current = session.state;
       lineageTrackerRef.current = createLineageTracker();
-      // Initialize field journal for replay
-      const newJournal = createFieldJournal(recipe.seed);
-      store.setFieldJournal(newJournal);
+      // Load field journal from storage if available, otherwise create new
+      const storage = browserStorage();
+      const loadedJournal = storage ? loadFieldJournal(storage, recipe.seed) : createFieldJournal(recipe.seed);
+      store.setFieldJournal(loadedJournal);
       checkpointsRef.current = [];
       recordCheckpoint(session.state);
       recipeReplayRef.current = session;
@@ -463,9 +488,9 @@ export default function App() {
         store.updateConstants(restored.constants);
         setWorldSeed(restored.seed);
       }
-      // Initialize field journal for this world
-      const newJournal = createFieldJournal(engine.seed);
-      store.setFieldJournal(newJournal);
+      // Load field journal from storage if available, otherwise create new
+      const loadedJournal = storage ? loadFieldJournal(storage, engine.seed) : createFieldJournal(engine.seed);
+      store.setFieldJournal(loadedJournal);
       lineageTrackerRef.current = createLineageTracker();
       // Load observatory state from storage (first-run objectives progress)
       const loadedObservatoryState = loadObservatoryState();
@@ -642,7 +667,11 @@ export default function App() {
             {settingsTab === 'remember' && (
               <>
                 <FollowedLineageNotices />
-                <FieldJournal onNavigateToTick={navigateToJournalTick} />
+                <FieldJournal
+                  onNavigateToTick={navigateToJournalTick}
+                  onNavigateToTile={navigateToTile}
+                  onNavigateToLineage={navigateToLineage}
+                />
                 <SpeciesPanel />
                 <LineageHistory />
               </>

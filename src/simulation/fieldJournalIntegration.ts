@@ -16,17 +16,19 @@ import {
   createAdaptationEntry,
   createSpeationEntry,
   createExtinctionEntry,
+  createRangeChangeEntry,
   createInterventionEntry,
   addJournalEntry,
 } from './fieldJournal';
 import type { SimEvent } from './events';
 
 /**
- * Track seen lineages to detect first sightings
+ * Track seen lineages to detect first sightings and range changes
  */
 interface LineageTracker {
   seenLineages: Set<string>; // "speciesId:lineageId"
   lastEventByLineage: Map<string, number>; // Last tick we saw each lineage
+  occupiedCells: Map<string, Array<{ x: number; y: number }>>; // Cells occupied by each lineage last tick
 }
 
 /**
@@ -193,6 +195,59 @@ export function recordJournalEntries(
     }
   }
 
+  // Record range changes: When a lineage's occupied region changes meaningfully
+  const lineageCells = new Map<string, Array<{ x: number; y: number }>>();
+  for (const creature of currentState.creatures) {
+    if (creature.lifecycleState === 'alive') {
+      const key = `${creature.speciesId}:${creature.lineageId}`;
+      if (!lineageCells.has(key)) {
+        lineageCells.set(key, []);
+      }
+      const cells = lineageCells.get(key)!;
+      const cellKey = `${creature.x},${creature.y}`;
+      if (!cells.some((c) => `${c.x},${c.y}` === cellKey)) {
+        cells.push({ x: creature.x, y: creature.y });
+      }
+    }
+  }
+
+  // Compare with previous occupied cells to detect changes
+  for (const [lineageKey, currentCells] of lineageCells.entries()) {
+    const previousCells = tracker.occupiedCells.get(lineageKey) ?? [];
+    const isFirstSighting = !tracker.occupiedCells.has(lineageKey);
+
+    // Skip range-change entries on first sighting (no prior data to compare)
+    if (!isFirstSighting) {
+      // Detect meaningful range change (> 20% change or >= 5 cells)
+      const cellDifference = Math.abs(currentCells.length - previousCells.length);
+      const percentChange = previousCells.length > 0 ? cellDifference / previousCells.length : 0;
+
+      if (cellDifference >= 5 || percentChange >= 0.2) {
+        const [speciesId, lineageId] = lineageKey.split(':');
+        const population = currentState.creatures.filter(
+          (c) => c.lifecycleState === 'alive'
+            && c.speciesId === speciesId
+            && c.lineageId === lineageId
+        ).length;
+
+        if (population > 0) {
+          const entry = createRangeChangeEntry(
+            speciesId,
+            lineageId,
+            currentState.tick,
+            previousCells,
+            currentCells,
+            population
+          );
+          updated = addJournalEntry(updated, entry);
+        }
+      }
+    }
+
+    // Update tracker with current cells for next tick
+    tracker.occupiedCells.set(lineageKey, currentCells);
+  }
+
   return updated;
 }
 
@@ -203,6 +258,7 @@ export function createLineageTracker(): LineageTracker {
   return {
     seenLineages: new Set(),
     lastEventByLineage: new Map(),
+    occupiedCells: new Map(),
   };
 }
 

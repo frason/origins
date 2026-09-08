@@ -340,6 +340,13 @@ export const useStore = create<StoreState>((set) => ({
         e.id === entryId ? { ...e, playerNotes: notes } : e
       );
       updated.entryIndex.set(entryId, { ...entry, playerNotes: notes });
+
+      // Persist to storage
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const { saveFieldJournal } = require('../state/fieldJournalPersistence');
+        saveFieldJournal(window.localStorage, updated);
+      }
+
       return { fieldJournal: updated };
     });
   },

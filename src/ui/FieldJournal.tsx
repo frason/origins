@@ -132,9 +132,11 @@ interface DetailViewProps {
   onClose: () => void;
   onUpdateNotes: (notes: string) => void;
   onNavigateToTick?: (tick: number) => void;
+  onNavigateToTile?: (x: number, y: number) => void;
+  onNavigateToLineage?: (speciesId: string, lineageId: string) => void;
 }
 
-function FieldJournalDetailView({ entry, onClose, onUpdateNotes, onNavigateToTick }: DetailViewProps) {
+function FieldJournalDetailView({ entry, onClose, onUpdateNotes, onNavigateToTick, onNavigateToTile, onNavigateToLineage }: DetailViewProps) {
   const [notes, setNotes] = useState(entry.playerNotes ?? '');
   const [notesChanged, setNotesChanged] = useState(false);
 
@@ -150,6 +152,21 @@ function FieldJournalDetailView({ entry, onClose, onUpdateNotes, onNavigateToTic
   const handleNavigateToTick = () => {
     onNavigateToTick?.(entry.tick);
     onClose();
+  };
+
+  const handleNavigateToTile = () => {
+    if (entry.observed.location) {
+      onNavigateToTile?.(entry.observed.location.x, entry.observed.location.y);
+      onClose();
+    }
+  };
+
+  const handleNavigateToAncestralLineage = () => {
+    if (entry.ancestralSpeciesId) {
+      // Navigate to the first lineage of the ancestral species
+      onNavigateToLineage?.(entry.ancestralSpeciesId, entry.ancestralSpeciesId);
+      onClose();
+    }
   };
 
   return (
@@ -197,6 +214,27 @@ function FieldJournalDetailView({ entry, onClose, onUpdateNotes, onNavigateToTic
               </div>
             ) : (
               <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#a8d5e8' }}>{speciesName}</div>
+            )}
+            {entry.type === 'speciation' && entry.ancestralSpeciesId && (
+              <div style={{ fontSize: '0.75rem', color: '#999', marginTop: '0.2rem' }}>
+                Descended from{' '}
+                <button
+                  onClick={handleNavigateToAncestralLineage}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    color: '#78cf83',
+                    textDecoration: 'underline',
+                    fontSize: '0.75rem',
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                  }}
+                  title="Click to view parent lineage"
+                >
+                  {speciesDisplayName(entry.ancestralSpeciesId)}
+                </button>
+              </div>
             )}
             <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '0.2rem' }}>Tick {entry.tick}</div>
           </div>
@@ -263,9 +301,23 @@ function FieldJournalDetailView({ entry, onClose, onUpdateNotes, onNavigateToTic
         {entry.observed.location && (
           <div style={{ borderTop: '1px solid var(--sim-color-screen-border)', paddingTop: '0.75rem', marginBottom: '0.75rem' }}>
             <div style={{ fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.85rem' }}>Map Location</div>
-            <div style={{ fontSize: '0.75rem', color: '#899ba2' }}>
+            <button
+              onClick={handleNavigateToTile}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                fontSize: '0.75rem',
+                color: '#78cf83',
+                textDecoration: 'underline',
+                textAlign: 'left',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+              }}
+              title="Click to navigate to this location in the world view"
+            >
               Grid ({entry.observed.location.x}, {entry.observed.location.y})
-            </div>
+            </button>
             <div style={{ fontSize: '0.7rem', color: '#667178', marginTop: '0.2rem' }}>
               Event occurred in this region of the world.
             </div>
@@ -363,7 +415,13 @@ function FieldJournalDetailView({ entry, onClose, onUpdateNotes, onNavigateToTic
   );
 }
 
-export default function FieldJournal({ onNavigateToTick }: { onNavigateToTick?: (tick: number) => void } = {}) {
+interface FieldJournalProps {
+  onNavigateToTick?: (tick: number) => void;
+  onNavigateToTile?: (x: number, y: number) => void;
+  onNavigateToLineage?: (speciesId: string, lineageId: string) => void;
+}
+
+export default function FieldJournal({ onNavigateToTick, onNavigateToTile, onNavigateToLineage }: FieldJournalProps = {}) {
   const fieldJournal = useStore((s) => s.fieldJournal);
   const updateJournalEntryNotes = useStore((s) => s.updateJournalEntryNotes);
   const tick = useStore((s) => s.tick);
@@ -527,6 +585,13 @@ export default function FieldJournal({ onNavigateToTick }: { onNavigateToTick?: 
           onClose={() => setSelectedEntryId(null)}
           onUpdateNotes={(notes) => updateJournalEntryNotes(selectedEntry.id, notes)}
           onNavigateToTick={onNavigateToTick}
+          onNavigateToTile={onNavigateToTile}
+          onNavigateToLineage={
+            onNavigateToLineage ? (speciesId, lineageId) => {
+              setSelectedLineageFilter(`${speciesId}:${lineageId}`);
+              onNavigateToLineage(speciesId, lineageId);
+            } : undefined
+          }
         />
       )}
     </>
