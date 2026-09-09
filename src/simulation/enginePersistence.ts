@@ -4,12 +4,15 @@ import { World } from './world';
 import type { Phase0State } from './checkpointTimeline';
 import { AdaptationMetricsTracker } from './adaptationMetrics';
 import { RNG_STREAM_VERSION } from './rng';
+import { compactEvents, EVENT_COMPACTION_VERSION, estimateEventsSerializedSize } from './eventCompaction';
 
 export const ENGINE_SAVE_VERSION = 1;
+export const EVENT_COMPACTION_VERSION_STORED = EVENT_COMPACTION_VERSION;
 
 export interface PersistedEngineState {
   version: number;
   rngStreamVersion: number;
+  compactionVersion?: number; // Version of event compaction strategy applied (for forward compatibility)
   state: Omit<EngineState, 'world' | 'creatures'> & {
     world: ReturnType<World['toJSON']>;
     creatures: ReturnType<Creature['toJSON']>[];
@@ -20,22 +23,47 @@ export interface PersistedEngineState {
    * Included when auto-saving Phase 0 ecosystem state.
    */
   phase0?: Phase0State;
+  /**
+   * Metadata about event compaction applied during persistence.
+   * Used for observability and debugging memory bounds.
+   */
+  eventCompactionMetadata?: {
+    originalEventCount: number;
+    compactedEventCount: number;
+    estimatedSerializedBytes: number;
+    compactionAppliedAtTick: number;
+  };
 }
 
-/** Create a JSON-safe, versioned save payload without changing live state. */
+/**
+ * Create a JSON-safe, versioned save payload without changing live state.
+ * Applies event compaction to keep serialized size bounded during long runs.
+ */
 export function createPersistedEngineState(state: EngineState): PersistedEngineState {
+  const originalEventCount = state.events.length;
+  const compactedEvents = compactEvents(state.events, state.tick);
+  const compactedEventCount = compactedEvents.length;
+  const estimatedBytes = estimateEventsSerializedSize(compactedEvents);
+
   return {
     version: ENGINE_SAVE_VERSION,
     rngStreamVersion: RNG_STREAM_VERSION,
+    compactionVersion: EVENT_COMPACTION_VERSION_STORED,
     state: {
       ...state,
       world: state.world.toJSON(),
       creatures: state.creatures.map((creature) => creature.toJSON()),
       creatureIdCounter: state.creatureIdCounter,
       history: state.history.map((sample) => ({ ...sample })),
-      events: state.events.map((event) => ({ ...event })),
+      events: compactedEvents.map((event) => ({ ...event })),
       speciesProfiles: state.speciesProfiles.map((profile) => ({ ...profile, founderTraits: { ...profile.founderTraits } })),
       incipientSpecies: state.incipientSpecies.map((candidate) => ({ ...candidate, founderTraits: { ...candidate.founderTraits } })),
+    },
+    eventCompactionMetadata: {
+      originalEventCount,
+      compactedEventCount,
+      estimatedSerializedBytes: estimatedBytes,
+      compactionAppliedAtTick: state.tick,
     },
   };
 }

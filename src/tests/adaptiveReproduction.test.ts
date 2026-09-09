@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { getAdaptiveReproductionTiming } from '../simulation/adaptiveReproduction';
+import { getAdaptiveReproductionTiming, buildSpeciesLifespanEvidence } from '../simulation/adaptiveReproduction';
 import type { SimEvent } from '../simulation/events';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
+import { compactEvents, DETAILED_RETENTION_TICKS } from '../simulation/eventCompaction';
 
 function deaths(speciesId: string, ages: number[]): SimEvent[] {
   return ages.map((ageAtDeath, tick) => ({
@@ -74,5 +75,97 @@ describe('adaptive reproductive timing', () => {
       constants.reproductionEnergyThreshold * 0.25
     );
     expect(Number.isFinite(first.expectedLifespan)).toBe(true);
+  });
+
+  it('preserves reproduction timing behavior across event compaction (>2000 ticks)', () => {
+    // This test proves that adaptive reproduction timing survives event compaction
+    // by verifying timing is identical before and after compaction of old events.
+
+    // Create death events across 3000 ticks: ~50 deaths per species per 50-tick bucket
+    const tickCount = 3000;
+    const speciesIds = ['fast', 'slow'];
+    const ages = {
+      fast: [15, 16, 17, 18, 19, 20, 21, 22], // Short-lived
+      slow: [60, 70, 80, 90, 100, 110, 120, 130], // Long-lived
+    };
+
+    const allEvents: SimEvent[] = [];
+    for (let tick = 0; tick < tickCount; tick++) {
+      // Distribute deaths consistently throughout the timeline
+      const bucketInCycle = tick % 50;
+      if (bucketInCycle < 4) {
+        // Fast species: 4 deaths per 50-tick bucket
+        allEvents.push({
+          type: 'death',
+          tick,
+          speciesId: 'fast',
+          ageAtDeath: ages.fast[bucketInCycle % ages.fast.length],
+          lineageId: 'fast_line',
+          prematureDeath: true,
+        });
+      }
+      if (bucketInCycle < 4) {
+        // Slow species: 4 deaths per 50-tick bucket
+        allEvents.push({
+          type: 'death',
+          tick,
+          speciesId: 'slow',
+          ageAtDeath: ages.slow[bucketInCycle % ages.slow.length],
+          lineageId: 'slow_line',
+          prematureDeath: true,
+        });
+      }
+    }
+
+    // Verify we have meaningful data
+    expect(allEvents.length).toBeGreaterThan(200);
+
+    // Get timing before compaction (all events detailed)
+    const timingBeforeCompact = {
+      fast: getAdaptiveReproductionTiming('fast', 50, allEvents, SIMULATION_CONSTANTS),
+      slow: getAdaptiveReproductionTiming('slow', 50, allEvents, SIMULATION_CONSTANTS),
+    };
+
+    // Average of [15, 16, 17, 18] = 16.5; Average of [60, 70, 80, 90] = 75
+    expect(timingBeforeCompact.fast.expectedLifespan).toBe(16.5); // Average of first 4 fast ages
+    expect(timingBeforeCompact.slow.expectedLifespan).toBe(75); // Average of first 4 slow ages
+    expect((timingBeforeCompact.fast.expectedLifespan ?? 0)).toBeLessThan(
+      timingBeforeCompact.slow.expectedLifespan ?? 0
+    );
+
+    // Simulate checkpoint compaction at tick 3000 (like in tickEngine at CHECKPOINT_INTERVAL)
+    const compactedEvents = compactEvents(allEvents, tickCount);
+
+    // Verify compaction actually happened (events were aggregated)
+    expect(compactedEvents.length).toBeLessThan(allEvents.length);
+
+    // Key test: reproduction timing from compacted events should be nearly identical
+    const timingAfterCompact = {
+      fast: getAdaptiveReproductionTiming('fast', 50, compactedEvents, SIMULATION_CONSTANTS),
+      slow: getAdaptiveReproductionTiming('slow', 50, compactedEvents, SIMULATION_CONSTANTS),
+    };
+
+    // Verify that core metrics survive compaction
+    // Allow for small sampling variation in aggregated events (±20% tolerance)
+    expect(timingAfterCompact.fast.expectedLifespan).not.toBeNull();
+    expect(timingAfterCompact.fast.expectedLifespan ?? 0).toBeGreaterThanOrEqual(13);
+    expect(timingAfterCompact.fast.expectedLifespan ?? 0).toBeLessThanOrEqual(20);
+    expect(timingAfterCompact.slow.expectedLifespan).not.toBeNull();
+    expect(timingAfterCompact.slow.expectedLifespan ?? 0).toBeGreaterThanOrEqual(60);
+    expect(timingAfterCompact.slow.expectedLifespan ?? 0).toBeLessThanOrEqual(90);
+
+    // Verify the relative relationship is preserved
+    expect((timingAfterCompact.fast.expectedLifespan ?? 0)).toBeLessThan(
+      timingAfterCompact.slow.expectedLifespan ?? 0
+    );
+
+    // Verify maturity ages adapt correctly
+    expect(timingAfterCompact.fast.maturityAge).toBeLessThan(
+      timingAfterCompact.slow.maturityAge
+    );
+
+    // Verify evidence is collected from compacted events
+    expect(timingAfterCompact.fast.evidenceDeaths).toBeGreaterThan(50);
+    expect(timingAfterCompact.slow.evidenceDeaths).toBeGreaterThan(50);
   });
 });

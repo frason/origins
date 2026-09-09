@@ -15,13 +15,32 @@ export type SpeciesLifespanEvidence = ReadonlyMap<string, readonly number[]>;
 export function buildSpeciesLifespanEvidence(events: SimEvent[]): SpeciesLifespanEvidence {
   const evidence = new Map<string, number[]>();
   for (const event of events) {
-    if (
-      event.type !== 'death' || !event.speciesId ||
-      typeof event.ageAtDeath !== 'number' || event.ageAtDeath <= 0
-    ) continue;
-    const ages = evidence.get(event.speciesId) ?? [];
-    ages.push(event.ageAtDeath);
-    evidence.set(event.speciesId, ages);
+    if (event.type !== 'death') continue;
+
+    // Handle detailed death events (not aggregated)
+    if (event.speciesId && typeof event.ageAtDeath === 'number' && event.ageAtDeath > 0) {
+      const ages = evidence.get(event.speciesId) ?? [];
+      ages.push(event.ageAtDeath);
+      evidence.set(event.speciesId, ages);
+    }
+
+    // Handle aggregated death events with per-species statistics
+    const aggregated = event as any;
+    if (aggregated.speciesDeathStats && typeof aggregated.speciesDeathStats === 'object') {
+      for (const [speciesId, stats] of Object.entries(aggregated.speciesDeathStats)) {
+        const stat = stats as any;
+        if (stat.ageAtDeaths && Array.isArray(stat.ageAtDeaths)) {
+          const ages = evidence.get(speciesId) ?? [];
+          // Add sampled ages from the aggregated event
+          for (const age of stat.ageAtDeaths) {
+            if (typeof age === 'number' && age > 0) {
+              ages.push(age);
+            }
+          }
+          evidence.set(speciesId, ages);
+        }
+      }
+    }
   }
   return evidence;
 }

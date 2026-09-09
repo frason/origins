@@ -95,6 +95,8 @@ import {
   AdaptationMetricsTracker,
   type AdaptationObservation,
 } from './adaptationMetrics';
+import { compactEvents } from './eventCompaction';
+import { CHECKPOINT_INTERVAL } from './checkpointTimeline';
 
 export type {
   ConstantChange,
@@ -1216,13 +1218,18 @@ export function tickEngine(
     completeEvents
   );
 
+  // Compact events at checkpoint boundaries to prevent unbounded memory growth
+  const eventsToStore = nextTick % CHECKPOINT_INTERVAL === 0
+    ? compactEvents(completeEvents, nextTick)
+    : completeEvents;
+
   return {
     world: newWorld,
     creatures: creaturesAfterDecomposition,
     creatureIdCounter: Creature.getIdCounter(),
     tick: nextTick,
     seed: state.seed,
-    events: completeEvents,
+    events: eventsToStore,
     constants,
     history: historyResult.history,
     historyInterval: historyResult.interval,
