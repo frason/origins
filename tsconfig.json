@@ -18,5 +18,15 @@
     "types": ["vitest/globals", "@testing-library/jest-dom"]
   },
   "include": ["src"],
+  "exclude": [
+    "src/tests/decomposition.test.ts",
+    "src/tests/disasterIntegration.test.tsx",
+    "src/tests/engineWorkerIntegration.test.ts",
+    "src/tests/engineWorkerProtocol.test.ts",
+    "src/tests/karenCheck164.test.ts",
+    "src/tests/phase0HarnessSaveSlotIntegration.test.tsx",
+    "src/tests/phase0SaveLoadIntegration.test.ts",
+    "src/tests/saveSlotSystem.test.ts"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

@@ -11,6 +11,11 @@ function world({ population = 10, events = [] }: { population?: number; events?:
       energy: 10, nutrients: 0, producerBiomass: 120, toxicity: 0,
       elevation: 0, moisture: 0.5, temperature: 0.5, biome: 'grassland',
       producerArchetype: 'ground-cover',
+      substrate: 'loam',
+      waterDepth: 0,
+      waterTable: 0.5,
+      dissolvedNutrients: 0,
+      salinity: 0,
     }],
     creatures: Array.from({ length: population }, (_, index) => ({
       id: `c-${index}`,
