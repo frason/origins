@@ -18,6 +18,7 @@ import {
 import { buildLocalBiomassSummary } from './biomassObservability';
 import { buildPopulationGovernanceSummary } from './populationGovernanceModel';
 import { formatReplacementRatio, getReplacementMetrics } from './replacementMetrics';
+import SpeciesCompositionChart from './SpeciesCompositionChart';
 
 const panelStyle: CSSProperties = {
   backgroundColor: 'var(--sim-color-screen)',
@@ -193,6 +194,7 @@ export default function StatsPanel() {
         value={populationGovernance.populationLabel}
         note="The second number is an engine performance cap, not the ecosystem's real food-based capacity."
       />
+      <SpeciesCompositionChart creatures={worldState?.creatures ?? []} />
       <NoteRow
         label="Breeding"
         value={populationGovernance.breedingLabel}

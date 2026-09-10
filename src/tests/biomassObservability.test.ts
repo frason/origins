@@ -17,6 +17,11 @@ const cell = (producerBiomass: number): CellSnapshot => ({
   temperature: 0.5,
   biome: 'grassland',
   producerArchetype: 'ground-cover',
+  substrate: 'loam',
+  waterDepth: 0,
+  waterTable: 0.5,
+  dissolvedNutrients: 0,
+  salinity: 0,
 });
 
 const grazer = (): CreatureSnapshot => ({

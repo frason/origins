@@ -46,6 +46,7 @@ export const RNG_STREAMS = {
   BIODIVERSITY_PRESSURE: 'biodiversity-pressure',
   ENVIRONMENTAL_STRESS: 'environmental-stress',
   CALIBRATION: 'calibration',
+  DISASTERS: 'disasters',
 } as const;
 
 /**

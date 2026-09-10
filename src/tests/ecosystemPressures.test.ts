@@ -17,6 +17,11 @@ function cell(toxicity = 0): CellSnapshot {
     energy: 10, nutrients: 0, producerBiomass: 100, toxicity,
     elevation: 0.5, moisture: 0.5, temperature: 0.5,
     biome: 'grassland', producerArchetype: 'ground-cover',
+    substrate: 'loam',
+    waterDepth: 0,
+    waterTable: 0.5,
+    dissolvedNutrients: 0,
+    salinity: 0,
   };
 }
 

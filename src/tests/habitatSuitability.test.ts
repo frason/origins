@@ -6,7 +6,13 @@ import { DEFAULT_TRAITS } from '../utils/traits';
 const cell = (overrides: Partial<CellSnapshot> = {}): CellSnapshot => ({
   energy: 10, nutrients: 10, producerBiomass: 10, toxicity: 0,
   elevation: 0.5, moisture: 0.5, temperature: 0.5,
-  biome: 'grassland', producerArchetype: 'ground-cover', ...overrides,
+  biome: 'grassland', producerArchetype: 'ground-cover',
+  substrate: 'loam',
+  waterDepth: 0,
+  waterTable: 0.5,
+  dissolvedNutrients: 0,
+  salinity: 0,
+  ...overrides,
 });
 
 describe('habitat suitability explanations', () => {

@@ -69,6 +69,9 @@ import FieldJournal from './ui/FieldJournal';
 import { createFieldJournal } from './simulation/fieldJournal';
 import { recordJournalEntries, createLineageTracker } from './simulation/fieldJournalIntegration';
 import { loadFieldJournal, saveFieldJournal } from './state/fieldJournalPersistence';
+import ChallengePanel from './ui/ChallengePanel';
+import { buildWorldRecipe } from './ui/worldRecipe';
+import { buildSessionSummary } from './ui/sessionSummary';
 
 function browserStorage(): Storage | null {
   return typeof window === 'undefined' ? null : window.localStorage;
@@ -113,7 +116,16 @@ export default function App() {
   const [legendOpen, setLegendOpen] = useState(false);
   const [watchesPanelOpen, setWatchesPanelOpen] = useState(false);
   const [comparedAlert, setComparedAlert] = useState<EcosystemAlert | null>(null);
+  const [challengePanelOpen, setChallengePanelOpen] = useState(false);
   const worldName = worldNameFromSeed(worldSeed);
+
+  // Compute current world recipe and session summary from live engine state
+  const worldState = useStore((s) => s.worldState);
+  const currentRecipe = useMemo(() => buildWorldRecipe(worldState), [worldState]);
+  const sessionSummary = useMemo(() => {
+    if (!worldState) return null;
+    return buildSessionSummary(worldState, tick);
+  }, [worldState, tick]);
 
   const openSettings = useCallback((tab?: SettingsTab) => {
     // Keep any selected tile intact: Act's Introduce Species flow targets it.
@@ -679,7 +691,9 @@ export default function App() {
           </SettingsPanel>
         </div>
       </SimWindow>
-      <TurningPointChoice onIntroduceSpecies={() => openSettings('act')} />
+      <TurningPointChoice
+        onIntroduceSpecies={() => openSettings('act')}
+      />
       <ExtinctionSummary
         onNewWorld={newWorld}
         onReplayWorld={replayWorld}
@@ -710,6 +724,27 @@ export default function App() {
           onClose={() => setComparedAlert(null)}
         />
       )}
+      {challengePanelOpen && (
+        <div className="modal-overlay" onClick={() => setChallengePanelOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <ChallengePanel
+              isVisible={challengePanelOpen}
+              sessionSummary={sessionSummary}
+              currentTick={tick}
+              currentRecipe={currentRecipe}
+              onStart={(challenge, recipe) => {
+                const error = startRecipeReplay(recipe);
+                if (!error) {
+                  setChallengePanelOpen(false);
+                }
+              }}
+              onExport={(json) => {
+                downloadJsonFile('challenge-outcome.json', json);
+              }}
+            />
+          </div>
+        </div>
+      )}
       {watchesPanelOpen && (
         <div className="modal-overlay" onClick={() => setWatchesPanelOpen(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -724,6 +759,14 @@ export default function App() {
         title="Ecosystem Watches"
       >
         👁️
+      </button>
+      <button
+        className="challenges-fab"
+        onClick={() => setChallengePanelOpen(!challengePanelOpen)}
+        aria-label="Open shared challenges"
+        title="Shared Challenges"
+      >
+        🎯
       </button>
     </div>
   );
