@@ -9,6 +9,7 @@ const tundra = {
   energy: 10, nutrients: 10, producerBiomass: 0, toxicity: 0,
   elevation: 0.5, moisture: 0, temperature: 0,
   biome: 'tundra' as const, producerArchetype: 'frost-lichen' as const,
+  substrate: 'loam' as const, waterDepth: 0, waterTable: 0, dissolvedNutrients: 0, salinity: 0,
 };
 
 function creature(id: string, energy: number, size: number, metabolism: number, toxinExposure = 0): CreatureSnapshot {

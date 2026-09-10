@@ -12,6 +12,8 @@ export type Biome =
   | 'tundra'
   | 'mountain';
 
+export type SubstrateType = 'sand' | 'loam' | 'clay' | 'peat' | 'rock' | 'sediment';
+
 export interface TerrainCell {
   elevation: number;
   moisture: number;
@@ -256,6 +258,11 @@ export interface Cell {
   producerArchetype: ProducerArchetype;
   corpseBiomass?: number; // Aggregated biomass from decaying corpses
   decompserActivity?: number; // Decomposer activity rate (0-1)
+  substrate: SubstrateType;
+  waterDepth: number; // 0 dry; 0..1 shallow to deep
+  waterTable: number; // 0..1 subsurface availability on dry cells
+  dissolvedNutrients: number;
+  salinity: number; // 0 fresh; 1 hypersaline
 }
 
 /**
@@ -296,6 +303,7 @@ export class World {
       for (let x = 0; x < width; x++) {
         const index = y * width + x;
         const energy = solarGrid ? solarGrid[y][x] : 0;
+        const terrainCell = terrain[y][x];
         this.cells[index] = {
           energy,
           nutrients: 0,
@@ -303,7 +311,12 @@ export class World {
           toxicity: 0,
           corpseBiomass: 0,
           decompserActivity: 0,
-          ...terrain[y][x],
+          substrate: 'loam',
+          waterDepth: 0,
+          waterTable: terrainCell.moisture,
+          dissolvedNutrients: 0,
+          salinity: 0,
+          ...terrainCell,
         };
       }
     }
@@ -420,13 +433,21 @@ export class World {
     // Create a world and populate cells directly
     const world = new World(width, height);
     for (let i = 0; i < cells.length; i++) {
+      const loadedCell = cells[i];
+      // Apply defaults for new substrate/water fields if missing (migration for old saves)
+      const moisture = loadedCell.moisture ?? 0.5;
       world.cells[i] = {
         elevation: 0.5,
-        moisture: 0.5,
+        moisture,
         temperature: 0.5,
         biome: 'grassland',
         producerArchetype: 'ground-cover',
-        ...cells[i],
+        substrate: 'loam',
+        waterDepth: 0,
+        waterTable: moisture,
+        dissolvedNutrients: 0,
+        salinity: 0,
+        ...loadedCell,
       };
     }
 

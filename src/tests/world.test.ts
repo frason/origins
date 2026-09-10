@@ -48,6 +48,11 @@ describe('World - Grid Data Model', () => {
         temperature: 0.8,
         biome: 'forest',
         producerArchetype: 'canopy-colony',
+        substrate: 'loam',
+        waterDepth: 0,
+        waterTable: 0.7,
+        dissolvedNutrients: 0,
+        salinity: 0,
       };
 
       world.setCell(50, 50, testCell);

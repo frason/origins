@@ -95,6 +95,17 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
           </dl>
         </section>
 
+        <section className="tile-inspector__section tile-inspector__section--details sim-panel" aria-labelledby="tile-substrate-title">
+          <h3 className="sim-panel__heading" id="tile-substrate-title">Substrate &amp; Water</h3>
+          <dl className="tile-inspector__data-grid">
+            <div><dt>Substrate</dt><dd>{cell.substrate}</dd></div>
+            <div><dt>Water depth</dt><dd>{cell.waterDepth.toFixed(2)}</dd></div>
+            <div><dt>Water table</dt><dd>{cell.waterTable.toFixed(2)}</dd></div>
+            <div><dt>Dissolved nutrients</dt><dd>{cell.dissolvedNutrients.toFixed(2)}</dd></div>
+            <div><dt>Salinity</dt><dd>{cell.salinity.toFixed(2)}</dd></div>
+          </dl>
+        </section>
+
         <section className="tile-inspector__section tile-inspector__section--details sim-panel" aria-labelledby="tile-resources-title">
           <h3 className="sim-panel__heading" id="tile-resources-title">Resources</h3>
           <dl className="tile-inspector__data-grid">
