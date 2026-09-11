@@ -2,6 +2,7 @@ import { WORLD_WIDTH, WORLD_HEIGHT } from '../utils/constants';
 import type { SimulationConstants } from '../utils/constants';
 import { getProducerArchetype } from './producerTypes';
 import type { ProducerArchetype } from './producerTypes';
+import { createRng } from './rng';
 
 export type Biome =
   | 'ocean'
@@ -186,6 +187,303 @@ export function generateTerrain(width: number, height: number, seed: number): Te
 }
 
 /**
+ * Interface for intermediate hydrology data during generation.
+ */
+interface HydrologyCell {
+  waterDepth: number;
+  salinity: number;
+  waterTable: number;
+}
+
+/**
+ * Fixed neighbor order for stable water routing (ensures determinism).
+ * Order: N, NE, E, SE, S, SW, W, NW
+ */
+function getNeighbors(x: number, y: number, width: number, height: number): Array<[number, number]> {
+  const neighbors: Array<[number, number]> = [];
+  const dx = [-1, 0, 1, 1, 0, 1, 0, -1]; // x offsets: N, NE, E, SE, S, SW, W, NW
+  const dy = [0, 1, 1, 0, 1, -1, -1, -1]; // y offsets
+  for (let i = 0; i < 8; i++) {
+    const nx = x + dx[i];
+    const ny = y + dy[i];
+    if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+      neighbors.push([nx, ny]);
+    }
+  }
+  return neighbors;
+}
+
+/**
+ * Generate hydrology: basin detection, water routing, lake placement, and salinity.
+ * Static hydrology for V1 (no seasonal changes, evaporation, or flow updates).
+ */
+export function generateHydrology(
+  width: number,
+  height: number,
+  elevations: number[][],
+  seed: number
+): HydrologyCell[][] {
+  const hydrology: HydrologyCell[][] = Array.from({ length: height }, () =>
+    Array.from({ length: width }, () => ({
+      waterDepth: 0,
+      salinity: 0,
+      waterTable: 0,
+    }))
+  );
+
+  // Identify ocean cells (very low elevation) as basin outlets
+  const oceanCells = new Set<string>();
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (elevations[y][x] < 0.3) {
+        oceanCells.add(`${x},${y}`);
+      }
+    }
+  }
+
+  /**
+   * Trace water flow downhill from a cell to find its basin outlet.
+   * Returns the outlet coordinates and whether it connects to ocean.
+   */
+  function traceFlow(startX: number, startY: number): [number, number, boolean] {
+    let x = startX;
+    let y = startY;
+    const visitedInTrace = new Set<string>();
+
+    while (true) {
+      const key = `${x},${y}`;
+      if (visitedInTrace.has(key)) {
+        // Found a cycle (local minimum/lake)
+        return [x, y, false];
+      }
+      visitedInTrace.add(key);
+
+      if (oceanCells.has(key)) {
+        return [x, y, true]; // Flows to ocean
+      }
+
+      const currentElev = elevations[y][x];
+      const neighbors = getNeighbors(x, y, width, height);
+
+      // Find the neighbor with lowest elevation in stable order
+      let lowestNeighbor: [number, number] | null = null;
+      let lowestElev = currentElev;
+
+      for (const [nx, ny] of neighbors) {
+        const neighElev = elevations[ny][nx];
+        if (neighElev < lowestElev) {
+          lowestElev = neighElev;
+          lowestNeighbor = [nx, ny];
+        }
+      }
+
+      if (lowestNeighbor === null) {
+        // This is a local minimum (potential lake)
+        return [x, y, false];
+      }
+
+      [x, y] = lowestNeighbor;
+    }
+  }
+
+  // For each cell, trace flow to basin outlet
+  const basins: Map<string, Array<[number, number]>> = new Map();
+  const basinOceanConnected: Map<string, boolean> = new Map();
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (oceanCells.has(`${x},${y}`)) {
+        continue; // Skip ocean cells
+      }
+
+      const [ox, oy, connectedToOcean] = traceFlow(x, y);
+      const outletKey = `${ox},${oy}`;
+      if (!basins.has(outletKey)) {
+        basins.set(outletKey, []);
+        basinOceanConnected.set(outletKey, connectedToOcean);
+      }
+      basins.get(outletKey)!.push([x, y]);
+    }
+  }
+
+  // Set waterDepth at local minima (lakes) with noise-based variation
+  const rng = createRng(seed + 19993);
+  for (const [outletKey, cells] of basins) {
+    const [ox, oy] = outletKey.split(',').map(Number) as [number, number];
+    const connectedToOcean = basinOceanConnected.get(outletKey) || false;
+
+    // Only place water at outlets that are local minima (not flowing to ocean)
+    if (!connectedToOcean && cells.length > 1) {
+      const baseDepth = 0.25 + rng() * 0.3; // Vary lake depth 0.25-0.55
+      const salinity = 0.1 * rng(); // Inland basins are fresh
+
+      // Set water depth at outlet
+      hydrology[oy][ox].waterDepth = baseDepth;
+      hydrology[oy][ox].salinity = salinity;
+
+      // Nearby cells in basin also have some water (gradient)
+      for (const [cx, cy] of cells) {
+        if (cx === ox && cy === oy) continue;
+        const distToOutlet = Math.sqrt((cx - ox) ** 2 + (cy - oy) ** 2);
+        const maxDist = Math.min(width, height) * 0.15;
+        const depthGradient = Math.max(0, 1 - distToOutlet / maxDist);
+        hydrology[cy][cx].waterDepth = Math.max(0, baseDepth * depthGradient * 0.4); // Shallow water
+        hydrology[cy][cx].salinity = salinity;
+      }
+    } else if (connectedToOcean) {
+      // Ocean-connected basins have salty water
+      const baseDepth = 0.15 + rng() * 0.2; // Shallower but saline
+      const salinity = 0.7 + rng() * 0.3; // Saline
+
+      hydrology[oy][ox].waterDepth = baseDepth;
+      hydrology[oy][ox].salinity = salinity;
+
+      // A few cells in ocean-adjacent basins also get saline water
+      for (let i = 0; i < Math.min(cells.length, 5); i++) {
+        const [cx, cy] = cells[rng() * cells.length | 0];
+        if (!(cx === ox && cy === oy)) {
+          hydrology[cy][cx].waterDepth = baseDepth * 0.5;
+          hydrology[cy][cx].salinity = salinity;
+        }
+      }
+    }
+  }
+
+  // Set waterTable on dry cells from local moisture/drainage
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (hydrology[y][x].waterDepth === 0) {
+        // Dry cell: derive waterTable from elevation and neighborhood water
+        const neighbors = getNeighbors(x, y, width, height);
+        let neighborWater = 0;
+        for (const [nx, ny] of neighbors) {
+          neighborWater += hydrology[ny][nx].waterDepth;
+        }
+        const avgNeighborWater = neighborWater / Math.max(1, neighbors.length);
+
+        // Base water table on elevation and nearby water
+        const baseTable = 0.5 - elevations[y][x] * 0.4; // Lower elevation = higher water table
+        const moistureBoost = avgNeighborWater * 0.5;
+        hydrology[y][x].waterTable = clamp01(baseTable + moistureBoost);
+      }
+    }
+  }
+
+  return hydrology;
+}
+
+/**
+ * Generate substrate types based on elevation, slope, water, temperature, and noise.
+ */
+export function generateSubstrate(
+  width: number,
+  height: number,
+  elevations: number[][],
+  hydrology: HydrologyCell[][],
+  temperatures: number[][],
+  seed: number
+): SubstrateType[][] {
+  const substrate: SubstrateType[][] = Array.from({ length: height }, () =>
+    Array(width).fill('loam')
+  );
+
+  const rng = createRng(seed + 20011);
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const elev = elevations[y][x];
+      const temp = temperatures[y][x];
+      const water = hydrology[y][x].waterDepth;
+      const salinity = hydrology[y][x].salinity;
+
+      // Tendencies table mapping: conditions -> substrate affinity scores
+      // Based on design doc table: elevation, slope, water, temperature, salinity
+
+      // Calculate local slope
+      const neighbors = getNeighbors(x, y, width, height);
+      let maxSlope = 0;
+      for (const [nx, ny] of neighbors) {
+        const dElev = Math.abs(elevations[ny][nx] - elev);
+        maxSlope = Math.max(maxSlope, dElev);
+      }
+
+      // Score each substrate type based on conditions
+      const scores: Record<SubstrateType, number> = {
+        sand: 0,
+        loam: 0,
+        clay: 0,
+        peat: 0,
+        rock: 0,
+        sediment: 0,
+      };
+
+      // High elevation, high slope -> rock
+      if (elev > 0.7) {
+        scores.rock += (elev - 0.7) * 2 + maxSlope * 1.5;
+      }
+
+      // High water depth -> sediment (underwater) or peat (wetland)
+      if (water > 0.3) {
+        if (elev < 0.4) {
+          scores.sediment += water * 2; // Underwater sediment deposits
+        } else {
+          scores.peat += water * 1.5; // Wetland peat formation
+        }
+      }
+
+      // High elevation + low water -> sand (drainage) or rock
+      if (elev > 0.55 && water < 0.2) {
+        scores.sand += (1 - water) * 0.8;
+      }
+
+      // High temperature + low elevation -> sand (desert-like)
+      if (temp > 0.65 && elev < 0.5) {
+        scores.sand += (temp - 0.65) * 1.2;
+      }
+
+      // Cold + high water + high elevation -> peat (alpine bog)
+      if (temp < 0.35 && water > 0.2 && elev > 0.5) {
+        scores.peat += (0.5 - temp) * water;
+      }
+
+      // Low elevation + low slope -> clay or loam (settled)
+      if (elev < 0.4 && maxSlope < 0.05) {
+        if (water > 0.2) {
+          scores.clay += (1 - elev) * water * 1.2; // Clay in low wet areas
+        } else {
+          scores.loam += (1 - elev) * 0.8;
+        }
+      }
+
+      // Salinity adjusts sediment preference
+      if (salinity > 0.5) {
+        scores.sediment += salinity * 1.5;
+      }
+
+      // Add noise for variation
+      const noiseVal = valueNoise(seed + 30017, x, y, 8, width);
+      for (const sub of Object.keys(scores) as SubstrateType[]) {
+        scores[sub] += (noiseVal - 0.5) * 0.5;
+      }
+
+      // Select substrate with highest score
+      let maxScore = -Infinity;
+      let selectedSubstrate: SubstrateType = 'loam';
+      for (const [sub, score] of Object.entries(scores)) {
+        if (score > maxScore) {
+          maxScore = score;
+          selectedSubstrate = sub as SubstrateType;
+        }
+      }
+
+      substrate[y][x] = selectedSubstrate;
+    }
+  }
+
+  return substrate;
+}
+
+/**
  * Compute solar energy grid with radial dissipation from center.
  *
  * Cells at grid center (50, 50) receive maximum solar energy (BASE_SOLAR_ENERGY).
@@ -294,7 +592,34 @@ export class World {
 
     // Compute solar energy grid if constants provided, otherwise default to zeros
     const solarGrid = constants ? computeSolarEnergyGrid(constants) : null;
+
+    // Staged generation: terrain -> hydrology -> substrate -> biome
     const terrain = generateTerrain(width, height, seed);
+
+    // Extract elevation and temperature arrays for hydrology/substrate generation
+    const elevations = terrain.map((row) => row.map((cell) => cell.elevation));
+    const temperatures = terrain.map((row) => row.map((cell) => cell.temperature));
+
+    // Generate hydrology (water depth, salinity, water table)
+    const hydrology = generateHydrology(width, height, elevations, seed);
+
+    // Generate substrate types based on physical conditions
+    const substrates = generateSubstrate(width, height, elevations, hydrology, temperatures, seed);
+
+    // Re-compute biome based on updated moisture (from water table)
+    const updatedTerrain = terrain.map((row, y) =>
+      row.map((cell, x) => {
+        // Update moisture from water table and water depth
+        const newMoisture = Math.max(cell.moisture, hydrology[y][x].waterTable, hydrology[y][x].waterDepth * 0.5);
+        const newBiome = classifyBiome(cell.elevation, newMoisture, cell.temperature);
+        return {
+          ...cell,
+          moisture: newMoisture,
+          biome: newBiome,
+          producerArchetype: getProducerArchetype(newBiome),
+        };
+      })
+    );
 
     // Initialize grid with solar energy or zeros
     const cellCount = width * height;
@@ -303,7 +628,8 @@ export class World {
       for (let x = 0; x < width; x++) {
         const index = y * width + x;
         const energy = solarGrid ? solarGrid[y][x] : 0;
-        const terrainCell = terrain[y][x];
+        const terrainCell = updatedTerrain[y][x];
+        const hydroCell = hydrology[y][x];
         this.cells[index] = {
           energy,
           nutrients: 0,
@@ -311,11 +637,11 @@ export class World {
           toxicity: 0,
           corpseBiomass: 0,
           decompserActivity: 0,
-          substrate: 'loam',
-          waterDepth: 0,
-          waterTable: terrainCell.moisture,
+          substrate: substrates[y][x],
+          waterDepth: hydroCell.waterDepth,
+          waterTable: hydroCell.waterTable,
           dissolvedNutrients: 0,
-          salinity: 0,
+          salinity: hydroCell.salinity,
           ...terrainCell,
         };
       }
