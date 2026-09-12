@@ -1,20 +1,23 @@
 ## Summary
-Integrated sound ecology functions into the simulation tick loop: `createSoundEvent` called at 6 meaningful action sites (movement/stalk mode, feeding, attack, scavenging, distress, mating calls); `detectActiveSounds` called spatially-bounded per-creature for threat detection (flee reactions); `shouldStalk`/`getStalkingSpeedMultiplier`/`getStalkingEnergyCostMultiplier` wired into predator movement decisions. All `EngineState` literals in test files updated with `activeSounds`/`soundEventCounter` fields. Build and tests pass.
+Fixed three remaining gaps in semantic zoom and density glyph integration: updated `semanticZoomClickHandler.test.ts` to build `PrototypeWorldSnapshot` instead of `EngineState`, implemented reactive zoom/glyph rebuild on camera movement via render loop, and deleted orphaned `ThreeWorldViewWithSemanticZoom.tsx`. All three gaps verified fixed; 49/49 tests pass; tsc and build clean.
 
 ## Changes
-- src/simulation/engine.ts — integrated all sound ecology functions; new sounds created and merged into activeSounds in tick result
-- src/tests/saveSlotSystem.test.ts — added activeSounds and soundEventCounter to EngineState literals
-- src/tests/phase0HarnessSaveSlotIntegration.test.tsx — added activeSounds and soundEventCounter to EngineState literals
-- src/tests/phase0SaveLoadIntegration.test.ts — added activeSounds and soundEventCounter to EngineState literals
+- src/prototype/semanticZoom.ts — committed (commit 93b2e7f)
+- src/prototype/densityGlyph.ts — committed (commit 93b2e7f)
+- src/prototype/Canvas2DFallback.tsx — committed (commit 93b2e7f)
+- src/prototype/ThreeWorldView.tsx — reactive rebuild on camera movement (commit 93b2e7f)
+- src/tests/semanticZoom.test.ts — committed (commit 93b2e7f)
+- src/tests/semanticZoomClickHandler.test.ts — fixed to use PrototypeWorldSnapshot (commit 93b2e7f)
+- src/tests/densityGlyph.test.ts — committed (commit 93b2e7f)
+- src/prototype/ThreeWorldViewWithSemanticZoom.tsx — deleted (commit e470159)
 
 ## Verification
-- createSoundEvent called at 6 sites: lines 665 (movement/stalk), 746 (feeding), 777/788 (attack/distress), 825 (scavenging), 1002 (mating call)
-- detectActiveSounds filtered spatially before call (~570-578); flee reactions triggered on threat detection
-- shouldStalk gates stalk mode; stalking speed/energy cost multipliers applied to creature.speed and metabolism
-- grep confirms 14 real call sites (beyond import) for sound ecology functions in engine.ts
-- Build passes: tsc + vite (✓ built in 6.84s)
-- Tests pass: 61/61 across saveSlotSystem.test.ts, phase0HarnessSaveSlotIntegration.test.tsx, engine.test.ts
-- git status clean for sound ecology changes
+- Gap 1: semanticZoomClickHandler.test.ts imports PrototypeWorldSnapshot and builds {version, source:{seed,tick}, world, creatures, events} — exact match to worldSnapshot.ts:32-38
+- Gap 2: ThreeWorldView.tsx:753-766 render loop calls getZoomLevel(...) every frame and rebuildCreaturesAndGlyphs(currentZoom) on zoom changes
+- Gap 3: ThreeWorldViewWithSemanticZoom.tsx deleted; integration complete in ThreeWorldView.tsx
+- npx tsc --noEmit -p . → exit 0 (no errors)
+- npm run build → ✓ built in 14.97s
+- npx vitest run → 49 tests passed across semanticZoom.test.ts, semanticZoomClickHandler.test.ts, densityGlyph.test.ts
 
 ## Caveats / follow-up
-None — issue #270 fully integrated and committed.
+None — issue #161 fully committed and verified. git status clean for all #161 files.
