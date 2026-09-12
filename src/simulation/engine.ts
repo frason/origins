@@ -635,7 +635,8 @@ export function tickEngine(
           isStalkingMode = true;
           // Apply stalking modifiers to creature traits during this tick only
           creature.traits.speed = originalSpeed * getStalkingSpeedMultiplier(creature);
-          creature.traits.metabolism = originalMetabolism * getStalkingEnergyCostMultiplier(creature);
+          // Store energy cost multiplier for use during Step 6 (applyMetabolism)
+          creature.stalkingMetabolismMultiplier = getStalkingEnergyCostMultiplier(creature);
         }
       }
 
@@ -673,11 +674,11 @@ export function tickEngine(
         newSounds.push(soundEvent);
       }
 
-      // Restore original traits after movement decision
-      // (these will be recalculated fresh next tick based on genetic traits, not mutations)
+      // Restore original speed trait after movement decision
+      // (traits will be recalculated fresh next tick based on genetic traits, not mutations)
+      // Note: stalkingMetabolismMultiplier is kept until after Step 6 (applyMetabolism)
       if (isStalkingMode) {
         creature.traits.speed = originalSpeed;
-        creature.traits.metabolism = originalMetabolism;
       }
 
       for (let i = 0; i < creatures.length; i++) {
@@ -864,6 +865,8 @@ export function tickEngine(
         deathCauses.set(creature.id, 'environmental-stress');
       }
     }
+    // Reset stalking metabolism multiplier after this tick's metabolism has been applied
+    creature.stalkingMetabolismMultiplier = 1;
   }
 
   // Step 7: Reproduction (with mutation and lineage branching via species.ts)

@@ -46,8 +46,12 @@ export function applyMetabolism(
   creature: Creature,
   baseMetabolism: number = BASE_METABOLISM
 ): void {
-  // Core metabolic cost: BASE_METABOLISM × size × metabolism multiplier
-  const baseCost = baseMetabolism * creature.traits.size * creature.traits.metabolism;
+  // Core metabolic cost: BASE_METABOLISM × size × metabolism multiplier × stalking multiplier
+  const baseCost =
+    baseMetabolism *
+    creature.traits.size *
+    creature.traits.metabolism *
+    creature.stalkingMetabolismMultiplier;
 
   // Additional costs for sensory/cognitive traits
   // Brain size: +5% per point ABOVE default (neural tissue is metabolically expensive)

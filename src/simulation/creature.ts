@@ -75,6 +75,7 @@ export class Creature {
   dispersalTargetY: number | null;
   lastDispersalTick: number | null;
   dispersalMoves: number;
+  stalkingMetabolismMultiplier: number = 1; // Temporary per-tick stalking cost multiplier
 
   private static creatureCounter: number = 0;
 
@@ -109,6 +110,7 @@ export class Creature {
     this.dispersalTargetY = params.dispersalTargetY ?? null;
     this.lastDispersalTick = params.lastDispersalTick ?? null;
     this.dispersalMoves = params.dispersalMoves ?? 0;
+    this.stalkingMetabolismMultiplier = 1; // Always initialize to 1 (no stalking by default)
   }
 
   /**
