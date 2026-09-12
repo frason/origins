@@ -720,4 +720,65 @@ describe('Simulation Engine', () => {
       expect(newEngine.creatures).toBeDefined();
     });
   });
+
+  describe('Stalking trait preservation (regression test)', () => {
+    it('should NOT permanently mutate predator genetic traits during stalking across multiple ticks', () => {
+      // Create a predator with known speed and metabolism
+      const predator = new Creature({
+        speciesId: 'predator_species',
+        lineageId: 'lineage_pred',
+        parentId: null,
+        traits: {
+          ...DEFAULT_TRAITS,
+          energyStrategy: 'carnivore',
+          speed: 2.0,
+          metabolism: 1.0,
+          visionRange: 15,
+        },
+        x: 50,
+        y: 50,
+        energy: 1000, // High energy to survive multiple ticks of stalking
+      });
+
+      // Create a prey creature close to the predator so stalking might activate
+      const prey = new Creature({
+        speciesId: 'prey_species',
+        lineageId: 'lineage_prey',
+        parentId: null,
+        traits: {
+          ...DEFAULT_TRAITS,
+          energyStrategy: 'herbivore',
+          speed: 1.0,
+        },
+        x: 56, // 6 cells away, within vision range
+        y: 50,
+        energy: 200,
+      });
+
+      let engine = createEngine(8888, [predator, prey]);
+
+      // Find the predator in the engine state (it gets a new ID during deep copy)
+      let predatorInEngine = engine.creatures.find(
+        (c) => c.speciesId === 'predator_species' && c.lifecycleState === 'alive'
+      );
+      expect(predatorInEngine).toBeDefined();
+      expect(predatorInEngine!.traits.speed).toBe(2.0);
+      expect(predatorInEngine!.traits.metabolism).toBe(1.0);
+
+      const predatorId = predatorInEngine!.id;
+
+      // Run multiple ticks and verify traits remain stable
+      for (let tick = 0; tick < 3; tick++) {
+        engine = tickEngine(engine);
+        const pred = engine.creatures.find(
+          (c) => c.id === predatorId && c.lifecycleState === 'alive'
+        );
+        if (pred) {
+          // Traits should never be modified by stalking behavior
+          expect(pred.traits.speed).toBe(2.0);
+          expect(pred.traits.metabolism).toBe(1.0);
+        }
+      }
+    });
+  });
 });

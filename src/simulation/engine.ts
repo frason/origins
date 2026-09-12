@@ -623,6 +623,9 @@ export function tickEngine(
 
       // Check if creature should stalk prey (for predators/carnivores)
       let isStalkingMode = false;
+      let originalSpeed = creature.traits.speed;
+      let originalMetabolism = creature.traits.metabolism;
+
       if ((creature.traits.energyStrategy === 'carnivore' ||
            creature.traits.energyStrategy === 'omnivore') &&
           intent.decision === 'move-to-food' &&
@@ -630,10 +633,7 @@ export function tickEngine(
         const nearestPrey = intent.scan.foodCreatures[0];
         if (shouldStalk(creature, nearestPrey.x, nearestPrey.y)) {
           isStalkingMode = true;
-          // Apply stalking modifiers to creature traits during this tick
-          const originalSpeed = creature.traits.speed;
-          const originalMetabolism = creature.traits.metabolism;
-
+          // Apply stalking modifiers to creature traits during this tick only
           creature.traits.speed = originalSpeed * getStalkingSpeedMultiplier(creature);
           creature.traits.metabolism = originalMetabolism * getStalkingEnergyCostMultiplier(creature);
         }
@@ -674,7 +674,12 @@ export function tickEngine(
       }
 
       // Restore original traits after movement decision
-      // (these will be recalculated fresh next tick)
+      // (these will be recalculated fresh next tick based on genetic traits, not mutations)
+      if (isStalkingMode) {
+        creature.traits.speed = originalSpeed;
+        creature.traits.metabolism = originalMetabolism;
+      }
+
       for (let i = 0; i < creatures.length; i++) {
         if (creatures[i].id === creature.id) {
           creatures[i] = creature;
