@@ -40,6 +40,7 @@ import {
   DecisionType,
   computeMovementTarget,
   VisionScan,
+  chebyshevDistance,
 } from './creature';
 import {
   DecisionIntent,
@@ -87,6 +88,7 @@ import {
   shouldStalk,
   getStalkingSpeedMultiplier,
   getStalkingEnergyCostMultiplier,
+  getEffectiveHearingRange,
   SOUND_PERSISTENCE_TICKS,
   type SoundEvent,
   type DetectedSound,
@@ -539,6 +541,9 @@ export function tickEngine(
   const aliveCreatures = creatures.filter(c => c.lifecycleState === 'alive');
   const sortedCreatures = [...aliveCreatures].sort(tieBreakCreatureOrder);
 
+  // Get audio perception stream for sound detection
+  const audioStream = rngStreams.getStream(RNG_STREAMS.BIODIVERSITY_PRESSURE);
+
   for (const creature of sortedCreatures) {
     const pressure = localPressure.get(creature.id);
     creature.localResourcePressure = pressure?.pressure ?? 0;
@@ -561,6 +566,17 @@ export function tickEngine(
     }
     // Get entity-level movement stream for stable per-creature randomness
     const entityMovementStream = rngStreams.getEntityStream(RNG_STREAMS.MOVEMENT, creature.id);
+
+    // Pre-filter sounds by spatial proximity to avoid O(creatures × sounds) complexity
+    // Only pass sounds within the creature's hearing range
+    const effectiveHearingRange = getEffectiveHearingRange(creature.traits.hearingRange, creature);
+    const spatiallyBoundedSounds = state.activeSounds.filter(
+      sound => chebyshevDistance(sound.x, sound.y, creature.x, creature.y) <= effectiveHearingRange
+    );
+
+    // Detect active sounds for this creature (audio perception)
+    const detectedSounds = detectActiveSounds(creature, spatiallyBoundedSounds, state.tick, audioStream.fn);
+
     // Single perception pass: decideTick now returns both decision and scan
     const { decision: baseDecision, scan } = decideTick(
       creature,
@@ -575,6 +591,15 @@ export function tickEngine(
     perceptionScans.set(creature.id, scan);
 
     let decision = baseDecision;
+
+    // Override decision based on detected sounds: threats trigger fleeing
+    if (detectedSounds.length > 0) {
+      const threats = detectedSounds.filter(s => s.isThreat);
+      if (threats.length > 0) {
+        decision = 'flee';
+      }
+    }
+
     const hasDispersalTarget =
       creature.dispersalTargetX !== null && creature.dispersalTargetY !== null;
     if (hasDispersalTarget && decision !== 'flee') decision = 'disperse';
@@ -596,6 +621,24 @@ export function tickEngine(
       const hasDispersalTarget =
         creature.dispersalTargetX !== null && creature.dispersalTargetY !== null;
 
+      // Check if creature should stalk prey (for predators/carnivores)
+      let isStalkingMode = false;
+      if ((creature.traits.energyStrategy === 'carnivore' ||
+           creature.traits.energyStrategy === 'omnivore') &&
+          intent.decision === 'move-to-food' &&
+          intent.scan.foodCreatures.length > 0) {
+        const nearestPrey = intent.scan.foodCreatures[0];
+        if (shouldStalk(creature, nearestPrey.x, nearestPrey.y)) {
+          isStalkingMode = true;
+          // Apply stalking modifiers to creature traits during this tick
+          const originalSpeed = creature.traits.speed;
+          const originalMetabolism = creature.traits.metabolism;
+
+          creature.traits.speed = originalSpeed * getStalkingSpeedMultiplier(creature);
+          creature.traits.metabolism = originalMetabolism * getStalkingEnergyCostMultiplier(creature);
+        }
+      }
+
       // Use pre-computed scan from DecisionIntent (no rescanning)
       applyMovementWithScan(
         creature,
@@ -608,6 +651,36 @@ export function tickEngine(
           ? { x: creature.dispersalTargetX!, y: creature.dispersalTargetY! }
           : undefined
       );
+
+      // Create sound events for movement
+      const distanceMoved = Math.max(
+        Math.abs(creature.x - previousX),
+        Math.abs(creature.y - previousY)
+      );
+      if (distanceMoved > 0 && creature.lifecycleState === 'alive') {
+        const cellBiome = newWorld.getCell(creature.x, creature.y).biome;
+        const soundType = distanceMoved > creature.traits.speed * 0.5 ? 'movement-fast' : 'movement-slow';
+        const isStealthy = isStalkingMode;
+
+        const soundEvent = createSoundEvent(
+          soundType,
+          creature,
+          state.tick,
+          cellBiome,
+          isStealthy,
+          soundEventCounter++
+        );
+        newSounds.push(soundEvent);
+      }
+
+      // Restore original traits after movement decision
+      // (these will be recalculated fresh next tick)
+      for (let i = 0; i < creatures.length; i++) {
+        if (creatures[i].id === creature.id) {
+          creatures[i] = creature;
+          break;
+        }
+      }
 
       if (intent.decision === 'disperse') {
         const distance = Math.max(
@@ -652,6 +725,7 @@ export function tickEngine(
   for (const creature of creatures) {
     if (creature.lifecycleState === 'alive') {
       const cell = newWorld.getCell(creature.x, creature.y);
+      const cellBiome = cell.biome;
 
       // Herbivores and omnivores feed on producer biomass
       if (
@@ -668,6 +742,16 @@ export function tickEngine(
           constants.feedingEfficiency,
           true
         );
+        // Create feeding sound event
+        const feedingSound = createSoundEvent(
+          'feeding',
+          creature,
+          state.tick,
+          cellBiome,
+          false,
+          soundEventCounter++
+        );
+        newSounds.push(feedingSound);
       }
 
       // Carnivores and omnivores feed on other creatures
@@ -688,6 +772,29 @@ export function tickEngine(
           ) {
             feedOnCreature(creature, prey, constants.feedingEfficiency);
             deathCauses.set(prey.id, 'predation');
+
+            // Create attack/struggle sound events
+            const attackSound = createSoundEvent(
+              'attack',
+              creature,
+              state.tick,
+              cellBiome,
+              false,
+              soundEventCounter++
+            );
+            newSounds.push(attackSound);
+
+            // Prey emits distress sound
+            const distressSound = createSoundEvent(
+              'distress',
+              prey,
+              state.tick,
+              cellBiome,
+              false,
+              soundEventCounter++
+            );
+            newSounds.push(distressSound);
+
             break; // Only eat one prey per tick
           }
         }
@@ -713,6 +820,17 @@ export function tickEngine(
             constants.feedingEfficiency,
             constants.scavengingRate
           );
+
+          // Create scavenging sound event
+          const scavengingSound = createSoundEvent(
+            'scavenging',
+            creature,
+            state.tick,
+            cellBiome,
+            false,
+            soundEventCounter++
+          );
+          newSounds.push(scavengingSound);
         }
       }
     }
@@ -878,6 +996,19 @@ export function tickEngine(
       creature.lastReproductionAge = creature.age;
       creature.offspringCount++;
       birthSlots--;
+
+      // Create mating call sound event
+      const cellBiome = newWorld.getCell(creature.x, creature.y).biome;
+      const matingCallSound = createSoundEvent(
+        'mating-call',
+        creature,
+        state.tick,
+        cellBiome,
+        false,
+        soundEventCounter++
+      );
+      newSounds.push(matingCallSound);
+
       newEvents.push({
         type: 'birth',
         tick: state.tick,
@@ -1183,10 +1314,13 @@ export function tickEngine(
       )
     : { history: state.history, interval: state.historyInterval };
 
-  // Clean up expired sounds (older than SOUND_PERSISTENCE_TICKS)
-  const activeSounds = state.activeSounds.filter(
-    (sound) => nextTick - sound.tick < SOUND_PERSISTENCE_TICKS
-  );
+  // Clean up expired sounds (older than SOUND_PERSISTENCE_TICKS) and merge new sounds
+  const activeSounds = [
+    ...state.activeSounds.filter(
+      (sound) => nextTick - sound.tick < SOUND_PERSISTENCE_TICKS
+    ),
+    ...newSounds,
+  ];
 
   // Update adaptation metrics tracker with current creature snapshots
   const adaptationObservations = state.adaptationMetrics.updateMetrics(
@@ -1236,7 +1370,7 @@ export function tickEngine(
     speciesProfiles,
     incipientSpecies,
     activeSounds,
-    soundEventCounter: state.soundEventCounter,
+    soundEventCounter,
     adaptationMetrics: state.adaptationMetrics,
     lastAdaptationObservations: adaptationObservations,
   };
