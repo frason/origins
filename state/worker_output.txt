@@ -1,8 +1,20 @@
 ## Summary
-Fixed all 3 gaps from issue #167: committed TRAIT_STATUS.metabolism key in traits.ts (step 1), verified traitEcologicalConsequences and energy tests pass (steps 2-3).
+Integrated sound ecology functions into the simulation tick loop: `createSoundEvent` called at 6 meaningful action sites (movement/stalk mode, feeding, attack, scavenging, distress, mating calls); `detectActiveSounds` called spatially-bounded per-creature for threat detection (flee reactions); `shouldStalk`/`getStalkingSpeedMultiplier`/`getStalkingEnergyCostMultiplier` wired into predator movement decisions. All `EngineState` literals in test files updated with `activeSounds`/`soundEventCounter` fields. Build and tests pass.
 
 ## Changes
-- src/utils/traits.ts — Added missing `metabolism: 'active'` key to TRAIT_STATUS record (commit 090d442)
+- src/simulation/engine.ts — integrated all sound ecology functions; new sounds created and merged into activeSounds in tick result
+- src/tests/saveSlotSystem.test.ts — added activeSounds and soundEventCounter to EngineState literals
+- src/tests/phase0HarnessSaveSlotIntegration.test.tsx — added activeSounds and soundEventCounter to EngineState literals
+- src/tests/phase0SaveLoadIntegration.test.ts — added activeSounds and soundEventCounter to EngineState literals
+
+## Verification
+- createSoundEvent called at 6 sites: lines 665 (movement/stalk), 746 (feeding), 777/788 (attack/distress), 825 (scavenging), 1002 (mating call)
+- detectActiveSounds filtered spatially before call (~570-578); flee reactions triggered on threat detection
+- shouldStalk gates stalk mode; stalking speed/energy cost multipliers applied to creature.speed and metabolism
+- grep confirms 14 real call sites (beyond import) for sound ecology functions in engine.ts
+- Build passes: tsc + vite (✓ built in 6.84s)
+- Tests pass: 61/61 across saveSlotSystem.test.ts, phase0HarnessSaveSlotIntegration.test.tsx, engine.test.ts
+- git status clean for sound ecology changes
 
 ## Caveats / follow-up
-None — issue #167 complete per acceptance criteria. Pre-existing unrelated TypeScript errors (watchEngine.ts, AlertBanner.tsx, WatchesPanel.tsx, EngineState serialization) remain but are outside scope; these should be addressed in separate issues #278/#279 and legacy backlog items.
+None — issue #270 fully integrated and committed.
