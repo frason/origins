@@ -26,6 +26,10 @@ import type { EcosystemWatch, EcosystemAlert } from '../simulation/watches';
 import type { ObservatoryState } from '../ui/observatoryObjectives';
 import type { FieldJournal, FieldJournalEntry } from '../simulation/fieldJournal';
 import { saveFieldJournal } from './fieldJournalPersistence';
+import type { WorldBranch, BranchCollection } from '../simulation/worldBranch';
+import { tickEngineWithDisaster } from '../simulation/applyDisasterCommand';
+import type { DisasterCommand } from '../simulation/disasterCommand';
+import type { EngineState } from '../simulation/engine';
 
 // Cell interface for world state
 export interface CellSnapshot {
@@ -158,6 +162,9 @@ export interface StoreState {
   ecosystemWatches: EcosystemWatch[];
   ecosystemAlerts: EcosystemAlert[];
   fieldJournal: FieldJournal | null;
+  branchCollection: BranchCollection | null;
+  activeBranchId: string | null; // ID of currently active branch (null = main)
+  showBranchComparison: boolean;
 
   // Actions
   setWorldState: (state: WorldSnapshot) => void;
@@ -183,6 +190,15 @@ export interface StoreState {
   addJournalEntry: (entry: FieldJournalEntry) => void;
   updateJournalEntryNotes: (entryId: string, notes: string) => void;
   clearFieldJournal: () => void;
+  // Branch management actions
+  setBranchCollection: (collection: BranchCollection) => void;
+  createBranch: (branch: WorldBranch) => void;
+  activateBranch: (branchId: string | null) => void;
+  removeBranch: (branchId: string) => void;
+  updateBranch: (branchId: string, updates: Partial<WorldBranch>) => void;
+  setShowBranchComparison: (show: boolean) => void;
+  // Disaster management
+  triggerDisaster: (command: DisasterCommand, engineState: EngineState) => EngineState | null;
 }
 
 /**
@@ -209,6 +225,9 @@ export const useStore = create<StoreState>((set) => ({
   ecosystemWatches: [],
   ecosystemAlerts: [],
   fieldJournal: null,
+  branchCollection: null,
+  activeBranchId: null,
+  showBranchComparison: false,
 
   setWorldState: (state: WorldSnapshot) => {
     set({ worldState: state });
@@ -358,5 +377,110 @@ export const useStore = create<StoreState>((set) => ({
 
   clearFieldJournal: () => {
     set({ fieldJournal: null });
+  },
+
+  // Branch management
+  setBranchCollection: (collection: BranchCollection) => {
+    set({ branchCollection: collection });
+  },
+
+  createBranch: (branch: WorldBranch) => {
+    set((state) => {
+      if (!state.branchCollection) {
+        // Initialize if no collection exists - branch becomes the main branch
+        return { branchCollection: { main: branch, alternatives: [] } };
+      }
+      return {
+        branchCollection: {
+          main: state.branchCollection.main,
+          alternatives: [...state.branchCollection.alternatives, branch],
+        },
+      };
+    });
+  },
+
+  activateBranch: (branchId: string | null) => {
+    set((state) => {
+      if (!state.branchCollection) return state;
+      let branchToActivate: WorldBranch | null = null;
+
+      if (branchId === null) {
+        branchToActivate = state.branchCollection.main;
+      } else {
+        branchToActivate = state.branchCollection.alternatives.find((b) => b.id === branchId) || null;
+      }
+
+      if (branchToActivate) {
+        return {
+          activeBranchId: branchId,
+          branchCollection: {
+            main: state.branchCollection.main,
+            alternatives: state.branchCollection.alternatives.map((b) => ({
+              ...b,
+              active: b.id === branchId,
+            })),
+          },
+        };
+      }
+      return state;
+    });
+  },
+
+  removeBranch: (branchId: string) => {
+    set((state) => {
+      if (!state.branchCollection) return state;
+      // Cannot remove main branch
+      if (branchId === state.branchCollection.main.id) return state;
+
+      return {
+        branchCollection: {
+          main: state.branchCollection.main,
+          alternatives: state.branchCollection.alternatives.filter((b) => b.id !== branchId),
+        },
+        activeBranchId: state.activeBranchId === branchId ? null : state.activeBranchId,
+      };
+    });
+  },
+
+  updateBranch: (branchId: string, updates: Partial<WorldBranch>) => {
+    set((state) => {
+      if (!state.branchCollection) return state;
+
+      let updated = false;
+      const main = state.branchCollection.main.id === branchId
+        ? { ...state.branchCollection.main, ...updates }
+        : state.branchCollection.main;
+
+      const alternatives = state.branchCollection.alternatives.map((b) => {
+        if (b.id === branchId) {
+          updated = true;
+          return { ...b, ...updates };
+        }
+        return b;
+      });
+
+      if (!updated && main.id !== branchId) return state;
+
+      return {
+        branchCollection: {
+          main,
+          alternatives,
+        },
+      };
+    });
+  },
+
+  setShowBranchComparison: (show: boolean) => {
+    set({ showBranchComparison: show });
+  },
+
+  triggerDisaster: (command: DisasterCommand, engineState: EngineState): EngineState | null => {
+    try {
+      const newState = tickEngineWithDisaster(engineState, command);
+      return newState;
+    } catch (error) {
+      console.error('Failed to apply disaster:', error);
+      return null;
+    }
   },
 }));

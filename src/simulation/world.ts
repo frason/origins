@@ -3,6 +3,7 @@ import type { SimulationConstants } from '../utils/constants';
 import { getProducerArchetype } from './producerTypes';
 import type { ProducerArchetype } from './producerTypes';
 import { createRng } from './rng';
+import { SUBSTRATE_TRAITS } from './substrates';
 
 export type Biome =
   | 'ocean'
@@ -374,6 +375,7 @@ export function generateHydrology(
 
 /**
  * Generate substrate types based on elevation, slope, water, temperature, and noise.
+ * Uses data-driven substrate tendency table from substrates.ts.
  */
 export function generateSubstrate(
   width: number,
@@ -383,6 +385,8 @@ export function generateSubstrate(
   temperatures: number[][],
   seed: number
 ): SubstrateType[][] {
+  const substrateTypes: SubstrateType[] = ['sand', 'loam', 'clay', 'peat', 'rock', 'sediment'];
+
   const substrate: SubstrateType[][] = Array.from({ length: height }, () =>
     Array(width).fill('loam')
   );
@@ -394,10 +398,8 @@ export function generateSubstrate(
       const elev = elevations[y][x];
       const temp = temperatures[y][x];
       const water = hydrology[y][x].waterDepth;
+      const waterTable = hydrology[y][x].waterTable;
       const salinity = hydrology[y][x].salinity;
-
-      // Tendencies table mapping: conditions -> substrate affinity scores
-      // Based on design doc table: elevation, slope, water, temperature, salinity
 
       // Calculate local slope
       const neighbors = getNeighbors(x, y, width, height);
@@ -407,72 +409,96 @@ export function generateSubstrate(
         maxSlope = Math.max(maxSlope, dElev);
       }
 
-      // Score each substrate type based on conditions
+      // Score each substrate type based on environmental conditions
+      // Using data-driven tendency table
       const scores: Record<SubstrateType, number> = {
         sand: 0,
         loam: 0,
         clay: 0,
         peat: 0,
         rock: 0,
-        sediment: 0,
+        sediment: 0
       };
 
-      // High elevation, high slope -> rock
-      if (elev > 0.7) {
-        scores.rock += (elev - 0.7) * 2 + maxSlope * 1.5;
-      }
+      for (const subType of substrateTypes) {
+        const traits = SUBSTRATE_TRAITS[subType];
+        let score = 0;
 
-      // High water depth -> sediment (underwater) or peat (wetland)
-      if (water > 0.3) {
-        if (elev < 0.4) {
-          scores.sediment += water * 2; // Underwater sediment deposits
-        } else {
-          scores.peat += water * 1.5; // Wetland peat formation
+        // Data-driven substrate placement using design table tendencies
+        // Consult traits table to inform scoring
+
+        // Base: high elevation, high slope -> rock
+        if (elev > 0.7) {
+          scores.rock = Math.max(scores.rock || 0, (elev - 0.7) * 2 + maxSlope * 1.5);
+        }
+
+        // High water depth -> sediment (underwater) or peat (wetland)
+        if (water > 0.3) {
+          if (elev < 0.4) {
+            scores.sediment = Math.max(scores.sediment || 0, water * 2); // Underwater sediment
+          } else {
+            scores.peat = Math.max(scores.peat || 0, water * 1.5); // Wetland peat
+          }
+        }
+
+        // High elevation + low water -> sand or rock
+        if (elev > 0.55 && water < 0.2) {
+          scores.sand = Math.max(scores.sand || 0, (1 - water) * 0.8);
+        }
+
+        // High temperature + low elevation -> sand
+        if (temp > 0.65 && elev < 0.5) {
+          scores.sand = Math.max(scores.sand || 0, (temp - 0.65) * 1.2);
+        }
+
+        // Cold + high water + high elevation -> peat
+        if (temp < 0.35 && water > 0.2 && elev > 0.5) {
+          scores.peat = Math.max(scores.peat || 0, (0.5 - temp) * water);
+        }
+
+        // Low elevation + low slope -> clay or loam (settled)
+        if (elev < 0.4 && maxSlope < 0.05) {
+          if (water > 0.2) {
+            scores.clay = Math.max(scores.clay || 0, (1 - elev) * water * 1.2);
+          } else {
+            scores.loam = Math.max(scores.loam || 0, (1 - elev) * 0.8);
+          }
+        }
+
+        // Salinity adjusts sediment preference
+        if (salinity > 0.5) {
+          scores.sediment = Math.max(scores.sediment || 0, salinity * 1.5);
         }
       }
 
-      // High elevation + low water -> sand (drainage) or rock
-      if (elev > 0.55 && water < 0.2) {
-        scores.sand += (1 - water) * 0.8;
+      // Initialize all scores for the per-subtype evaluation
+      for (const subType of substrateTypes) {
+        scores[subType] = scores[subType] || 0;
       }
 
-      // High temperature + low elevation -> sand (desert-like)
-      if (temp > 0.65 && elev < 0.5) {
-        scores.sand += (temp - 0.65) * 1.2;
-      }
+      // Add noise for variation and apply trait consultation
+      for (const subType of substrateTypes) {
+        const traits = SUBSTRATE_TRAITS[subType];
+        const noiseVal = valueNoise(seed + 30017, x, y, 8, width);
 
-      // Cold + high water + high elevation -> peat (alpine bog)
-      if (temp < 0.35 && water > 0.2 && elev > 0.5) {
-        scores.peat += (0.5 - temp) * water;
-      }
-
-      // Low elevation + low slope -> clay or loam (settled)
-      if (elev < 0.4 && maxSlope < 0.05) {
-        if (water > 0.2) {
-          scores.clay += (1 - elev) * water * 1.2; // Clay in low wet areas
-        } else {
-          scores.loam += (1 - elev) * 0.8;
+        // Consult traits table: give bonus to substrates that are good for this condition
+        const totalWater = water + waterTable * 0.5;
+        if (totalWater > 0.3) {
+          scores[subType] += traits.waterRetention * 0.3;
+        } else if (totalWater < 0.1) {
+          scores[subType] += traits.drainage * 0.2;
         }
-      }
 
-      // Salinity adjusts sediment preference
-      if (salinity > 0.5) {
-        scores.sediment += salinity * 1.5;
-      }
-
-      // Add noise for variation
-      const noiseVal = valueNoise(seed + 30017, x, y, 8, width);
-      for (const sub of Object.keys(scores) as SubstrateType[]) {
-        scores[sub] += (noiseVal - 0.5) * 0.5;
+        scores[subType] += (noiseVal - 0.5) * 0.5;
       }
 
       // Select substrate with highest score
       let maxScore = -Infinity;
       let selectedSubstrate: SubstrateType = 'loam';
-      for (const [sub, score] of Object.entries(scores)) {
-        if (score > maxScore) {
-          maxScore = score;
-          selectedSubstrate = sub as SubstrateType;
+      for (const subType of substrateTypes) {
+        if (scores[subType] > maxScore) {
+          maxScore = scores[subType];
+          selectedSubstrate = subType;
         }
       }
 

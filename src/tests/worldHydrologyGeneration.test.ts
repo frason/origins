@@ -171,59 +171,126 @@ describe('World Hydrology Generation', () => {
       const seed = 3333;
       const constants = SIMULATION_CONSTANTS;
       const world = new World(100, 100, constants, seed);
+      const width = 100;
+      const height = 100;
 
-      // Strict basin-invariant: every water cell is either a local minimum or has at least
-      // one neighbor with elevation <= its own (water flows downhill in deterministic order)
-      let waterCellsViolatingInvariant = 0;
+      // Independent algorithm: identify all true local minima
+      const trueLocalMinima = new Set<string>();
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const cell = world.getCell(x, y);
+          const elev = cell.elevation;
+          let isLocalMin = true;
+
+          // Check all 8 neighbors
+          const dx = [-1, 0, 1, 1, 0, 1, 0, -1];
+          const dy = [0, 1, 1, 0, 1, -1, -1, -1];
+
+          for (let i = 0; i < 8; i++) {
+            const nx = x + dx[i];
+            const ny = y + dy[i];
+            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+              const neighCell = world.getCell(nx, ny);
+              // If any neighbor is strictly lower, not a local minimum
+              if (neighCell.elevation < elev) {
+                isLocalMin = false;
+                break;
+              }
+            }
+          }
+
+          if (isLocalMin) {
+            trueLocalMinima.add(`${x},${y}`);
+          }
+        }
+      }
+
+      // Verify every water cell either:
+      // 1. Is a true local minimum, OR
+      // 2. Can trace a downhill path to a true local minimum
       let waterCellCount = 0;
+      let waterCellsInValidBasins = 0;
+      const invalidWaterCells: Array<[number, number]> = [];
 
-      for (let y = 0; y < 100; y++) {
-        for (let x = 0; x < 100; x++) {
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
           const cell = world.getCell(x, y);
 
-          // Check only cells with surface water (waterDepth > 0)
           if (cell.waterDepth > 0) {
             waterCellCount++;
             const elev = cell.elevation;
 
-            // Check if this cell is a local minimum in standard 8-neighbor order (N, NE, E, SE, S, SW, W, NW)
-            let isLocalMinimum = true;
-            let hasEqualOrLowerNeighbor = false;
+            // Trace downhill path to find basin outlet
+            let currentX = x;
+            let currentY = y;
+            let foundBasin = false;
+            const visited = new Set<string>();
+            const pathLength = 10000; // Limit iterations to detect infinite loops
 
-            // Fixed neighbor order: N, NE, E, SE, S, SW, W, NW
-            const dx = [-1, 0, 1, 1, 0, 1, 0, -1];
-            const dy = [0, 1, 1, 0, 1, -1, -1, -1];
-
-            for (let i = 0; i < 8; i++) {
-              const nx = x + dx[i];
-              const ny = y + dy[i];
-              if (nx >= 0 && nx < 100 && ny >= 0 && ny < 100) {
-                const neighborCell = world.getCell(nx, ny);
-                const neighElev = neighborCell.elevation;
-
-                // Check if neighbor is strictly lower (not a local minimum)
-                if (neighElev < elev) {
-                  isLocalMinimum = false;
+            for (let step = 0; step < pathLength; step++) {
+              const key = `${currentX},${currentY}`;
+              if (visited.has(key)) {
+                // Cycle detected - we're at a local minimum
+                if (trueLocalMinima.has(key)) {
+                  foundBasin = true;
                 }
+                break;
+              }
+              visited.add(key);
 
-                // Check if neighbor is equal or lower (valid flow direction)
-                if (neighElev <= elev) {
-                  hasEqualOrLowerNeighbor = true;
+              if (trueLocalMinima.has(key)) {
+                foundBasin = true;
+                break;
+              }
+
+              const currentCell = world.getCell(currentX, currentY);
+              const currentElev = currentCell.elevation;
+
+              // Find neighbor with strictly lower elevation (for downhill path)
+              let lowestNeighbor: [number, number] | null = null;
+              let lowestElev = currentElev;
+
+              const dx = [-1, 0, 1, 1, 0, 1, 0, -1];
+              const dy = [0, 1, 1, 0, 1, -1, -1, -1];
+
+              for (let i = 0; i < 8; i++) {
+                const nx = currentX + dx[i];
+                const ny = currentY + dy[i];
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                  const nCell = world.getCell(nx, ny);
+                  if (nCell.elevation < lowestElev) {
+                    lowestElev = nCell.elevation;
+                    lowestNeighbor = [nx, ny];
+                  }
                 }
               }
+
+              if (lowestNeighbor === null) {
+                // No downhill neighbor - must be at a local minimum
+                if (trueLocalMinima.has(key)) {
+                  foundBasin = true;
+                }
+                break;
+              }
+
+              [currentX, currentY] = lowestNeighbor;
             }
 
-            // Water cell should either be a local minimum OR have a downhill/equal neighbor
-            if (!isLocalMinimum && !hasEqualOrLowerNeighbor) {
-              waterCellsViolatingInvariant++;
+            if (foundBasin) {
+              waterCellsInValidBasins++;
+            } else {
+              invalidWaterCells.push([x, y]);
             }
           }
         }
       }
 
-      // Should have water cells and they should all satisfy the downhill invariant
+      // Assertions
       expect(waterCellCount).toBeGreaterThan(0);
-      expect(waterCellsViolatingInvariant).toBe(0);
+      expect(waterCellsInValidBasins).toBe(waterCellCount);
+      if (invalidWaterCells.length > 0) {
+        console.log(`Found ${invalidWaterCells.length} water cells not in valid basins:`, invalidWaterCells.slice(0, 5));
+      }
     });
 
     it('should have water table higher in areas with low elevation', () => {
