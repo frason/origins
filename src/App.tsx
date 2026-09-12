@@ -102,8 +102,10 @@ export default function App() {
   const speed = useStore((s) => s.speed);
   const tick = useStore((s) => s.tick);
   const selectedTile = useStore((s) => s.selectedTile);
+  const show2dView = useStore((s) => s.show2dView);
   const setRunning = useStore((s) => s.setRunning);
   const setSpeed = useStore((s) => s.setSpeed);
+  const setShow2dView = useStore((s) => s.setShow2dView);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('watch');
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const feedbackBackend: BetaFeedbackBackend | null = useMemo(() => loadBetaFeedbackBackend(), []);
@@ -484,6 +486,23 @@ export default function App() {
     }
   }, [publish, recordCheckpoint]);
 
+  // Keyboard shortcut for toggling 2D/3D view (press 'M' for map)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only trigger if 'm' or 'M' is pressed and no modifier keys
+      if ((event.key === 'm' || event.key === 'M') && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+        // Check if focus is not in an input or textarea
+        const target = event.target as HTMLElement;
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+          event.preventDefault();
+          setShow2dView(!show2dView);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [show2dView, setShow2dView]);
+
   // Initialize world once
   useEffect(() => {
     if (!engineRef.current) {
@@ -613,6 +632,17 @@ export default function App() {
             </div>
             <button
               type="button"
+              className={`sim-button sim-button--compact${show2dView ? ' sim-button--pressed' : ''}`}
+              aria-pressed={show2dView}
+              aria-label="Toggle between 3D and 2D map view (press M)"
+              title="Toggle 2D map view (M)"
+              onClick={() => setShow2dView(!show2dView)}
+              data-testid="toggle-view-button"
+            >
+              {show2dView ? '3D' : '2D'}
+            </button>
+            <button
+              type="button"
               className="sim-button sim-button--compact"
               aria-label="Send beta feedback"
               aria-controls="beta-feedback-panel"
@@ -632,9 +662,9 @@ export default function App() {
         )}
         <EvolutionRibbon onOpenLineages={() => openSettings('remember')} legendOpen={legendOpen} onToggleLegend={() => setLegendOpen(!legendOpen)} />
         <div className="app-shell__stage">
-          <main aria-label="Ecosystem world" className="app-shell__world">
-            <LiveThreeWorldView />
-            <WorldView />
+          <main aria-label="Ecosystem world" className="app-shell__world" data-view-mode={show2dView ? '2d' : '3d'}>
+            {!show2dView && <LiveThreeWorldView />}
+            {show2dView && <WorldView />}
             <WorldLegend open={legendOpen} onToggle={() => setLegendOpen(!legendOpen)} />
             <TileInfoPanel onOpenLineages={() => openSettings('remember')} />
           </main>
