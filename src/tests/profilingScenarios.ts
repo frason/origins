@@ -5,7 +5,7 @@
  * under representative simulation loads on Three.js and Canvas 2D renderers.
  *
  * Usage (Node.js only):
- *   npx ts-node src/tests/profilingScenarios.ts
+ *   npm run profile:three
  *
  * Output: Writes results to state/profiling-results.json with timestamp
  *
@@ -16,7 +16,7 @@
  *   4. Globe (100x100, 200 creatures, medium load)
  *   5. All 7 overlays active + 200 creatures (stress test)
  *
- * @fileoverview This script is designed for Node.js execution only (ts-node).
+ * @fileoverview This script is designed for Node.js execution only (tsx).
  * It is not meant to be imported by browser code.
  */
 

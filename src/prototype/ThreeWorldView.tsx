@@ -198,20 +198,6 @@ export default function ThreeWorldView({
     onFallback?.(false);
   }, [onFallback]);
 
-  // Render Canvas 2D fallback if WebGL is unavailable or requested
-  if (useFallbackRender) {
-    return (
-      <Canvas2DFallback
-        snapshot={snapshot}
-        selected={selected}
-        onSelect={onSelect}
-        activeOverlays={activeOverlays}
-        focus={focus}
-        onFocusLineage={focusLineage}
-      />
-    );
-  }
-
   useEffect(() => {
     const buildStarted = performance.now();
     const host = hostRef.current;
