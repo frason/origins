@@ -181,36 +181,3 @@ export function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined') return false;
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
-
-/**
- * Detect if WebGL is supported and available.
- */
-export function isWebGLSupported(): boolean {
-  try {
-    const canvas = document.createElement('canvas');
-    const gl =
-      canvas.getContext('webgl2') || canvas.getContext('webgl');
-    return gl !== null;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Get device capabilities for rendering optimization.
- */
-export function getDeviceCapabilities() {
-  const canvas = document.createElement('canvas');
-  const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-
-  return {
-    maxTextureSize: gl?.getParameter(gl.MAX_TEXTURE_SIZE) ?? 4096,
-    maxRenderBufferSize:
-      gl?.getParameter(gl.MAX_RENDERBUFFER_SIZE) ?? 4096,
-    isDesktop:
-      typeof window !== 'undefined' && window.innerWidth >= 1024,
-    devicePixelRatio: typeof window !== 'undefined'
-      ? window.devicePixelRatio
-      : 1,
-  };
-}
