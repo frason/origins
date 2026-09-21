@@ -95,6 +95,11 @@ import {
   AdaptationMetricsTracker,
   type AdaptationObservation,
 } from './adaptationMetrics';
+import {
+  recordTraitFrequencyWindow,
+  TRAIT_FREQUENCY_SAMPLE_INTERVAL_TICKS,
+  type TraitFrequencyRecord,
+} from './traitFrequency';
 import { compactEvents } from './eventCompaction';
 import { CHECKPOINT_INTERVAL } from './checkpointTimeline';
 
@@ -183,6 +188,13 @@ export interface EngineState {
   adaptationMetrics: AdaptationMetricsTracker;
   /** Recent adaptation observations from the current tick */
   lastAdaptationObservations: AdaptationObservation[];
+  /**
+   * Per-lineage trait-frequency histories (keyed by lineageId), sampled every
+   * TRAIT_FREQUENCY_SAMPLE_INTERVAL_TICKS by the tick loop. Plain JSON data:
+   * survives save/load, and old saves without it deserialize to an empty
+   * record. Observational only — never perturbs simulation outcomes.
+   */
+  traitFrequencyHistory: TraitFrequencyRecord;
 }
 
 export interface SpeciesIntroduction {
@@ -392,6 +404,7 @@ export function createEngine(
     soundEventCounter: 0,
     adaptationMetrics: new AdaptationMetricsTracker(),
     lastAdaptationObservations: [],
+    traitFrequencyHistory: {},
   };
 }
 
@@ -1189,34 +1202,47 @@ export function tickEngine(
   );
 
   // Update adaptation metrics tracker with current creature snapshots
+  const creatureSnapshots = creaturesAfterDecomposition.map((c) => ({
+    id: c.id,
+    speciesId: c.speciesId,
+    lineageId: c.lineageId,
+    parentId: c.parentId,
+    traits: c.traits,
+    x: c.x,
+    y: c.y,
+    energy: c.energy,
+    age: c.age,
+    lifecycleState: c.lifecycleState,
+    corpseDecayTicks: c.corpseDecayTicks,
+    lastReproductionAge: c.lastReproductionAge,
+    generation: c.generation,
+    incipientSpeciesId: c.incipientSpeciesId,
+    offspringCount: c.offspringCount,
+    toxinExposure: c.toxinExposure,
+    localResourcePressure: c.localResourcePressure,
+    reproductionPressureMultiplier: c.reproductionPressureMultiplier,
+    dispersalTargetX: c.dispersalTargetX,
+    dispersalTargetY: c.dispersalTargetY,
+    lastDispersalTick: c.lastDispersalTick,
+    dispersalMoves: c.dispersalMoves,
+  }));
   const adaptationObservations = state.adaptationMetrics.updateMetrics(
     nextTick,
-    creaturesAfterDecomposition.map((c) => ({
-      id: c.id,
-      speciesId: c.speciesId,
-      lineageId: c.lineageId,
-      parentId: c.parentId,
-      traits: c.traits,
-      x: c.x,
-      y: c.y,
-      energy: c.energy,
-      age: c.age,
-      lifecycleState: c.lifecycleState,
-      corpseDecayTicks: c.corpseDecayTicks,
-      lastReproductionAge: c.lastReproductionAge,
-      generation: c.generation,
-      incipientSpeciesId: c.incipientSpeciesId,
-      offspringCount: c.offspringCount,
-      toxinExposure: c.toxinExposure,
-      localResourcePressure: c.localResourcePressure,
-      reproductionPressureMultiplier: c.reproductionPressureMultiplier,
-      dispersalTargetX: c.dispersalTargetX,
-      dispersalTargetY: c.dispersalTargetY,
-      lastDispersalTick: c.lastDispersalTick,
-      dispersalMoves: c.dispersalMoves,
-    })),
+    creatureSnapshots,
     completeEvents
   );
+
+  // Sample per-lineage trait frequencies on the documented cadence. The call
+  // is read-only with respect to the simulation (no RNG, no creature state
+  // changes), so replay/determinism is preserved exactly.
+  const traitFrequencyHistory = nextTick % TRAIT_FREQUENCY_SAMPLE_INTERVAL_TICKS === 0
+    ? recordTraitFrequencyWindow(
+        state.traitFrequencyHistory,
+        creatureSnapshots,
+        nextTick - TRAIT_FREQUENCY_SAMPLE_INTERVAL_TICKS,
+        nextTick
+      )
+    : state.traitFrequencyHistory;
 
   // Compact events at checkpoint boundaries to prevent unbounded memory growth
   const eventsToStore = nextTick % CHECKPOINT_INTERVAL === 0
@@ -1239,6 +1265,7 @@ export function tickEngine(
     soundEventCounter: state.soundEventCounter,
     adaptationMetrics: state.adaptationMetrics,
     lastAdaptationObservations: adaptationObservations,
+    traitFrequencyHistory,
   };
 }
 

@@ -162,6 +162,7 @@ export function serializePhase0HarnessToPersistedState(state: Phase0HarnessState
       soundEventCounter: 0,
       adaptationMetrics: new AdaptationMetricsTracker(),
       lastAdaptationObservations: [],
+      traitFrequencyHistory: {},
     },
     phase0,
   };

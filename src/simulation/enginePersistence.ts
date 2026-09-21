@@ -113,5 +113,8 @@ export function deserializeEngineState(value: string): EngineState {
     soundEventCounter: saved.soundEventCounter ?? 0,
     adaptationMetrics: new AdaptationMetricsTracker(),
     lastAdaptationObservations: saved.lastAdaptationObservations ?? [],
+    // Older saves predate per-lineage trait-frequency tracking; they load
+    // with an empty record and repopulate as the simulation ticks on.
+    traitFrequencyHistory: saved.traitFrequencyHistory ?? {},
   };
 }

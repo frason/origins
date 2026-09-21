@@ -475,3 +475,74 @@ export function createTraitFrequencyHistory(): TraitFrequencyHistory {
     compressionRatio: 2,
   };
 }
+
+/**
+ * Tick interval between trait-frequency sampling windows.
+ * Each window summarizes the living population of every lineage at this
+ * cadence; windows are what `measureTraitDivergence`/`classifyChange`
+ * compare. Coarse enough for drift-vs-selection signal, fine enough that
+ * the bounded history spans a meaningful span of evolution.
+ */
+export const TRAIT_FREQUENCY_SAMPLE_INTERVAL_TICKS = 25;
+
+/**
+ * Trait frequency histories keyed by lineageId. One bounded history per
+ * lineage; entries persist after extinction so past lineages stay
+ * inspectable (each history is bounded by `appendTraitFrequency`).
+ */
+export type TraitFrequencyRecord = Record<string, TraitFrequencyHistory>;
+
+/**
+ * Sample one trait-frequency window for every living lineage and append it
+ * to that lineage's bounded history.
+ *
+ * Purely observational: reads creature snapshots, consumes no RNG, mutates
+ * nothing outside the returned record — so wiring this into the tick loop
+ * cannot perturb simulation outcomes. Deterministic by construction:
+ * lineages are visited in first-encounter order of the given creature array,
+ * so the same seed always yields byte-identical output.
+ *
+ * Corpses are excluded: only `lifecycleState === 'alive'` members feed the
+ * distribution, so death does not masquerade as trait change.
+ */
+export function recordTraitFrequencyWindow(
+  histories: TraitFrequencyRecord,
+  creatures: CreatureSnapshot[],
+  startTick: number,
+  endTick: number
+): TraitFrequencyRecord {
+  const byLineage = new Map<
+    string,
+    { speciesId: string; members: CreatureSnapshot[] }
+  >();
+  for (const creature of creatures) {
+    if (creature.lifecycleState !== 'alive') continue;
+    const group = byLineage.get(creature.lineageId);
+    if (group) {
+      group.members.push(creature);
+    } else {
+      byLineage.set(creature.lineageId, {
+        speciesId: creature.speciesId,
+        members: [creature],
+      });
+    }
+  }
+
+  const next: TraitFrequencyRecord = { ...histories };
+  for (const [lineageId, group] of byLineage) {
+    const summary = computeTraitFrequencies(
+      group.members,
+      startTick,
+      endTick,
+      group.speciesId,
+      lineageId
+    );
+    if (summary) {
+      next[lineageId] = appendTraitFrequency(
+        next[lineageId] ?? createTraitFrequencyHistory(),
+        summary
+      );
+    }
+  }
+  return next;
+}

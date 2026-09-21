@@ -62,6 +62,7 @@ function createTestCheckpoint(tick: number, seed: number = 12345): PersistedEngi
       soundEventCounter: 0,
       adaptationMetrics: new AdaptationMetricsTracker(),
       lastAdaptationObservations: [],
+      traitFrequencyHistory: {},
     },
     phase0: {
       ledger: { energy: 100, biomass: 50 },
