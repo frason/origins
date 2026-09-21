@@ -27,9 +27,6 @@ import type { ObservatoryState } from '../ui/observatoryObjectives';
 import type { FieldJournal, FieldJournalEntry } from '../simulation/fieldJournal';
 import { saveFieldJournal } from './fieldJournalPersistence';
 import type { WorldBranch, BranchCollection } from '../simulation/worldBranch';
-import { tickEngineWithDisaster } from '../simulation/applyDisasterCommand';
-import type { DisasterCommand } from '../simulation/disasterCommand';
-import type { EngineState } from '../simulation/engine';
 
 // Cell interface for world state
 export interface CellSnapshot {
@@ -197,8 +194,6 @@ export interface StoreState {
   removeBranch: (branchId: string) => void;
   updateBranch: (branchId: string, updates: Partial<WorldBranch>) => void;
   setShowBranchComparison: (show: boolean) => void;
-  // Disaster management
-  triggerDisaster: (command: DisasterCommand, engineState: EngineState) => EngineState | null;
 }
 
 /**
@@ -472,15 +467,5 @@ export const useStore = create<StoreState>((set) => ({
 
   setShowBranchComparison: (show: boolean) => {
     set({ showBranchComparison: show });
-  },
-
-  triggerDisaster: (command: DisasterCommand, engineState: EngineState): EngineState | null => {
-    try {
-      const newState = tickEngineWithDisaster(engineState, command);
-      return newState;
-    } catch (error) {
-      console.error('Failed to apply disaster:', error);
-      return null;
-    }
   },
 }));
