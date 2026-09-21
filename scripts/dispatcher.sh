@@ -351,6 +351,42 @@ run_agent() {
   return 0
 }
 
+# ---- helper: apply a label transition AND verify it landed on GitHub ----
+#
+# gh issue edit can exit 0 while the label change never lands on GitHub
+# (confirmed incident on #165/#167, issue #279 planning-pass 82): the old
+# `|| true` swallowed the failure, the success log fired anyway, and both
+# issues sat invisible to the WORK selector (not agent-todo) and the VERIFY
+# selector (not really agent-review) for 4-5 days until a human relabeled
+# them. This helper re-reads the issue's actual labels after each edit and
+# retries before giving up with a greppable LABEL-MISMATCH line.
+#
+# Usage: set_issue_label <number> <remove-label> <add-label>
+# Returns 0 once the add-label is present and the remove-label is absent;
+# returns 1 (after logging LABEL-MISMATCH) if the state never verifies.
+# LABEL_RETRY_SLEEP (seconds, default 2) spaces the retry attempts.
+set_issue_label() {
+  local num="$1" from="$2" to="$3" labels attempt
+  local sleep_s="${LABEL_RETRY_SLEEP:-2}"
+  for attempt in 1 2 3; do
+    gh issue edit "$num" --repo "$REPO" \
+      --remove-label "$from" --add-label "$to" >/dev/null 2>&1 || true
+    labels=$(gh issue view "$num" --repo "$REPO" --json labels \
+      --jq '.labels[].name' 2>/dev/null || true)
+    if printf '%s\n' "$labels" | grep -Fxq "$to" \
+       && ! printf '%s\n' "$labels" | grep -Fxq "$from"; then
+      [ "$attempt" -gt 1 ] && log "  issue #$num label $from → $to verified on attempt $attempt"
+      return 0
+    fi
+    if [ "$attempt" -lt 3 ]; then
+      log "  issue #$num label edit unverified (attempt $attempt: wanted -$from +$to, have [$(printf '%s' "$labels" | tr '\n' ' ')]) — retrying"
+      sleep "$sleep_s"
+    fi
+  done
+  log "LABEL-MISMATCH: issue #$num expected labels [-$from +$to] got [$(printf '%s' "$labels" | tr '\n' ' ')] after retries"
+  return 1
+}
+
 # ---- helper: promote backlog issues whose declared dependencies are all closed ----
 promote_backlog() {
   local issues num body deps all_closed dep dep_state
@@ -365,9 +401,9 @@ promote_backlog() {
            | sed 's/[^:]*:[[:space:]]*//' | grep -oE '[0-9]+' || true)
 
     if [ -z "${deps:-}" ]; then
-      gh issue edit "$num" --repo "$REPO" \
-        --remove-label "agent-backlog" --add-label "agent-todo" >/dev/null 2>&1 || true
-      log "  promoted backlog #$num → agent-todo (no dependencies declared)"
+      if set_issue_label "$num" "agent-backlog" "agent-todo"; then
+        log "  promoted backlog #$num → agent-todo (no dependencies declared)"
+      fi
       continue
     fi
 
@@ -379,9 +415,9 @@ promote_backlog() {
     done
 
     if [ "$all_closed" = "true" ]; then
-      gh issue edit "$num" --repo "$REPO" \
-        --remove-label "agent-backlog" --add-label "agent-todo" >/dev/null 2>&1 || true
-      log "  promoted backlog #$num → agent-todo (all dependencies closed)"
+      if set_issue_label "$num" "agent-backlog" "agent-todo"; then
+        log "  promoted backlog #$num → agent-todo (all dependencies closed)"
+      fi
     fi
   done < <(printf '%s' "$issues" | jq -c '.[]' 2>/dev/null)
 }
@@ -650,14 +686,14 @@ ${verdict_text}
       log "  issue #$iss_num PASSED but commit gate failed — left in review"
       exit 0
     fi
-    gh issue edit  "$iss_num" --repo "$REPO" \
-      --remove-label "agent-review" --add-label "agent-done" >/dev/null 2>&1 || true
+    if set_issue_label "$iss_num" "agent-review" "agent-done"; then
+      log "  issue #$iss_num PASSED — labelled agent-done, closed"
+    fi
     gh issue close "$iss_num" --repo "$REPO" >/dev/null 2>&1 || true
     rm -f "$STATE/worker_output_${iss_num}.txt"
-    log "  issue #$iss_num PASSED — labelled agent-done, closed"
   else
-    gh issue edit "$iss_num" --repo "$REPO" \
-      --remove-label "agent-review" --add-label "agent-todo" >/dev/null 2>&1 || true
+    requeued=false
+    if set_issue_label "$iss_num" "agent-review" "agent-todo"; then requeued=true; fi
     # Fairness cooldown: a FAILed issue keeps its (now oldest) number, so plain
     # oldest-number selection would let it re-win the very next worker pass and starve
     # the rest of the queue. Mark it to be skipped for exactly one worker-dispatch pass.
@@ -665,7 +701,9 @@ ${verdict_text}
     cd_now=$(cat "$cooldown_file" 2>/dev/null || echo '[]')
     jq --argjson n "$iss_num" '(. // []) + [$n] | unique' <<<"$cd_now" > "$cooldown_file" 2>/dev/null \
       || echo "[$iss_num]" > "$cooldown_file"
-    log "  issue #$iss_num FAILED — labelled agent-todo for rework (worker-selection cooldown for one pass)"
+    if [ "$requeued" = "true" ]; then
+      log "  issue #$iss_num FAILED — labelled agent-todo for rework (worker-selection cooldown for one pass)"
+    fi
   fi
   exit 0
 fi
@@ -736,8 +774,7 @@ attempt_count=$(printf '%s' "$attempt_json" | jq '
 ' 2>/dev/null || echo 0)
 if [ "$(jq -n --argjson a "${attempt_count:-0}" --argjson m "$max_worker_attempts" '$a >= $m')" = "true" ]; then
   log "  issue #$iss_num: ${attempt_count} attempt(s) since last reset >= limit ${max_worker_attempts} — blocking"
-  gh issue edit "$iss_num" --repo "$REPO" \
-    --remove-label "agent-todo" --add-label "agent-blocked" >/dev/null 2>&1 || true
+  set_issue_label "$iss_num" "agent-todo" "agent-blocked" || true
   gh issue comment "$iss_num" --repo "$REPO" \
     --body "⛔ **Blocked after ${attempt_count} failed attempt(s)** (limit: ${max_worker_attempts}).
 
@@ -762,8 +799,13 @@ fi
 check_global_budget
 
 # Atomic label swap — prevents a concurrent tick from claiming the same issue.
-gh issue edit "$iss_num" --repo "$REPO" \
-  --remove-label "agent-todo" --add-label "agent-doing" >/dev/null 2>&1 || true
+# If the swap cannot be verified against GitHub after retries, abort this tick
+# WITHOUT running the worker: the issue still reads agent-todo there, so a
+# later tick would double-dispatch it. set_issue_label has already logged
+# LABEL-MISMATCH for a human/watchdog to find.
+if ! set_issue_label "$iss_num" "agent-todo" "agent-doing"; then
+  exit 1
+fi
 
 # Per-issue output path — NOT a shared file. The dispatcher only runs one worker at a
 # time, but karen may still be retrying verification on an older issue (e.g. crashing
@@ -820,8 +862,7 @@ if ! run_agent worker "$effective_worker_model" "$tmp"; then
   gh issue comment "$iss_num" --repo "$REPO" \
     --body "⚠️ **Worker run failed** (claude exited non-zero). Cycling back to \`agent-todo\` — check \`logs/dispatcher.log\` for the error." \
     >/dev/null 2>&1 || true
-  gh issue edit "$iss_num" --repo "$REPO" \
-    --remove-label "agent-doing" --add-label "agent-todo" >/dev/null 2>&1 || true
+  set_issue_label "$iss_num" "agent-doing" "agent-todo" || true
   # Fairness cooldown: a crashed worker keeps the issue in agent-todo with its (now oldest)
   # number, so plain oldest-number selection would let it re-win the very next worker pass
   # and starve the rest of the queue (same as karen-FAIL path below). Mark it to be skipped
@@ -847,9 +888,9 @@ gh issue comment "$iss_num" --repo "$REPO" \
 
 ${summary}" >/dev/null 2>&1 || true
 
-gh issue edit "$iss_num" --repo "$REPO" \
-  --remove-label "agent-doing" --add-label "agent-review" >/dev/null 2>&1 || true
-log "  issue #$iss_num complete — moved to agent-review"
+if set_issue_label "$iss_num" "agent-doing" "agent-review"; then
+  log "  issue #$iss_num complete — moved to agent-review"
+fi
 
 # keep the activity log bounded
 if [ -f "$ACTIVITY" ] && [ "$(wc -l < "$ACTIVITY" | tr -d ' ')" -gt 500 ]; then
