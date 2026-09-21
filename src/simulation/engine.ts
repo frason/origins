@@ -536,6 +536,28 @@ export function tickEngine(
 
   // Phase 1: Generate DecisionIntents with deterministic tie-breaking order
   // Sort creatures by tie-breaking order before decision phase
+  //
+  // WHY THIS ORDERING (and the Phase 1 / Phase 2 split below) — #285:
+  // Before the DecisionIntent refactor, this loop iterated `creatures` in
+  // array order and decided + executed each creature inline, so
+  //   (a) iteration order was an implementation detail of how the creatures
+  //       array happened to be built (insertion order) rather than a
+  //       simulation invariant — any unrelated change to array construction
+  //       silently reordered the world, and
+  //   (b) creature N's decision observed creature N-1's already-applied move,
+  //       giving whichever creature sat earlier in the array a systematic
+  //       intra-tick first-mover advantage.
+  // Both made "same seed → same result" true only by accident of array
+  // construction, not by design. Sorting to a canonical order
+  // (speciesId → x → y → id) and deciding every creature against the same
+  // tick-start world state before executing any of them removes that
+  // order-dependence: determinism no longer depends on array layout and no
+  // creature gains an advantage from its position in the array.
+  //
+  // This intentionally changes simulation output relative to the old
+  // interleaved order — the old order was not "correct", it was biased.
+  // The pinned baselines that changed as a result were re-pinned with this
+  // justification in biomassMetrics.test.ts / defaultOpening.test.ts (#285).
   const aliveCreatures = creatures.filter(c => c.lifecycleState === 'alive');
   const sortedCreatures = [...aliveCreatures].sort(tieBreakCreatureOrder);
 

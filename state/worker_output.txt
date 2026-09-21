@@ -1,8 +1,41 @@
 ## Summary
-Fixed all 3 gaps from issue #167: committed TRAIT_STATUS.metabolism key in traits.ts (step 1), verified traitEcologicalConsequences and energy tests pass (steps 2-3).
+Resolved #285 via the issue's done-when option (b): documented why the pre-#173
+iteration order was wrong and re-pinned the affected baselines with that
+justification. Both ticketed test files now pass.
+
+## Why option (a) — bit-identical restore — was ruled out
+The outcome delta is NOT caused by the tie-break sort. Measured control at tick 30
+(same seeds): sorted vs. unsorted differ only trivially (e.g. totalBiomass
+326390 vs 326389; occupiedTileCount 21 vs 22). The delta vs. the old pin comes
+from the decide/execute phase split + per-entity RNG streams added in c54e1a8.
+Restoring pre-#173 output would require reverting that architecture, which
+rngStreamIsolation.test.ts and decisionIntent.test.ts depend on.
+
+## Why the old order was wrong (now documented at engine.ts Phase 1)
+- Iterated `creatures` in array-construction order: determinism was an artifact
+  of array layout, not a simulation invariant.
+- Decided AND executed inline per creature: creature N saw creature N-1's
+  already-applied move — systematic intra-tick first-mover advantage.
 
 ## Changes
-- src/utils/traits.ts — Added missing `metabolism: 'active'` key to TRAIT_STATUS record (commit 090d442)
+- src/simulation/engine.ts — comment only, no behavior change (22 added lines).
+- src/tests/biomassMetrics.test.ts — re-pinned baseline (3 seeds) + justification.
+- src/tests/defaultOpening.test.ts — cohort-cliff threshold 0.25 → 0.35 + justification.
+
+## Verification
+- Healthy-band measurement across all 4 seeds: all four feeding guilds alive at
+  tick 60 AND 100; populations 11–19 at tick 100 (floor 10, cap 60); tick-60
+  population 18–26 (floor 18); maximumTenTickDecline band 0.10–0.32, steepest
+  windows late (ticks 77–87) from small bases (16→11, 25→17, 19→13).
+  Replay determinism holds (seed 12345 run twice → identical).
+- 0.35 keeps headroom above the measured band; a collapse-level decade
+  (halving, 0.5) still trips the gate.
+- Targeted: biomassMetrics 10/10, defaultOpening 2/2, decisionIntent 5/5,
+  decisionIntentPerformance 3/3, rngStreamIsolation 11/11, engine 28/28 — 59/59.
+- Full suite A/B vs pristine main: identical pass/fail counts (see PR body);
+  the 27 pre-existing failing files are the store.ts dangling disaster imports
+  tracked by #293 / PR #295 — untouched here.
 
 ## Caveats / follow-up
-None — issue #167 complete per acceptance criteria. Pre-existing unrelated TypeScript errors (watchEngine.ts, AlertBanner.tsx, WatchesPanel.tsx, EngineState serialization) remain but are outside scope; these should be addressed in separate issues #278/#279 and legacy backlog items.
+None for #285. The 27 store-dependent failing files on main are NOT introduced
+by this change (engine diff is comment-only) and are fixed by open PR #295.

@@ -55,7 +55,16 @@ describe('default opening quality gate', () => {
       expect(result.tick60Population, `seed ${seed} at tick 60`).toBeGreaterThanOrEqual(18);
       expect(result.population, `seed ${seed} at tick 100`).toBeGreaterThanOrEqual(10);
       expect(result.population, `seed ${seed} runaway growth`).toBeLessThanOrEqual(60);
-      expect(result.maximumTenTickDecline, `seed ${seed} cohort cliff`).toBeLessThanOrEqual(0.25);
+      // #285: re-baselined from 0.25 after creature iteration became canonical
+      // and decide/execute was split into phases (see engine.ts, Phase 1), so
+      // no creature gains an intra-tick first-mover advantage from its
+      // position in the creatures array. Under the corrected ordering the
+      // healthy band across the four seeds is 0.10–0.32, with the steepest
+      // windows occurring late (ticks ~77–87) and from small bases
+      // (e.g. 16→11, 25→17) while all four feeding guilds stay alive through
+      // tick 100 — verified per seed. 0.35 keeps headroom above that band but
+      // still fails a genuine collapse (a halving decade, 0.5, trips it).
+      expect(result.maximumTenTickDecline, `seed ${seed} cohort cliff`).toBeLessThanOrEqual(0.35);
     }
   });
 

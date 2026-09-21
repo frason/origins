@@ -144,6 +144,14 @@ describe('biomass ecology baseline', () => {
     });
   });
 
+  // #285: this pin was re-baselined when creature iteration became canonical
+  // (speciesId → x → y → id) and decide/execute was split into two phases, so
+  // every creature decides against the same tick-start world state instead of
+  // observing earlier creatures' already-applied moves (see engine.ts, Phase 1).
+  // The old pin captured the biased interleaved order, which was not a correct
+  // baseline — it was an artifact of creatures-array construction order.
+  // The assertion this test actually guards — replay-identical output per seed
+  // and distinct baselines per seed — is unchanged and still enforced below.
   it('records a replay-identical local biomass baseline across fixed seeds', () => {
     const run = () => [12345, 54321, 99999].map((seed) => {
       let state = buildDemoEngine(seed, { ...SIMULATION_CONSTANTS });
@@ -165,28 +173,28 @@ describe('biomass ecology baseline', () => {
     expect(first).toMatchInlineSnapshot(`
       [
         {
-          "averageOccupiedTileBiomass": 10.586,
+          "averageOccupiedTileBiomass": 13.609,
           "depletedOccupiedTileShare": 0.762,
           "occupiedTileCount": 21,
           "population": 22,
           "seed": 12345,
-          "totalBiomass": 325926,
+          "totalBiomass": 326390,
         },
         {
-          "averageOccupiedTileBiomass": 9.56,
-          "depletedOccupiedTileShare": 0.864,
-          "occupiedTileCount": 22,
-          "population": 25,
+          "averageOccupiedTileBiomass": 9.104,
+          "depletedOccupiedTileShare": 0.81,
+          "occupiedTileCount": 21,
+          "population": 22,
           "seed": 54321,
-          "totalBiomass": 336843,
+          "totalBiomass": 337410,
         },
         {
-          "averageOccupiedTileBiomass": 9.72,
-          "depletedOccupiedTileShare": 0.833,
-          "occupiedTileCount": 24,
-          "population": 30,
+          "averageOccupiedTileBiomass": 10.815,
+          "depletedOccupiedTileShare": 0.714,
+          "occupiedTileCount": 21,
+          "population": 21,
           "seed": 99999,
-          "totalBiomass": 348653,
+          "totalBiomass": 349740,
         },
       ]
     `);
