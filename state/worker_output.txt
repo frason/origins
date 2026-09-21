@@ -1,8 +1,40 @@
-## Summary
-Fixed all 3 gaps from issue #167: committed TRAIT_STATUS.metabolism key in traits.ts (step 1), verified traitEcologicalConsequences and energy tests pass (steps 2-3).
+# Worker output — issue #276 (adaptation-evidence labeling, evolution truth)
 
-## Changes
-- src/utils/traits.ts — Added missing `metabolism: 'active'` key to TRAIT_STATUS record (commit 090d442)
+## What landed
+New evidence-threshold classifier `src/simulation/adaptationEvidence.ts` plus
+cohort wiring in `AdaptationMetricsTracker`. Labels a lineage's trait trend as
+one of: drift, mutation-appearance, selection, speciation — ONLY when a
+documented threshold in `DEFAULT_ADAPTATION_THRESHOLDS` is crossed; anything
+else is `insufficient-evidence` (never a guess).
 
-## Caveats / follow-up
-None — issue #167 complete per acceptance criteria. Pre-existing unrelated TypeScript errors (watchEngine.ts, AlertBanner.tsx, WatchesPanel.tsx, EngineState serialization) remain but are outside scope; these should be addressed in separate issues #278/#279 and legacy backlog items.
+## How evidence is gathered (no guesswork)
+- At each window boundary the tracker captures the alive cohort (traits +
+  cumulative offspringCount per member).
+- At the next boundary it resolves real outcomes per member: survived =
+  still alive; offspring delta from the counters (corpses still carry finals).
+- Classification correlates trait values against those outcomes:
+  - selection: |point-biserial r| >= 0.35 in 2 of last 3 windows AND a
+    directional mean shift >= 2% agreeing with the correlation's sign.
+  - drift: shift >= 2% with NO fitness correlation in any recent window.
+  - mutation-appearance: discrete value never seen before at >= 5% frequency;
+    continuous value jumping beyond the prior range by >= 50% of its width at
+    >= 10% frequency (a ratcheting max from selection/drift does not qualify).
+  - speciation: divergence from the lineage's own baseline >= 35% for 3
+    consecutive windows on >= 2 traits at once (multi-trait signature).
+- Every verdict carries greppable reasons naming the thresholds used;
+  `insufficient-evidence` maps to legacy changeType `unknown`.
+
+## Verification
+- `npx vitest run src/tests/adaptationEvidence.test.ts` — 20/20 pass,
+  including two same-seed determinism tests (engine-level 2x150-tick runs and
+  tracker-level identical-run label streams) and per-threshold unit cases.
+- Neighbors: adaptationMetrics 16/16, traitFrequency 16/16, engine 28/28,
+  enginePersistence 7/7, rngStreamIsolation 11/11, decisionIntent 5/5.
+- `npx tsc --noEmit -p .`: error set byte-identical to main (14 pre-existing).
+- `npm run build`: failure output byte-identical to main (pre-existing
+  dangling disaster imports in store.ts — owned by open PR #295).
+- Full suite A/B vs pristine main 5102783: failing-file and failing-test sets
+  byte-identical (27 files / 107 tests pre-existing); branch adds exactly
+  +1 test file, +20 passing tests. Zero new failures.
+
+Changed files: src/simulation/adaptationEvidence.ts, src/simulation/adaptationMetrics.ts, src/tests/adaptationEvidence.test.ts, state/worker_output.txt

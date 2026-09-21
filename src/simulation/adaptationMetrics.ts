@@ -10,14 +10,22 @@ import type { SimEvent } from './events';
 import {
   computeTraitFrequencies,
   generateAdaptationEvidence,
-  classifyChange,
+  createTraitFrequencyHistory,
+  appendTraitFrequency,
   type TraitFrequencySummary,
   type AdaptationEvidence,
   type EvolutionaryChangeType,
-  createTraitFrequencyHistory,
-  appendTraitFrequency,
   type TraitFrequencyHistory,
 } from './traitFrequency';
+import {
+  classifyLineageTrends,
+  labelToChangeType,
+  DEFAULT_ADAPTATION_THRESHOLDS,
+  type AdaptationLabel,
+  type AdaptationThresholds,
+  type TraitCohortWindow,
+  type TraitTrendVerdict,
+} from './adaptationEvidence';
 import type { Traits } from '../utils/traits';
 
 /**
@@ -31,6 +39,14 @@ export interface AdaptationObservation {
   changeType: EvolutionaryChangeType;
   evidence: AdaptationEvidence | null;
   populationSize: number;
+  /**
+   * Evidence-threshold label (#276). 'insufficient-evidence' means no
+   * documented threshold was crossed — the changeType is then 'unknown',
+   * never a guess.
+   */
+  label?: AdaptationLabel;
+  /** Which documented thresholds produced (or denied) the label. */
+  classificationReasons?: string[];
 }
 
 /**
@@ -61,6 +77,16 @@ export const DEFAULT_ADAPTATION_CONFIG: AdaptationDetectionConfig = {
   divergenceThreshold: 0.05, // report changes of 5%+ in trait distribution
 };
 
+/** Cohort member snapshot taken at a window's start (used to resolve outcomes at the next window). */
+interface CohortMemberStart {
+  numericTraits: Record<string, number>;
+  discreteValue?: string;
+  offspringCount: number;
+}
+
+/** Maximum cohort windows retained per trait, matching TraitFrequencyHistory. */
+const MAX_COHORT_WINDOWS = 10;
+
 /**
  * Track adaptation metrics for all active lineages
  */
@@ -68,9 +94,22 @@ export class AdaptationMetricsTracker {
   private lineageHistories: Map<string, LineageAdaptationHistory> = new Map();
   private lastSampleTick: Map<string, number> = new Map();
   private config: AdaptationDetectionConfig;
+  private thresholds: AdaptationThresholds;
+  /** Cohort captured at the last sample, per lineage — outcomes resolved at the next sample. */
+  private pendingCohorts: Map<
+    string,
+    { tick: number; members: Map<string, CohortMemberStart> }
+  > = new Map();
+  /** Resolved cohort windows per lineage, per trait (bounded, chronological). */
+  private cohortWindows: Map<string, Record<string, TraitCohortWindow[]>> =
+    new Map();
 
-  constructor(config: Partial<AdaptationDetectionConfig> = {}) {
+  constructor(
+    config: Partial<AdaptationDetectionConfig> = {},
+    thresholds: AdaptationThresholds = DEFAULT_ADAPTATION_THRESHOLDS
+  ) {
     this.config = { ...DEFAULT_ADAPTATION_CONFIG, ...config };
+    this.thresholds = thresholds;
   }
 
   /**
@@ -134,6 +173,22 @@ export class AdaptationMetricsTracker {
         );
         history.lastSummaryTick = tick;
 
+        // Resolve the previous window's cohort against the creatures present
+        // now (the FULL array — corpses still carry final offspring counters),
+        // then re-capture a fresh cohort for the next window. This is what
+        // gives classification real survival/reproduction outcomes to
+        // correlate against instead of guesses (#276).
+        this.resolveCohortWindow(key, creatures, tick);
+        this.captureCohort(key, lineageCreatures, tick);
+
+        // Evidence-threshold classification over the lineage's cohort
+        // windows. Until enough windows exist this returns
+        // 'insufficient-evidence' for every trait — no label is guessed.
+        const verdicts = classifyLineageTrends(
+          this.cohortWindows.get(key) ?? {},
+          this.thresholds
+        );
+
         // Generate adaptation evidence from recent change
         const previous =
           history.traitFrequencies.recentWindow.length >= 2
@@ -142,8 +197,12 @@ export class AdaptationMetricsTracker {
               ]
             : null;
 
-        if (previous) {
-          for (const trait of Object.keys(summary.traitFrequencies) as (keyof Traits)[]) {
+        for (const trait of Object.keys(summary.traitFrequencies) as (keyof Traits)[]) {
+          const verdict: TraitTrendVerdict | undefined = verdicts[trait];
+          const label: AdaptationLabel = verdict?.label ?? 'insufficient-evidence';
+          const changeType: EvolutionaryChangeType = labelToChangeType(label);
+
+          if (previous) {
             const evidence = generateAdaptationEvidence(
               summary,
               previous,
@@ -152,15 +211,12 @@ export class AdaptationMetricsTracker {
               summary.reproductionRate
             );
 
-            if (evidence && evidence.confidence >= this.config.confidenceThreshold) {
-              const changeType = classifyChange(
-                summary,
-                previous,
-                trait,
-                summary.survivalRate,
-                summary.reproductionRate
-              );
-
+            // Emit when the legacy confidence gate passes OR the
+            // evidence-threshold classifier crossed a documented threshold.
+            if (
+              (evidence && evidence.confidence >= this.config.confidenceThreshold) ||
+              label !== 'insufficient-evidence'
+            ) {
               const observation: AdaptationObservation = {
                 speciesId,
                 lineageId,
@@ -169,6 +225,10 @@ export class AdaptationMetricsTracker {
                 changeType,
                 evidence,
                 populationSize: summary.populationSize,
+                label,
+                classificationReasons: verdict?.reasons ?? [
+                  'no cohort windows yet — below minWindows threshold',
+                ],
               };
 
               history.adaptationEvents.push(observation);
@@ -182,6 +242,158 @@ export class AdaptationMetricsTracker {
     }
 
     return observations;
+  }
+
+  /**
+   * Capture the alive cohort of a lineage at a window boundary. Its members'
+   * outcomes are resolved at the NEXT window boundary.
+   */
+  private captureCohort(
+    key: string,
+    lineageCreatures: CreatureSnapshot[],
+    tick: number
+  ): void {
+    const members = new Map<string, CohortMemberStart>();
+    for (const creature of lineageCreatures) {
+      const numericTraits: Record<string, number> = {};
+      let discreteValue: string | undefined;
+      for (const [trait, value] of Object.entries(creature.traits)) {
+        if (typeof value === 'number') {
+          numericTraits[trait] = value;
+        } else if (typeof value === 'string') {
+          discreteValue = value;
+        }
+      }
+      members.set(creature.id, {
+        numericTraits,
+        discreteValue,
+        offspringCount: creature.offspringCount ?? 0,
+      });
+    }
+    this.pendingCohorts.set(key, { tick, members });
+  }
+
+  /**
+   * Resolve the pending cohort (captured at the previous window boundary)
+   * into per-trait cohort windows using the creatures present now: alive
+   * means survived, dead/corpse/absent means died, and offspring counters
+   * give reproduction during the window.
+   */
+  private resolveCohortWindow(
+    key: string,
+    currentCreatures: CreatureSnapshot[],
+    tick: number
+  ): void {
+    const pending = this.pendingCohorts.get(key);
+    if (!pending || pending.members.size === 0) {
+      return;
+    }
+
+    const currentById = new Map(currentCreatures.map((c) => [c.id, c]));
+
+    // Member outcomes shared across all traits of this cohort window.
+    const outcomes = new Map<
+      string,
+      { survived: boolean; offspringDelta: number }
+    >();
+    for (const [id, start] of pending.members) {
+      const current = currentById.get(id);
+      if (current && current.lifecycleState === 'alive') {
+        outcomes.set(id, {
+          survived: true,
+          offspringDelta: (current.offspringCount ?? 0) - start.offspringCount,
+        });
+      } else {
+        // Dead, corpse, or fully decomposed — did not survive the window.
+        // Reproduction that happened before death still counts.
+        const finalCount = current?.offspringCount ?? start.offspringCount;
+        outcomes.set(id, {
+          survived: false,
+          offspringDelta: finalCount - start.offspringCount,
+        });
+      }
+    }
+
+    // Assemble one window per trait that any cohort member carries.
+    const traitNames = new Set<string>();
+    for (const member of pending.members.values()) {
+      for (const trait of Object.keys(member.numericTraits)) {
+        traitNames.add(trait);
+      }
+    }
+
+    const windows: Record<string, TraitCohortWindow[]> =
+      this.cohortWindows.get(key) ?? {};
+
+    for (const trait of traitNames) {
+      const memberOutcomes = [];
+      for (const [id, start] of pending.members) {
+        if (!(trait in start.numericTraits)) continue;
+        memberOutcomes.push({
+          id,
+          traitValue: start.numericTraits[trait],
+          survived: outcomes.get(id)?.survived ?? false,
+          offspringDelta: outcomes.get(id)?.offspringDelta ?? 0,
+        });
+      }
+      if (memberOutcomes.length === 0) continue;
+
+      const values = memberOutcomes.map((m) => m.traitValue);
+      const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+      const window: TraitCohortWindow = {
+        startTick: pending.tick,
+        endTick: tick,
+        cohortSize: memberOutcomes.length,
+        traitMean: mean,
+        traitMin: Math.min(...values),
+        traitMax: Math.max(...values),
+        members: memberOutcomes.sort((a, b) => (a.id < b.id ? -1 : 1)),
+      };
+      (windows[trait] ??= []).push(window);
+      if (windows[trait].length > MAX_COHORT_WINDOWS) {
+        windows[trait].splice(0, windows[trait].length - MAX_COHORT_WINDOWS);
+      }
+    }
+
+    // Discrete trait (energyStrategy): frequency map for mutation-appearance.
+    {
+      const discreteMembers = [...pending.members.entries()]
+        .filter(([, start]) => start.discreteValue !== undefined)
+        .sort((a, b) => (a[0] < b[0] ? -1 : 1));
+      if (discreteMembers.length > 0) {
+        const freq: Record<string, number> = {};
+        for (const [, start] of discreteMembers) {
+          const value = start.discreteValue!;
+          freq[value] = (freq[value] ?? 0) + 1 / discreteMembers.length;
+        }
+        const window: TraitCohortWindow = {
+          startTick: pending.tick,
+          endTick: tick,
+          cohortSize: discreteMembers.length,
+          traitMean: 0,
+          traitMin: 0,
+          traitMax: 1,
+          members: discreteMembers.map(([id, start]) => ({
+            id,
+            traitValue: 0,
+            survived: outcomes.get(id)?.survived ?? false,
+            offspringDelta: outcomes.get(id)?.offspringDelta ?? 0,
+            discreteValue: start.discreteValue,
+          })),
+          discreteFrequency: freq,
+        };
+        const discreteKey = 'energyStrategy';
+        (windows[discreteKey] ??= []).push(window);
+        if (windows[discreteKey].length > MAX_COHORT_WINDOWS) {
+          windows[discreteKey].splice(
+            0,
+            windows[discreteKey].length - MAX_COHORT_WINDOWS
+          );
+        }
+      }
+    }
+
+    this.cohortWindows.set(key, windows);
   }
 
   /**
@@ -266,6 +478,8 @@ export class AdaptationMetricsTracker {
           const key = `${sorted[i].speciesId}:${sorted[i].lineageId}`;
           this.lineageHistories.delete(key);
           this.lastSampleTick.delete(key);
+          this.pendingCohorts.delete(key);
+          this.cohortWindows.delete(key);
         }
       }
     }
