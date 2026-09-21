@@ -474,7 +474,7 @@ const WorldView: React.FC = () => {
     : `No tile selected at tick ${tick}.`;
 
   return (
-    <div className="world-view">
+    <div className="world-view" data-testid="world-view">
       <canvas
         ref={canvasRef}
         role="application"

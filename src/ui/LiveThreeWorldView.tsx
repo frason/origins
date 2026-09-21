@@ -145,7 +145,10 @@ export default function LiveThreeWorldView() {
 
   if (!snapshot) {
     return (
-      <div className="live-three-world-view live-three-world-view--loading">
+      <div
+        className="live-three-world-view live-three-world-view--loading"
+        data-testid="live-three-world-view"
+      >
         <div className="live-three-world-view__status">Loading ecosystem…</div>
       </div>
     );
@@ -154,6 +157,7 @@ export default function LiveThreeWorldView() {
   return (
     <div
       className="live-three-world-view"
+      data-testid="live-three-world-view"
       onKeyDown={handleKeyboardNavigation}
       tabIndex={0}
       role="application"

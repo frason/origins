@@ -1,0 +1,55 @@
+Issue #274 — Living World: wire the 2D map fallback toggle
+Status: COMPLETE (code + tests)
+
+Problem
+`show2dView`/`setShow2dView` existed in src/state/store.ts with zero consumers,
+and App.tsx mounted BOTH `<LiveThreeWorldView />` and `<WorldView />`
+unconditionally (App.tsx:636-637). Both compute height:100% inside an
+overflow:hidden shell, so the 2D view was always invisible under the 3D one.
+The two views also both emitted id="world-keyboard-instructions" (duplicate id).
+
+Change
+- src/App.tsx
+  - Subscribe to show2dView / setShow2dView.
+  - Add a toggle button in the transport bar: data-testid="toggle-view-button",
+    aria-pressed, aria-label="Toggle between 3D and 2D map view (press M)".
+  - Add an "M" keyboard shortcut (window keydown) with guards for
+    ctrl/meta/alt/shift and for INPUT/TEXTAREA/SELECT/contentEditable focus.
+  - Swap to exclusive mounting: {!show2dView && <LiveThreeWorldView />} and
+    {show2dView && <WorldView />} — one view in the DOM at a time, so the CSS
+    clipping concern is moot and the duplicate id is gone.
+- src/ui/LiveThreeWorldView.tsx — add data-testid="live-three-world-view" to
+  both the loading and loaded roots.
+- src/ui/WorldView.tsx — add data-testid="world-view" to the root.
+- src/tests/viewToggle.test.tsx (new, 6 tests) — default 3D-only render,
+  2D-only render, click swap both directions, "M" toggles, modifier keys
+  suppressed, form-field focus suppressed.
+- src/tests/appAccessibility.test.tsx — previously asserted the 2D canvas's
+  a11y attributes, which only held because both views were always mounted.
+  Rewritten to assert the shell landmarks in either mode and the 2D canvas
+  contract with show2dView enabled.
+
+Verification
+- npx vitest run src/tests/viewToggle.test.tsx → 6/6 passed.
+- Full suite vs. a measured baseline on the same tree:
+  baseline 12 failed / 1736 passed; with this change 12 failed / 1743 passed.
+  Identical failure set (all pre-existing), +7 passing tests, no regressions.
+- The 5 pre-existing failing files are unrelated and already tracked:
+  biomassMetrics.test.ts, defaultOpening.test.ts (issue #285 / PR #296),
+  speciesCompositionChart.test.tsx (component missing from main, #223
+  residual), worldViewSpike.test.tsx, _karen_verify_168_perf.test.ts.
+
+Known blocker (NOT caused by this change)
+`npx tsc --noEmit -p .` fails on current main. Six modules are imported by
+committed code but were never committed to main:
+  src/ui/ChallengePanel.tsx, src/ui/SpeciesCompositionChart.tsx,
+  src/constants/knowledge.ts, src/simulation/worldBranch.ts,
+  src/simulation/applyDisasterCommand.ts, src/simulation/disasterCommand.ts
+With those six stubbed locally, `npx tsc --noEmit -p .` exits 0 including this
+change — i.e. this diff adds no type errors, and main's build failure is caused
+entirely by those missing files. See issue #290 / #293 / PR #295.
+
+Note: tests must run under NODE_ENV=test; NODE_ENV=production makes React use
+its production build, where act() is unsupported and every RTL test fails.
+
+Changed files: src/App.tsx, src/ui/LiveThreeWorldView.tsx, src/ui/WorldView.tsx, src/tests/viewToggle.test.tsx, src/tests/appAccessibility.test.tsx, state/worker_output_274.txt
