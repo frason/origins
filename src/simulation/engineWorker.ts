@@ -77,39 +77,47 @@ function createSnapshot(engineState: EngineState): CompactSnapshot {
   };
 }
 
+/** Thrown when a command that needs an engine arrives before init. */
+function notInitialized(): never {
+  throw new Error('Worker not initialized. Call init command first.');
+}
+
 /**
  * Process a single command sequentially
  */
 function processCommand(command: WorkerCommand): void {
-  if (!state.engineState) {
-    throw new Error('Worker not initialized. Call init command first.');
-  }
+  // init, reset, and replay carry their own engine state, so they are valid
+  // on an uninitialized worker; every other command requires init first.
+  // (This also keeps the engine reference non-null for the cases below.)
+  const engineState: EngineState =
+    command.type === 'init' || command.type === 'reset' || command.type === 'replay'
+      ? command.engineState
+      : state.engineState ?? notInitialized();
 
   try {
     switch (command.type) {
       case 'init': {
-        state.engineState = command.engineState;
+        state.engineState = engineState;
         state.initialized = true;
         state.paused = false;
         state.isRunning = false;
         state.ticksProcessed = 0;
-        state.lastSnapshotTick = command.engineState.tick;
-        const snapshot = createSnapshot(state.engineState);
+        state.lastSnapshotTick = engineState.tick;
+        const snapshot = createSnapshot(engineState);
         sendSnapshot(snapshot);
         break;
       }
 
       case 'tick': {
+        let current = engineState;
         if (!state.paused && state.isRunning) {
           for (let i = 0; i < command.count; i++) {
-            state.engineState = tickEngine(
-              state.engineState,
-              command.constantOverrides
-            );
+            current = tickEngine(current, command.constantOverrides);
             state.ticksProcessed++;
           }
+          state.engineState = current;
         }
-        const snapshot = createSnapshot(state.engineState);
+        const snapshot = createSnapshot(current);
         sendSnapshot(snapshot);
         break;
       }
@@ -117,7 +125,7 @@ function processCommand(command: WorkerCommand): void {
       case 'pause': {
         state.paused = true;
         state.isRunning = false;
-        const snapshot = createSnapshot(state.engineState);
+        const snapshot = createSnapshot(engineState);
         sendSnapshot(snapshot);
         break;
       }
@@ -125,32 +133,33 @@ function processCommand(command: WorkerCommand): void {
       case 'resume': {
         state.paused = false;
         state.isRunning = true;
-        const snapshot = createSnapshot(state.engineState);
+        const snapshot = createSnapshot(engineState);
         sendSnapshot(snapshot);
         break;
       }
 
       case 'reset': {
-        state.engineState = command.engineState;
+        state.engineState = engineState;
         state.paused = false;
         state.isRunning = false;
         state.ticksProcessed = 0;
-        state.lastSnapshotTick = command.engineState.tick;
-        const snapshot = createSnapshot(state.engineState);
+        state.lastSnapshotTick = engineState.tick;
+        const snapshot = createSnapshot(engineState);
         sendSnapshot(snapshot);
         break;
       }
 
       case 'replay': {
-        state.engineState = command.engineState;
         state.paused = false;
         state.isRunning = false;
         // Execute ticks deterministically
+        let current = engineState;
         for (let i = 0; i < command.ticks; i++) {
-          state.engineState = tickEngine(state.engineState);
+          current = tickEngine(current);
         }
+        state.engineState = current;
         state.ticksProcessed = command.ticks;
-        const snapshot = createSnapshot(state.engineState);
+        const snapshot = createSnapshot(current);
         sendSnapshot(snapshot);
         break;
       }
@@ -158,28 +167,28 @@ function processCommand(command: WorkerCommand): void {
       case 'speed': {
         // Speed change is mainly a UI-side concern
         // Worker just acknowledges it
-        const snapshot = createSnapshot(state.engineState);
+        const snapshot = createSnapshot(engineState);
         sendSnapshot(snapshot);
         break;
       }
 
       case 'introduce-species': {
         const result = introduceSpecies(
-          state.engineState,
+          engineState,
           command.strategy,
           command.origin,
           command.requestedName,
           command.traitOverrides
         );
         state.engineState = result.state;
-        const snapshot = createSnapshot(state.engineState);
+        const snapshot = createSnapshot(result.state);
         sendSnapshot(snapshot);
         break;
       }
 
       case 'checkpoint': {
-        const snapshot = createSnapshot(state.engineState);
-        sendSnapshot(snapshot, state.engineState);
+        const snapshot = createSnapshot(engineState);
+        sendSnapshot(snapshot, engineState);
         break;
       }
 
@@ -187,14 +196,16 @@ function processCommand(command: WorkerCommand): void {
         throw new Error(`Unknown command type: ${(command as any).type}`);
     }
   } catch (error) {
+    // Report the worker's actual running/paused state even on error, so the
+    // main thread does not mistake a failed command for a paused simulation.
     const errorSnapshot: CompactSnapshot = {
       tick: state.engineState?.tick ?? -1,
       seed: state.engineState?.seed ?? -1,
       worldSnapshot: state.engineState
         ? snapshotEngine(state.engineState)
         : { width: 0, height: 0, cells: [], creatures: [], events: [] },
-      isRunning: false,
-      isPaused: true,
+      isRunning: state.isRunning,
+      isPaused: state.paused,
       constants: state.engineState?.constants ?? SIMULATION_CONSTANTS,
       events: state.engineState?.events ?? [],
       lastAdaptationObservations: [],
@@ -210,13 +221,22 @@ function processCommand(command: WorkerCommand): void {
 }
 
 /**
- * Main message handler for commands from main thread
+ * Main message handler for commands from main thread.
+ * Also answers version-check requests.
+ *
+ * Note: this must remain a single `onmessage` assignment — a second
+ * assignment would replace this handler instead of adding to it.
  */
-onmessage = (event: MessageEvent<WorkerCommand>) => {
+onmessage = (event: MessageEvent<WorkerCommand | { type: 'version-check' }>) => {
   try {
     const command = event.data;
     if (!command || !command.type) {
       throw new Error('Invalid command: missing type');
+    }
+
+    if (command.type === 'version-check') {
+      postMessage({ type: 'version-response', version: WORKER_VERSION });
+      return;
     }
 
     state.lastCommandTick = state.engineState?.tick ?? 0;
@@ -241,8 +261,8 @@ onmessage = (event: MessageEvent<WorkerCommand>) => {
         tick: -1,
         seed: -1,
         worldSnapshot: { width: 0, height: 0, cells: [], creatures: [], events: [] },
-        isRunning: false,
-        isPaused: true,
+        isRunning: state.isRunning,
+        isPaused: state.paused,
         constants: SIMULATION_CONSTANTS,
         events: [],
         lastAdaptationObservations: [],
@@ -253,15 +273,6 @@ onmessage = (event: MessageEvent<WorkerCommand>) => {
         },
       },
     });
-  }
-};
-
-/**
- * Respond to version check requests
- */
-onmessage = (event: MessageEvent) => {
-  if (event.data?.type === 'version-check') {
-    postMessage({ type: 'version-response', version: WORKER_VERSION });
   }
 };
 

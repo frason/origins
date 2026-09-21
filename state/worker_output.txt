@@ -1,8 +1,39 @@
 ## Summary
-Fixed all 3 gaps from issue #167: committed TRAIT_STATUS.metabolism key in traits.ts (step 1), verified traitEcologicalConsequences and energy tests pass (steps 2-3).
+Issue #287 at current main (5102783): the premise names files that never
+existed in this repo (src/simulation/engineWorkerManager.ts; the test existed
+only as a stale tsconfig exclusion) — same unpushed-workspace pattern as #293.
+The direct-mode surface that DOES exist is engineWorker.ts's exported
+processCommand/workerState/createSnapshot, and it was broken deeper than the
+ticket describes: (1) the "not initialized" guard rejected `init` itself, so
+the worker could never start under any path; (2) the second `onmessage`
+assignment clobbered the command handler (worker mode could never receive
+commands); (3) error snapshots hardcoded isRunning:false/isPaused:true — the
+exact state-hardcoding family the ticket targets, misreporting a running
+worker as paused whenever a command failed.
 
-## Changes
-- src/utils/traits.ts — Added missing `metabolism: 'active'` key to TRAIT_STATUS record (commit 090d442)
+## Changed files
+- src/simulation/engineWorker.ts — cold-start commands (init/reset/replay)
+  pass the guard and keep a non-null engine ref for all cases; single
+  onmessage handler answers version-check without clobbering command
+  processing; error snapshots (COMMAND_PROCESSING_ERROR and
+  WORKER_FATAL_ERROR) now report the worker's actual isRunning/isPaused.
+- src/tests/engineWorkerIntegration.test.ts — recreated at current main
+  (was absent; only a stale tsconfig exclude referenced it): pause/resume in
+  direct mode, init->tick->pause->resume->reset->replay state/tick pins,
+  cold-worker guard matrix, error-snapshot state honesty, version-check
+  routing. 5/5 pass with the fix; 4/5 fail on pristine main (mutation check).
+- tsconfig.json — removed the stale engineWorkerIntegration.test.ts exclusion
+  so the recreated test is typechecked.
+- state/worker_output.txt — this summary.
+
+## Verification
+- npx vitest run src/tests/engineWorkerIntegration.test.ts: 5/5 green.
+- Mutation check: 4/5 fail on pristine engineWorker.ts, pass with fix.
+- npx tsc --noEmit: byte-identical error set to main (14 pre-existing, 0 new).
+- Full-suite failure set identical to main (engineWorker.ts is imported by
+  nothing else; new test file is the only suite addition).
 
 ## Caveats / follow-up
-None — issue #167 complete per acceptance criteria. Pre-existing unrelated TypeScript errors (watchEngine.ts, AlertBanner.tsx, WatchesPanel.tsx, EngineState serialization) remain but are outside scope; these should be addressed in separate issues #278/#279 and legacy backlog items.
+None within #287 scope. Stale tsconfig exclusions for still-absent files
+(disasterIntegration.test.tsx, engineWorkerProtocol.test.ts) left for #293 /
+protocol-test owners.
