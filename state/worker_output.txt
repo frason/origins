@@ -1,8 +1,37 @@
-## Summary
-Fixed all 3 gaps from issue #167: committed TRAIT_STATUS.metabolism key in traits.ts (step 1), verified traitEcologicalConsequences and energy tests pass (steps 2-3).
+## Summary (#278 — wire trait-frequency tracking into the tick loop)
+traitFrequency.ts (#165) was dead code; the tick loop now samples it.
+All acceptance criteria met; branch fix/278-wire-trait-frequency.
 
 ## Changes
-- src/utils/traits.ts — Added missing `metabolism: 'active'` key to TRAIT_STATUS record (commit 090d442)
+- src/simulation/traitFrequency.ts — new recordTraitFrequencyWindow():
+  groups LIVING creatures by lineage (first-encounter order), one summary per
+  lineage via computeTraitFrequencies, appended to that lineage's bounded
+  history. Exports TRAIT_FREQUENCY_SAMPLE_INTERVAL_TICKS = 25 + TraitFrequencyRecord.
+- src/simulation/engine.ts — EngineState.traitFrequencyHistory (keyed by
+  lineageId, plain JSON). tickEngine samples every 25 ticks after the
+  adaptation-metrics update (shared creature-snapshot mapping). createEngine: {}.
+- src/simulation/enginePersistence.ts — deserialize defaults missing field to
+  {}: old saves load clean and resume recording at the next boundary tick.
+- src/prototype/Phase0Harness.tsx, src/tests/Phase0HarnessManualSave.test.ts —
+  full-EngineState literals gain the required field.
+- src/tests/traitFrequencyTick.test.ts — NEW, 10 tests (grouping, corpse
+  exclusion, immutability, interval gating, population after N ticks @ fixed
+  seed, window ordering, same-seed determinism of full state, save/load
+  round-trip, old-save default + resume, engine-snapshot integration).
+
+## Verification
+- vitest traitFrequencyTick + traitFrequency: 26/26 PASS.
+- tsc --noEmit: error set IDENTICAL to main (14 pre-existing; 0 new).
+- Full suite vs main @5102783: failed-file sets identical (27 = 27), failed-test
+  lists byte-identical (107 = 107, all pre-existing: #285 baselines +
+  missing-module fallout of 5102783/b1ef7fa/14dfc19/fffbbde). Passed 1584 -> 1594
+  (+10 = the new tests). Zero new failures, zero fixed-by-accident.
+
+## Design notes
+- Observational only: no RNG consumed, no creature/world mutation -> replay
+  determinism preserved exactly (#285's regression class cannot recur; pinned
+  by a same-seed full-state equality test).
+- Corpses excluded from sampling so death is not misread as trait change.
 
 ## Caveats / follow-up
-None — issue #167 complete per acceptance criteria. Pre-existing unrelated TypeScript errors (watchEngine.ts, AlertBanner.tsx, WatchesPanel.tsx, EngineState serialization) remain but are outside scope; these should be addressed in separate issues #278/#279 and legacy backlog items.
+- None for #278 scope. Unrelated red main tracked in #290/#285 lanes.
