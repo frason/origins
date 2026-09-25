@@ -32,7 +32,7 @@ export default function EvolutionTimeline() {
   // Filter state
   const [filterState, setFilterState] = useState<FilterState>({
     metrics: new Set(['population', 'species', 'lineages']),
-    eventTypes: new Set(['birth', 'extinction', 'speciation', 'intervention', 'environmental-shock']),
+    eventTypes: new Set(['birth', 'extinction', 'speciation', 'intervention', 'environmental-shock', 'sound-detection', 'sound-flee', 'sound-investigate']),
     speciesFilter: null,
     lineageFilter: null,
     regionFilter: null,
@@ -256,7 +256,7 @@ export default function EvolutionTimeline() {
             <div style={{ marginBottom: '0.3rem' }}>
               <strong>Events:</strong>
               <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
-                {(['birth', 'death', 'mutation', 'extinction', 'speciation', 'intervention', 'environmental-shock'] as EventType[]).map((eventType) => (
+                {(['birth', 'death', 'mutation', 'extinction', 'speciation', 'intervention', 'environmental-shock', 'sound-detection', 'sound-flee', 'sound-investigate'] as EventType[]).map((eventType) => (
                   <label
                     key={eventType}
                     style={{

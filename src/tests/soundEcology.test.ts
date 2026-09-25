@@ -31,6 +31,11 @@ function seedFromString(s: string): number {
   return Math.abs(hash);
 }
 
+/** Helper to create an RNG that always returns a low value for guaranteed detection in tests */
+function createGuaranteedDetectionRng(): () => number {
+  return () => 0.01; // Always very low, ensures detection probability threshold is met
+}
+
 describe('Sound Ecology', () => {
   beforeEach(() => {
     Creature.resetIdCounter();
@@ -418,7 +423,7 @@ describe('Sound Ecology', () => {
     });
 
     it('should mark attack sounds as threats for herbivores', () => {
-      const rng = createRng(seedFromString('test'));
+      const rng = createGuaranteedDetectionRng();
       const herbivore = new Creature({
         speciesId: 'test_species',
         lineageId: 'test_lineage',
@@ -443,13 +448,14 @@ describe('Sound Ecology', () => {
 
       const detected = detectActiveSounds(herbivore, [attackSound], currentTick, rng);
 
-      if (detected.length > 0) {
-        expect(detected[0].isThreat).toBe(true);
-      }
+      // With guaranteed-detection RNG and high hearing range, should detect this close threat
+      expect(detected.length).toBeGreaterThan(0);
+      expect(detected[0].isThreat).toBe(true);
+      expect(detected[0].type).toBe('attack');
     });
 
     it('should mark feeding sounds as opportunities for scavengers', () => {
-      const rng = createRng(seedFromString('test'));
+      const rng = createGuaranteedDetectionRng();
       const scavenger = new Creature({
         speciesId: 'test_species',
         lineageId: 'test_lineage',
@@ -474,9 +480,10 @@ describe('Sound Ecology', () => {
 
       const detected = detectActiveSounds(scavenger, [feedingSound], currentTick, rng);
 
-      if (detected.length > 0) {
-        expect(detected[0].isOpportunity).toBe(true);
-      }
+      // With guaranteed-detection RNG and high hearing range, should detect this opportunity
+      expect(detected.length).toBeGreaterThan(0);
+      expect(detected[0].isOpportunity).toBe(true);
+      expect(detected[0].type).toBe('feeding');
     });
   });
 

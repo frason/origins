@@ -1,21 +1,16 @@
 ## Summary
-Integrated sound ecology functions into the simulation tick loop: `createSoundEvent` called at 6 meaningful action sites (movement/stalk mode, feeding, attack, scavenging, distress, mating calls); `detectActiveSounds` called spatially-bounded per-creature for threat detection (flee reactions); `shouldStalk`/`getStalkingSpeedMultiplier`/`getStalkingEnergyCostMultiplier` wired into predator movement decisions with real energy tradeoff applied during metabolism step. All `EngineState` literals in test files updated with `activeSounds`/`soundEventCounter` fields. Build and tests pass.
+Completed final slice of sound ecology (#116) by fixing three Karen-identified gaps: made sound detection/flee/investigate events visible in the EvolutionTimeline UI (added to default filter + checkbox list), strengthened weak test assertions in soundEcology.test.ts to force deterministic detection using guaranteed-detection RNG stub, and ensured end-to-end wiring for heritable traits (auditorySteal), energy costs, mutations, and UI surface.
 
 ## Changes
-- src/simulation/engine.ts — integrated all sound ecology functions; new sounds created and merged into activeSounds in tick result; stalking energy cost multiplier applied during metabolism
-- src/tests/saveSlotSystem.test.ts — added activeSounds and soundEventCounter to EngineState literals
-- src/tests/phase0HarnessSaveSlotIntegration.test.tsx — added activeSounds and soundEventCounter to EngineState literals
-- src/tests/phase0SaveLoadIntegration.test.ts — added activeSounds and soundEventCounter to EngineState literals
+- src/ui/EvolutionTimeline.tsx — added 'sound-detection', 'sound-flee', 'sound-investigate' to default eventTypes filter (line 35) and checkbox list (line 259) so sound events are visible and filterable
+- src/tests/soundEcology.test.ts — added createGuaranteedDetectionRng() helper (line 33); converted conditional assertions on lines 450-452 and 481-483 to unconditional (removed `if (detected.length > 0)` guards, added `.toBeGreaterThan(0)` assertions, verify sound type)
 
 ## Verification
-- createSoundEvent called at 6 sites: movement/stalk, feeding, attack, scavenging, distress, mating calls (pushing into local newSounds array)
-- newSounds merged into activeSounds in tick result state object (not just filtering prior tick)
-- detectActiveSounds filtered spatially by hearing range; threat detection triggers flee reactions
-- shouldStalk gates stalk mode; stalking speed multiplier applied to creature.speed; stalking energy cost multiplier applied during metabolism step (real tradeoff)
-- grep confirms 14 real call sites (beyond import) for sound ecology functions in engine.ts
-- Build passes: `npx tsc --noEmit -p .` → exit 0
-- Tests pass: 61/61 across saveSlotSystem.test.ts, phase0HarnessSaveSlotIntegration.test.tsx, engine.test.ts
-- git status clean for sound ecology changes
+- EvolutionTimeline sound events now appear in default timeline view and can be toggled via filter UI
+- soundEcology.test.ts: `npx vitest run src/tests/soundEcology.test.ts` → 30/30 passed (including strengthened threat/opportunity tests at lines 424-458 and 459-486)
+- Heritable trait wiring verified: auditorySteal in DEFAULT_TRAITS, mutatable in species.ts:67, real energy cost in energy.ts:66-69 (+10%/point), TRAIT_STATUS='active' in utils/traits.ts:47
+- Determinism preserved: guaranteed-detection RNG ensures tests are deterministic and pass reliably
+- `npm run build` → clean (type-check passes)
 
 ## Caveats / follow-up
-None — issue #270 fully integrated and committed.
+Pre-existing test failures in engineWorkerProtocol.test.ts, worldHydrologyGeneration.test.ts, worldViewSpike.test.tsx and untracked files (engineWorkerManager.ts, worldBranch.ts, disasters.ts) from other in-flight work are outside #271 scope; build and sound ecology tests pass cleanly.
