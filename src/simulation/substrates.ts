@@ -13,6 +13,39 @@ export interface SubstrateTraits {
 }
 
 /**
+ * Substrate generation tendency: scoring coefficients that determine likelihood of placement
+ * based on environmental conditions.
+ */
+export interface SubstrateTendency {
+  baseBias: number;           // baseline score
+  elevationCoeff: number;     // multiplier for elevation condition
+  slopeCoeff: number;         // multiplier for slope condition
+  waterCoeff: number;         // multiplier for water depth condition
+  temperatureCoeff: number;   // multiplier for temperature condition
+  salinityCoeff: number;      // multiplier for salinity condition
+  waterTableCoeff: number;    // multiplier for water table condition
+  noiseCoeff: number;         // multiplier for noise/randomness
+}
+
+/**
+ * Substrate generation rule: a conditional scoring bonus applied when environmental
+ * conditions match specified ranges. Rules-based approach replaces hardcoded if/else
+ * with a data-driven table of condition → substrate bonus mappings.
+ */
+export interface SubstrateGenerationRule {
+  substrate: SubstrateType;
+  // All specified conditions must be true for this rule to apply (AND logic)
+  elevation?: [min: number, max: number];     // if specified, rule applies when elev in range
+  slope?: [min: number, max: number];         // if specified, rule applies when slope in range
+  waterDepth?: [min: number, max: number];    // if specified, rule applies when water in range
+  temperature?: [min: number, max: number];   // if specified, rule applies when temp in range
+  salinity?: [min: number, max: number];      // if specified, rule applies when salinity in range
+  waterTable?: [min: number, max: number];    // if specified, rule applies when waterTable in range
+  // Score bonus and scaling when all conditions match
+  score: (condition: { elev: number; slope: number; water: number; temp: number; salinity: number; waterTable: number; }) => number;
+}
+
+/**
  * Data-driven substrate trait definitions.
  * Values represent tendency, not hardcoded rules.
  * Producers adjust growth rates based on substrate affinity.
@@ -105,3 +138,83 @@ export const SUBSTRATE_TRAITS: Record<SubstrateType, SubstrateTraits> = {
 export function getSubstrateTraits(substrate: SubstrateType): SubstrateTraits {
   return SUBSTRATE_TRAITS[substrate];
 }
+
+/**
+ * Data-driven substrate generation tendencies table.
+ * Each substrate type has scoring coefficients that determine likelihood of placement
+ * based on elevation, slope, water, temperature, salinity, water table, and noise.
+ *
+ * Coefficients are applied as: score = baseBias + coeff * condition, then normalized.
+ * Values tuned to match design tendencies (e.g., rock on high elevation/slope,
+ * sediment underwater, peat in cold/wet areas, sand in hot/dry areas).
+ *
+ * From design doc "Substrate distribution tendencies":
+ * - rock: high elevation, high slope, low water
+ * - sand: hot/dry, moderate elevation
+ * - loam: broadly neutral conditions (fallback)
+ * - clay: low elevation, low slope, wet conditions
+ * - peat: very high water retention, cold + wet
+ * - sediment: underwater, saline or chemical-rich
+ */
+export const SUBSTRATE_GENERATION_TENDENCIES: Record<SubstrateType, SubstrateTendency> = {
+  rock: {
+    baseBias: -9.0,             // strongly negative: rock only appears at high elevations
+    elevationCoeff: 15.0,       // extremely strongly prefers high elevation (threshold ~0.6)
+    slopeCoeff: 8.0,            // very strongly prefers steep slopes
+    waterCoeff: -6.0,           // very strongly disfavors water
+    temperatureCoeff: -0.5,     // slight preference for cooler
+    salinityCoeff: -1.5,        // disfavors salinity
+    waterTableCoeff: -5.0,      // very strongly disfavors water table
+    noiseCoeff: 0.1,            // very low noise for determinism
+  },
+  sand: {
+    baseBias: -1.0,             // reduced to de-emphasize at all elevations
+    elevationCoeff: -0.8,       // prefers low-mid elevation
+    slopeCoeff: -1.0,           // disfavors steep slopes (prefer flats)
+    waterCoeff: -2.2,           // disfavors water
+    temperatureCoeff: 1.8,      // strongly prefers heat
+    salinityCoeff: 1.2,         // prefers saline (coastal)
+    waterTableCoeff: -1.6,      // disfavors water table
+    noiseCoeff: 0.7,            // high noise
+  },
+  loam: {
+    baseBias: -0.5,             // reduced to de-emphasize
+    elevationCoeff: 0.0,        // neutral on elevation
+    slopeCoeff: -0.3,           // prefers gentle slopes
+    waterCoeff: 0.2,            // neutral-slight preference
+    temperatureCoeff: 0.0,      // neutral
+    salinityCoeff: -1.0,        // disfavors salinity
+    waterTableCoeff: 0.2,       // slight preference
+    noiseCoeff: 0.5,            // moderate noise
+  },
+  clay: {
+    baseBias: -0.2,
+    elevationCoeff: -1.2,       // prefers low elevation
+    slopeCoeff: -2.2,           // very strongly prefers flat
+    waterCoeff: 1.8,            // prefers water (settles wet)
+    temperatureCoeff: -0.3,     // slight cool preference
+    salinityCoeff: 0.2,         // slight salinity tolerance
+    waterTableCoeff: 1.8,       // prefers water table
+    noiseCoeff: 0.3,            // low noise
+  },
+  peat: {
+    baseBias: -1.2,             // requires special conditions
+    elevationCoeff: -0.8,       // prefers mid-low
+    slopeCoeff: -2.8,           // very strongly prefers flat
+    waterCoeff: 2.8,            // very strongly prefers water
+    temperatureCoeff: -3.0,     // very strongly prefers cold
+    salinityCoeff: -3.0,        // very strongly disfavors salt
+    waterTableCoeff: 2.8,       // very strongly prefers water table
+    noiseCoeff: 0.2,            // low noise
+  },
+  sediment: {
+    baseBias: -0.6,
+    elevationCoeff: -1.8,       // strongly prefers low
+    slopeCoeff: -1.8,           // strongly prefers flat
+    waterCoeff: 2.8,            // very strongly prefers water
+    temperatureCoeff: 0.1,      // neutral
+    salinityCoeff: 1.8,         // strongly prefers salt
+    waterTableCoeff: 1.6,       // prefers water table
+    noiseCoeff: 0.4,            // moderate noise
+  },
+};

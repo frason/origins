@@ -577,6 +577,18 @@ export function tickEngine(
     // Detect active sounds for this creature (audio perception)
     const detectedSounds = detectActiveSounds(creature, spatiallyBoundedSounds, state.tick, audioStream.fn);
 
+    // Emit sound-detection event if creature detected any sounds
+    if (detectedSounds.length > 0) {
+      newEvents.push({
+        type: 'sound-detection',
+        tick: state.tick,
+        creatureId: creature.id,
+        speciesId: creature.speciesId,
+        lineageId: creature.lineageId,
+        detail: `Detected ${detectedSounds.length} sound(s)`,
+      });
+    }
+
     // Single perception pass: decideTick now returns both decision and scan
     const { decision: baseDecision, scan } = decideTick(
       creature,
@@ -597,6 +609,31 @@ export function tickEngine(
       const threats = detectedSounds.filter(s => s.isThreat);
       if (threats.length > 0) {
         decision = 'flee';
+        // Emit sound-flee event when creature flees due to threat
+        newEvents.push({
+          type: 'sound-flee',
+          tick: state.tick,
+          creatureId: creature.id,
+          speciesId: creature.speciesId,
+          lineageId: creature.lineageId,
+          detail: `Fleeing from ${threats.length} threat(s)`,
+        });
+      }
+      // Check if herbivore/omnivore/scavenger should investigate food-related sounds
+      const foodSounds = detectedSounds.filter(s => !s.isThreat);
+      if (foodSounds.length > 0 &&
+          (creature.traits.energyStrategy === 'herbivore' ||
+           creature.traits.energyStrategy === 'omnivore' ||
+           creature.traits.energyStrategy === 'scavenger') &&
+          decision !== 'flee') {
+        newEvents.push({
+          type: 'sound-investigate',
+          tick: state.tick,
+          creatureId: creature.id,
+          speciesId: creature.speciesId,
+          lineageId: creature.lineageId,
+          detail: `Investigating ${foodSounds.length} potential food source(s)`,
+        });
       }
     }
 

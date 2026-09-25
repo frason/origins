@@ -1,7 +1,7 @@
 import type { Traits } from '../utils/traits';
 import type { SimulationConstants } from '../utils/constants';
 
-export type SimEventType = 'birth' | 'death' | 'mutation' | 'speciation' | 'extinction' | 'intervention' | 'environmental-shock';
+export type SimEventType = 'birth' | 'death' | 'mutation' | 'speciation' | 'extinction' | 'intervention' | 'environmental-shock' | 'sound-detection' | 'sound-flee' | 'sound-investigate';
 export type DeathCause =
   | 'predation'
   | 'starvation'

@@ -3,7 +3,7 @@ import type { SimulationConstants } from '../utils/constants';
 import { getProducerArchetype } from './producerTypes';
 import type { ProducerArchetype } from './producerTypes';
 import { createRng } from './rng';
-import { SUBSTRATE_TRAITS } from './substrates';
+import { SUBSTRATE_TRAITS, SUBSTRATE_GENERATION_TENDENCIES } from './substrates';
 
 export type Biome =
   | 'ocean'
@@ -409,8 +409,8 @@ export function generateSubstrate(
         maxSlope = Math.max(maxSlope, dElev);
       }
 
-      // Score each substrate type based on environmental conditions
-      // Using data-driven tendency table
+      // Score each substrate type using data-driven tendency table
+      // Each substrate type has coefficients for environmental conditions
       const scores: Record<SubstrateType, number> = {
         sand: 0,
         loam: 0,
@@ -420,76 +420,23 @@ export function generateSubstrate(
         sediment: 0
       };
 
+      // Generate seeded noise for this cell (varies per cell, same per seed)
+      const noiseVal = valueNoise(seed + 30017, x, y, 8, width);
+
+      // Apply tendency table: for each substrate, compute weighted score from conditions
       for (const subType of substrateTypes) {
-        const traits = SUBSTRATE_TRAITS[subType];
-        let score = 0;
+        const tendency = SUBSTRATE_GENERATION_TENDENCIES[subType];
 
-        // Data-driven substrate placement using design table tendencies
-        // Consult traits table to inform scoring
-
-        // Base: high elevation, high slope -> rock
-        if (elev > 0.7) {
-          scores.rock = Math.max(scores.rock || 0, (elev - 0.7) * 2 + maxSlope * 1.5);
-        }
-
-        // High water depth -> sediment (underwater) or peat (wetland)
-        if (water > 0.3) {
-          if (elev < 0.4) {
-            scores.sediment = Math.max(scores.sediment || 0, water * 2); // Underwater sediment
-          } else {
-            scores.peat = Math.max(scores.peat || 0, water * 1.5); // Wetland peat
-          }
-        }
-
-        // High elevation + low water -> sand or rock
-        if (elev > 0.55 && water < 0.2) {
-          scores.sand = Math.max(scores.sand || 0, (1 - water) * 0.8);
-        }
-
-        // High temperature + low elevation -> sand
-        if (temp > 0.65 && elev < 0.5) {
-          scores.sand = Math.max(scores.sand || 0, (temp - 0.65) * 1.2);
-        }
-
-        // Cold + high water + high elevation -> peat
-        if (temp < 0.35 && water > 0.2 && elev > 0.5) {
-          scores.peat = Math.max(scores.peat || 0, (0.5 - temp) * water);
-        }
-
-        // Low elevation + low slope -> clay or loam (settled)
-        if (elev < 0.4 && maxSlope < 0.05) {
-          if (water > 0.2) {
-            scores.clay = Math.max(scores.clay || 0, (1 - elev) * water * 1.2);
-          } else {
-            scores.loam = Math.max(scores.loam || 0, (1 - elev) * 0.8);
-          }
-        }
-
-        // Salinity adjusts sediment preference
-        if (salinity > 0.5) {
-          scores.sediment = Math.max(scores.sediment || 0, salinity * 1.5);
-        }
-      }
-
-      // Initialize all scores for the per-subtype evaluation
-      for (const subType of substrateTypes) {
-        scores[subType] = scores[subType] || 0;
-      }
-
-      // Add noise for variation and apply trait consultation
-      for (const subType of substrateTypes) {
-        const traits = SUBSTRATE_TRAITS[subType];
-        const noiseVal = valueNoise(seed + 30017, x, y, 8, width);
-
-        // Consult traits table: give bonus to substrates that are good for this condition
-        const totalWater = water + waterTable * 0.5;
-        if (totalWater > 0.3) {
-          scores[subType] += traits.waterRetention * 0.3;
-        } else if (totalWater < 0.1) {
-          scores[subType] += traits.drainage * 0.2;
-        }
-
-        scores[subType] += (noiseVal - 0.5) * 0.5;
+        // Score = baseBias + sum of (coefficient × normalized condition)
+        scores[subType] =
+          tendency.baseBias +
+          tendency.elevationCoeff * elev +
+          tendency.slopeCoeff * maxSlope +
+          tendency.waterCoeff * water +
+          tendency.temperatureCoeff * temp +
+          tendency.salinityCoeff * salinity +
+          tendency.waterTableCoeff * waterTable +
+          tendency.noiseCoeff * (noiseVal - 0.5);
       }
 
       // Select substrate with highest score
