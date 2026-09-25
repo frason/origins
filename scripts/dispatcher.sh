@@ -73,6 +73,56 @@ mkdir -p "$STATE" "$ROOT/logs" "$INBOX/done"
 TS()  { date +%Y-%m-%dT%H:%M:%S; }
 log() { echo "$(TS) $*" | tee -a "$ACTIVITY"; }
 
+# Helper: set issue labels with verification and retry on GitHub mismatch.
+# Runs gh issue edit, then verifies the labels actually changed on GitHub.
+# Retries up to 2 additional times if verification fails.
+# Usage: set_issue_label <issue_num> <remove_label> <add_label>
+set_issue_label() {
+  local iss_num="$1" remove_label="$2" add_label="$3"
+  local max_retries=2 attempt=0
+
+  while [ $attempt -le $max_retries ]; do
+    # Execute the label change
+    gh issue edit "$iss_num" --repo "$REPO" \
+      --remove-label "$remove_label" --add-label "$add_label" >/dev/null 2>&1
+
+    # Re-read actual labels from GitHub to verify the change landed
+    local actual_labels=$(gh issue view "$iss_num" --repo "$REPO" \
+      --json labels --jq '.labels[].name' 2>/dev/null || echo "")
+
+    # Verify expected state:
+    # - add_label must be present
+    # - remove_label must be absent
+    local has_add=false has_remove=false
+    while IFS= read -r lbl; do
+      [ -z "$lbl" ] && continue
+      if [ "$lbl" = "$add_label" ]; then
+        has_add=true
+      fi
+      if [ "$lbl" = "$remove_label" ]; then
+        has_remove=true
+      fi
+    done <<< "$actual_labels"
+
+    if [ "$has_add" = "true" ] && [ "$has_remove" = "false" ]; then
+      # Verification passed — label state matches expected
+      return 0
+    fi
+
+    # Mismatch detected; prepare for retry
+    attempt=$(( attempt + 1 ))
+    if [ $attempt -le $max_retries ]; then
+      sleep 1
+    fi
+  done
+
+  # All retries exhausted; log mismatch and return failure
+  local actual_labels=$(gh issue view "$iss_num" --repo "$REPO" \
+    --json labels --jq '.labels[].name' 2>/dev/null | paste -sd ',' - 2>/dev/null || echo "unknown")
+  log "LABEL-MISMATCH: issue #$iss_num expected add [$add_label] remove [$remove_label], got [$actual_labels] after retries"
+  return 1
+}
+
 # A verified issue may commit only the explicit worker manifest; never stage the
 # whole worktree because client files and a later issue may already be present.
 #
@@ -365,8 +415,7 @@ promote_backlog() {
            | sed 's/[^:]*:[[:space:]]*//' | grep -oE '[0-9]+' || true)
 
     if [ -z "${deps:-}" ]; then
-      gh issue edit "$num" --repo "$REPO" \
-        --remove-label "agent-backlog" --add-label "agent-todo" >/dev/null 2>&1 || true
+      set_issue_label "$num" "agent-backlog" "agent-todo" || true
       log "  promoted backlog #$num → agent-todo (no dependencies declared)"
       continue
     fi
@@ -379,8 +428,7 @@ promote_backlog() {
     done
 
     if [ "$all_closed" = "true" ]; then
-      gh issue edit "$num" --repo "$REPO" \
-        --remove-label "agent-backlog" --add-label "agent-todo" >/dev/null 2>&1 || true
+      set_issue_label "$num" "agent-backlog" "agent-todo" || true
       log "  promoted backlog #$num → agent-todo (all dependencies closed)"
     fi
   done < <(printf '%s' "$issues" | jq -c '.[]' 2>/dev/null)
@@ -650,14 +698,12 @@ ${verdict_text}
       log "  issue #$iss_num PASSED but commit gate failed — left in review"
       exit 0
     fi
-    gh issue edit  "$iss_num" --repo "$REPO" \
-      --remove-label "agent-review" --add-label "agent-done" >/dev/null 2>&1 || true
+    set_issue_label "$iss_num" "agent-review" "agent-done" || true
     gh issue close "$iss_num" --repo "$REPO" >/dev/null 2>&1 || true
     rm -f "$STATE/worker_output_${iss_num}.txt"
     log "  issue #$iss_num PASSED — labelled agent-done, closed"
   else
-    gh issue edit "$iss_num" --repo "$REPO" \
-      --remove-label "agent-review" --add-label "agent-todo" >/dev/null 2>&1 || true
+    set_issue_label "$iss_num" "agent-review" "agent-todo" || true
     # Fairness cooldown: a FAILed issue keeps its (now oldest) number, so plain
     # oldest-number selection would let it re-win the very next worker pass and starve
     # the rest of the queue. Mark it to be skipped for exactly one worker-dispatch pass.
@@ -736,8 +782,7 @@ attempt_count=$(printf '%s' "$attempt_json" | jq '
 ' 2>/dev/null || echo 0)
 if [ "$(jq -n --argjson a "${attempt_count:-0}" --argjson m "$max_worker_attempts" '$a >= $m')" = "true" ]; then
   log "  issue #$iss_num: ${attempt_count} attempt(s) since last reset >= limit ${max_worker_attempts} — blocking"
-  gh issue edit "$iss_num" --repo "$REPO" \
-    --remove-label "agent-todo" --add-label "agent-blocked" >/dev/null 2>&1 || true
+  set_issue_label "$iss_num" "agent-todo" "agent-blocked" || true
   gh issue comment "$iss_num" --repo "$REPO" \
     --body "⛔ **Blocked after ${attempt_count} failed attempt(s)** (limit: ${max_worker_attempts}).
 
@@ -762,8 +807,7 @@ fi
 check_global_budget
 
 # Atomic label swap — prevents a concurrent tick from claiming the same issue.
-gh issue edit "$iss_num" --repo "$REPO" \
-  --remove-label "agent-todo" --add-label "agent-doing" >/dev/null 2>&1 || true
+set_issue_label "$iss_num" "agent-todo" "agent-doing" || true
 
 # Per-issue output path — NOT a shared file. The dispatcher only runs one worker at a
 # time, but karen may still be retrying verification on an older issue (e.g. crashing
@@ -820,8 +864,7 @@ if ! run_agent worker "$effective_worker_model" "$tmp"; then
   gh issue comment "$iss_num" --repo "$REPO" \
     --body "⚠️ **Worker run failed** (claude exited non-zero). Cycling back to \`agent-todo\` — check \`logs/dispatcher.log\` for the error." \
     >/dev/null 2>&1 || true
-  gh issue edit "$iss_num" --repo "$REPO" \
-    --remove-label "agent-doing" --add-label "agent-todo" >/dev/null 2>&1 || true
+  set_issue_label "$iss_num" "agent-doing" "agent-todo" || true
   # Fairness cooldown: a crashed worker keeps the issue in agent-todo with its (now oldest)
   # number, so plain oldest-number selection would let it re-win the very next worker pass
   # and starve the rest of the queue (same as karen-FAIL path below). Mark it to be skipped
@@ -847,8 +890,7 @@ gh issue comment "$iss_num" --repo "$REPO" \
 
 ${summary}" >/dev/null 2>&1 || true
 
-gh issue edit "$iss_num" --repo "$REPO" \
-  --remove-label "agent-doing" --add-label "agent-review" >/dev/null 2>&1 || true
+set_issue_label "$iss_num" "agent-doing" "agent-review" || true
 log "  issue #$iss_num complete — moved to agent-review"
 
 # keep the activity log bounded
