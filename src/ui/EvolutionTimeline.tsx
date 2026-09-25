@@ -11,7 +11,7 @@ const CHART_WIDTH = 100 - CHART_PADDING.left - CHART_PADDING.right;
 const CHART_HEIGHT = 100 - CHART_PADDING.top - CHART_PADDING.bottom;
 
 type MetricType = 'population' | 'species' | 'lineages';
-type EventType = 'birth' | 'death' | 'extinction' | 'speciation' | 'intervention' | 'mutation' | 'environmental-shock';
+type EventType = 'birth' | 'death' | 'extinction' | 'speciation' | 'intervention' | 'mutation' | 'environmental-shock' | 'sound-detection' | 'sound-flee' | 'sound-investigate';
 type RegionType = 'NW' | 'NE' | 'SW' | 'SE' | 'center';
 
 interface FilterState {

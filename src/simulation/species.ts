@@ -64,6 +64,7 @@ export function mutateTraits(
     'consciousnessLevel',
     'communication',
     'collectiveConnection',
+    'auditorySteal',
   ] as const;
 
   if (rng() >= mutationRate) return mutated;

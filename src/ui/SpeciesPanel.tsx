@@ -147,6 +147,8 @@ export function SpeciesPanelView({ worldState }: { worldState: WorldSnapshot | n
                   {lineage.representativeTraits.speed.toFixed(2)}
                   {' '}· metabolism {lineage.representativeTraits.metabolism.toFixed(2)}× (
                   {describeMetabolismTradeoff(lineage.representativeTraits.metabolism).label.toLowerCase()})
+                  {' '}· hearing {lineage.representativeTraits.hearingRange.toFixed(1)}
+                  {' '}· <span style={{ color: lineage.representativeTraits.auditorySteal > 0.3 ? '#b8a686' : 'var(--sim-color-screen-ink-soft)' }}>stealth {lineage.representativeTraits.auditorySteal.toFixed(2)}</span>
                   {' '}· <span style={{ color: strategyColors[lineage.representativeTraits.energyStrategy] ?? 'var(--sim-color-screen-ink-soft)' }}>
                     {lineage.representativeTraits.energyStrategy}
                   </span>

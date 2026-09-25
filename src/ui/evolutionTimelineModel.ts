@@ -20,7 +20,7 @@ export interface EventPin {
   tick: number;
   x: number;
   event: EventSnapshot;
-  type: 'birth' | 'death' | 'mutation' | 'speciation' | 'extinction' | 'intervention' | 'environmental-shock';
+  type: 'birth' | 'death' | 'mutation' | 'speciation' | 'extinction' | 'intervention' | 'environmental-shock' | 'sound-detection' | 'sound-flee' | 'sound-investigate';
   speciesName: string;
   detail: string;
   // Navigation aids
@@ -176,6 +176,21 @@ function createEventPin(
     const shockKind = (event as any).shockKind ?? 'unknown';
     detail = `Environmental shock: ${shockKind}`;
     type = 'environmental-shock';
+    region = getGridRegion((event as any).affectedRegion?.x, (event as any).affectedRegion?.y);
+  } else if (event.type === 'sound-detection') {
+    const soundType = (event as any).soundType ?? 'unknown';
+    detail = `${speciesName} detected sound: ${soundType}`;
+    type = 'sound-detection';
+    region = getGridRegion((event as any).affectedRegion?.x, (event as any).affectedRegion?.y);
+  } else if (event.type === 'sound-flee') {
+    const soundType = (event as any).soundType ?? 'threat';
+    detail = `${speciesName} fled from ${soundType}`;
+    type = 'sound-flee';
+    region = getGridRegion((event as any).affectedRegion?.x, (event as any).affectedRegion?.y);
+  } else if (event.type === 'sound-investigate') {
+    const soundType = (event as any).soundType ?? 'opportunity';
+    detail = `${speciesName} investigated ${soundType}`;
+    type = 'sound-investigate';
     region = getGridRegion((event as any).affectedRegion?.x, (event as any).affectedRegion?.y);
   } else {
     return null;
