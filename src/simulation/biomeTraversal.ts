@@ -2,6 +2,7 @@ import type { Creature } from './creature';
 import { wrapCoordinate, wrappedDistance, type Biome, type World } from './world';
 import type { Traits } from '../utils/traits';
 import { metabolicPerformanceMultiplier } from '../utils/traits';
+import { getTraversalCost, isWaterPassable } from './movement';
 
 export const BIOME_MOVEMENT_COST: Record<Biome, number> = {
   grassland: 1,
@@ -93,13 +94,24 @@ export function moveAcrossTerrain(
     if (currentDistance === 0) break;
     const candidates = DIRECTIONS
       .map((direction) => ({ x: wrapCoordinate(x + direction.dx, world.width), y: y + direction.dy }))
-      .filter((candidate) => isTerrainTraversable(world, candidate.x, candidate.y, creature.traits))
-      .map((candidate) => ({
-        ...candidate,
-        distance: distance(candidate.x, candidate.y, targetX, targetY, world.width),
-        directDistance: wrappedDistance(targetX, candidate.x, world.width) + Math.abs(targetY - candidate.y),
-        cost: terrainMovementCost(world.getCell(candidate.x, candidate.y).biome, creature.traits),
-      }))
+      .filter((candidate) => {
+        // Check terrain traversability and water passability
+        if (!isTerrainTraversable(world, candidate.x, candidate.y, creature.traits)) return false;
+        const cell = world.getCell(candidate.x, candidate.y);
+        return isWaterPassable(creature, cell, 1);
+      })
+      .map((candidate) => {
+        const cell = world.getCell(candidate.x, candidate.y);
+        const biomeCost = terrainMovementCost(cell.biome, creature.traits);
+        // Apply water depth traversal cost on top of biome cost
+        const totalCost = getTraversalCost(creature, cell, biomeCost);
+        return {
+          ...candidate,
+          distance: distance(candidate.x, candidate.y, targetX, targetY, world.width),
+          directDistance: wrappedDistance(targetX, candidate.x, world.width) + Math.abs(targetY - candidate.y),
+          cost: totalCost,
+        };
+      })
       // Equal-distance steps allow deterministic routing around a shoreline or ridge.
       .filter((candidate) => candidate.distance <= currentDistance)
       .sort((a, b) => a.distance - b.distance || a.directDistance - b.directDistance || a.cost - b.cost || a.y - b.y || a.x - b.x);

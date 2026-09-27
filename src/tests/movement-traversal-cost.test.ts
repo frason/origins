@@ -5,6 +5,7 @@ import { World } from '../simulation/world';
 import { DEFAULT_TRAITS } from '../utils/traits';
 import { moveAcrossTerrain, terrainMovementCost } from '../simulation/biomeTraversal';
 import { createRng } from '../simulation/rng';
+import { mutateTraits } from '../simulation/species';
 
 describe('Traversal Cost System (aquaticAdaptation + water depth)', () => {
   let world: World;
@@ -267,6 +268,25 @@ describe('Traversal Cost System (aquaticAdaptation + water depth)', () => {
         x: 50, y: 50, energy: 100,
       });
       expect(creature.traits.aquaticAdaptation).toBe(0.5);
+    });
+
+    it('aquaticAdaptation trait actually mutates via mutateTraits', () => {
+      // Verify that the trait can change via the mutation system with forced mutations
+      let changed = false;
+      const rng = createRng(1234);
+      let traits = { ...DEFAULT_TRAITS, aquaticAdaptation: 0.3 };
+
+      // Force 100 mutations with high drift to increase chance of detecting change
+      for (let i = 0; i < 100; i++) {
+        const mutated = mutateTraits(traits, rng, 0.1, 1.0); // mutationRate=1.0 forces mutation every call
+        if (mutated.aquaticAdaptation !== traits.aquaticAdaptation) {
+          changed = true;
+          break;
+        }
+        traits = mutated;
+      }
+
+      expect(changed).toBe(true);
     });
   });
 });

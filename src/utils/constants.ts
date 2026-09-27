@@ -77,6 +77,13 @@ export const DISPERSAL_MINIMUM_PRESSURE_IMPROVEMENT = 0.15;
 export const DISPERSAL_ENERGY_COST_PER_CELL = 0.5;
 
 // ============================================================================
+// Movement Constants
+// ============================================================================
+
+/** Maximum traversal cost before a cell becomes impassable */
+export const MAX_MOVEMENT_COST = 5.0;
+
+// ============================================================================
 // Lifecycle Constants
 // ============================================================================
 
