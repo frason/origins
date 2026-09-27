@@ -1,5 +1,6 @@
-import { World, type Biome, type Cell } from './world';
-import { getProducerArchetype, getProducerTraits } from './producerTypes';
+import { World, type Biome, type Cell, type SubstrateType } from './world';
+import { getProducerArchetype, getProducerTraits, type ProducerArchetype } from './producerTypes';
+import { getSubstrateTraits } from './substrates';
 
 import { PRODUCER_GROWTH_RATE } from '../utils/constants';
 import { getToxicityHazard } from './toxicity';
@@ -60,6 +61,92 @@ export function getNutrientCapacity(cell: Cell): number {
 }
 
 /**
+ * Calculate a suitability multiplier based on how well a value matches a preference range.
+ * Within [min, max]: multiplier = 1.0
+ * Outside range: multiplier decreases linearly with distance, asymptoting to ~0 at 2x distance.
+ *
+ * Formula: 1.0 / (1.0 + (distance / range_width)^2)
+ * This creates smooth degradation without hard zeros.
+ */
+export function calculateSuitabilityMultiplier(value: number, min: number, max: number): number {
+  if (value >= min && value <= max) {
+    return 1.0; // Optimal range
+  }
+
+  const rangeWidth = Math.max(0.01, max - min);
+  const distance = value < min ? min - value : value - max;
+  // Quadratic falloff: multiplier = 1 / (1 + (distance/rangeWidth)^2)
+  const falloff = Math.pow(distance / rangeWidth, 2);
+  return 1.0 / (1.0 + falloff);
+}
+
+/**
+ * Calculate the substrate affinity multiplier for a producer archetype.
+ * Based on the archetype's substrate affinity table and the cell's substrate type.
+ * Also considers energy type affinity from substrate traits.
+ *
+ * Formula: archetype substrate affinity × energy affinity for substrate
+ */
+export function calculateSubstrateAffinityMultiplier(
+  archetype: ProducerArchetype,
+  substrate: SubstrateType,
+  energyType: EnergyType
+): number {
+  const archetypeTraits = getProducerTraits(archetype);
+  const substrateTraits = getSubstrateTraits(substrate);
+
+  const archetypeAffinity = archetypeTraits.substrateAffinity[substrate] || 1.0;
+  const energyAffinity = substrateTraits.energyAffinity[energyType] || 1.0;
+
+  return archetypeAffinity * energyAffinity;
+}
+
+/**
+ * Calculate water suitability multiplier based on water depth preference.
+ */
+export function calculateWaterSuitabilityMultiplier(
+  archetype: ProducerArchetype,
+  waterDepth: number
+): number {
+  const traits = getProducerTraits(archetype);
+  return calculateSuitabilityMultiplier(
+    waterDepth,
+    traits.waterDepthPreference.min,
+    traits.waterDepthPreference.max
+  );
+}
+
+/**
+ * Calculate salinity suitability multiplier based on salinity preference.
+ */
+export function calculateSalinitySuitabilityMultiplier(
+  archetype: ProducerArchetype,
+  salinity: number
+): number {
+  const traits = getProducerTraits(archetype);
+  return calculateSuitabilityMultiplier(
+    salinity,
+    traits.salinityPreference.min,
+    traits.salinityPreference.max
+  );
+}
+
+/**
+ * Calculate moisture suitability multiplier based on moisture preference.
+ */
+export function calculateMoistureSuitabilityMultiplier(
+  archetype: ProducerArchetype,
+  moisture: number
+): number {
+  const traits = getProducerTraits(archetype);
+  return calculateSuitabilityMultiplier(
+    moisture,
+    traits.moisturePreference.min,
+    traits.moisturePreference.max
+  );
+}
+
+/**
  * Calculate one cell's bounded growth without mutating it. Producer growth is
  * fastest after depletion and slows continuously as local biomass approaches
  * the relevant carrying capacity.
@@ -80,6 +167,26 @@ export function calculateProducerGrowth(
   const energyMultiplier = ENERGY_TYPE_MULTIPLIERS[energyType];
   const biomeMultiplier = useBiomeProductivity ? getBiomeProductivity(cell.biome) : 1;
   const toxicityMultiplier = getToxicityHazard(cell.toxicity).producerGrowthMultiplier;
+
+  // Substrate, water, salinity, and moisture suitability multipliers
+  const substrateAffinityMultiplier = calculateSubstrateAffinityMultiplier(
+    cell.producerArchetype,
+    cell.substrate,
+    energyType
+  );
+  const waterSuitabilityMultiplier = calculateWaterSuitabilityMultiplier(
+    cell.producerArchetype,
+    cell.waterDepth
+  );
+  const salinitySuitabilityMultiplier = calculateSalinitySuitabilityMultiplier(
+    cell.producerArchetype,
+    cell.salinity
+  );
+  const moistureSuitabilityMultiplier = calculateMoistureSuitabilityMultiplier(
+    cell.producerArchetype,
+    cell.moisture
+  );
+
   const carryingCapacity = useBiomeProductivity
     ? getProducerTraits(cell.producerArchetype).carryingCapacity
     : MAX_PRODUCER_BIOMASS;
@@ -87,8 +194,17 @@ export function calculateProducerGrowth(
     0,
     1 - Math.max(0, cell.producerBiomass) / carryingCapacity
   );
+
+  // Combined growth formula:
+  // base growth × energy type efficiency × biome productivity × substrate affinity ×
+  // water suitability × salinity suitability × moisture suitability ×
+  // toxicity penalty × capacity remaining
   let potentialGrowth = growthRate * cell.energy * energyMultiplier
-    * biomeMultiplier * toxicityMultiplier * capacityRemaining;
+    * biomeMultiplier * toxicityMultiplier
+    * substrateAffinityMultiplier * waterSuitabilityMultiplier
+    * salinitySuitabilityMultiplier * moistureSuitabilityMultiplier
+    * capacityRemaining;
+
   let nextNutrients = Math.max(0, cell.nutrients);
   let maintenanceLoss = 0;
   if (useNutrientCycle) {
