@@ -784,12 +784,23 @@ describe('Simulation Engine', () => {
 
   describe('Sound ecology integration', () => {
     it('prey flight: herbivore detects threat sound and emits sound-flee event', () => {
-      // Create a herbivore with good hearing
-      const herbivore = new Creature({
-        speciesId: 'herbivore_species',
-        lineageId: 'herbivore_lineage',
+      // Create a listening herbivore with good hearing at one location
+      const listenerHerbivore = new Creature({
+        speciesId: 'herbivore_listener',
+        lineageId: 'herbivore_listener_lineage',
         parentId: null,
         traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore', hearingRange: 50 },
+        x: 55,
+        y: 50,
+        energy: 200,
+      });
+
+      // Create a victim herbivore at another location
+      const victimHerbivore = new Creature({
+        speciesId: 'herbivore_victim',
+        lineageId: 'herbivore_victim_lineage',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore' },
         x: 50,
         y: 50,
         energy: 200,
@@ -806,21 +817,21 @@ describe('Simulation Engine', () => {
         energy: 30, // Very low energy - will be hungry
       });
 
-      let engine = createEngine(42, [herbivore, predator], 100, 100, {
+      let engine = createEngine(42, [listenerHerbivore, victimHerbivore, predator], 100, 100, {
         predationHungerThresholdShare: 0.9, // Very hungry at 90% threshold
       });
 
-      // Tick 1: predator (hungry) should attack herbivore at same location (creating attack sound)
+      // Tick 1: predator (hungry) should attack victim herbivore at same location (creating attack/distress sounds)
       engine = tickEngine(engine);
 
-      // Tick 2: herbivore should detect the threat sound and emit sound-flee event
+      // Tick 2: listener herbivore should detect the threat sounds and emit sound-flee event
       engine = tickEngine(engine);
 
-      // Check for sound-flee events from herbivore
+      // Check for sound-flee events from listener herbivore
       const soundFleeEvents = engine.events.filter((e) => e.type === 'sound-flee');
-      const herbivoresInEvents = soundFleeEvents.filter((e) => e.speciesId === 'herbivore_species');
+      const herbivoresInEvents = soundFleeEvents.filter((e) => e.speciesId === 'herbivore_listener');
 
-      // Verify that herbivore detected threat sounds and fled
+      // Verify that listener herbivore detected threat sounds and fled
       expect(herbivoresInEvents.length).toBeGreaterThan(0);
       expect(engine.tick).toBe(2);
     });
@@ -887,13 +898,13 @@ describe('Simulation Engine', () => {
         energy: 50,
       });
 
-      // Create a scavenger with good hearing positioned nearby
+      // Create a scavenger with good hearing positioned nearby (away from the attack)
       const scavenger = new Creature({
         speciesId: 'scavenger_species',
         lineageId: 'scavenger_lineage',
         parentId: null,
         traits: { ...DEFAULT_TRAITS, energyStrategy: 'scavenger', hearingRange: 50 },
-        x: 55,
+        x: 56,
         y: 50,
         energy: 150,
       });
@@ -927,7 +938,7 @@ describe('Simulation Engine', () => {
       );
 
       // Scavenger should have detected something
-      expect(soundEvents.length).toBeGreaterThanOrEqual(0);
+      expect(soundEvents.length).toBeGreaterThan(0);
       expect(engine.tick).toBe(2);
     });
 
@@ -974,7 +985,8 @@ describe('Simulation Engine', () => {
         (e) => e.type === 'sound-detection'
       );
 
-      // The engine ran without crashing and sound detection was attempted
+      // Verify that creatures detected sounds
+      expect(detectionEvents.length).toBeGreaterThan(0);
       expect(engine.tick).toBe(2);
       expect(engine.creatures.length).toBeGreaterThan(0);
     });
