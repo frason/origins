@@ -661,17 +661,14 @@ describe('Movement and Decision Logic', () => {
         traits: { ...DEFAULT_TRAITS, speed: 1 }, x: 20, y: 20, energy: 50, age,
       });
       for (let y = 19; y <= 21; y++) {
-        for (let x = 19; x <= 21; x++) world.setCell(x, y, { biome: 'ocean', waterDepth: 0.9 });
+        for (let x = 19; x <= 21; x++) world.setCell(x, y, { biome: 'ocean' });
       }
-      // Set dry cells (waterDepth = 0) for grassland/wetland to ensure consistent costs
-      world.setCell(20, 20, { biome: 'grassland', waterDepth: 0 });
-      world.setCell(21, 20, { biome: 'wetland', waterDepth: 0 });
-      world.setCell(22, 20, { biome: 'grassland', waterDepth: 0 });
+      world.setCell(20, 20, { biome: 'grassland' });
+      world.setCell(21, 20, { biome: 'wetland' });
+      world.setCell(22, 20, { biome: 'grassland' });
       const delayed = makeCreature(5);
       const moving = makeCreature(1);
 
-      // Delayed creature has slower metabolism and higher age, so it may not afford expensive moves
-      // Moving creature with lower age can move through costly terrain more easily
       expect(moveAcrossTerrain(delayed, { x: 22, y: 20 }, world)).toEqual({ x: 20, y: 20 });
       expect(moveAcrossTerrain(moving, { x: 22, y: 20 }, world)).toEqual({ x: 21, y: 20 });
       expect(moveAcrossTerrain(moving, { x: 22, y: 20 }, world))

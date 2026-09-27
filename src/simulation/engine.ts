@@ -542,7 +542,7 @@ export function tickEngine(
   const sortedCreatures = [...aliveCreatures].sort(tieBreakCreatureOrder);
 
   // Get audio perception stream for sound detection
-  const audioStream = rngStreams.getStream(RNG_STREAMS.SOUND);
+  const audioStream = rngStreams.getStream(RNG_STREAMS.BIODIVERSITY_PRESSURE);
 
   for (const creature of sortedCreatures) {
     const pressure = localPressure.get(creature.id);

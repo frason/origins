@@ -141,13 +141,6 @@ export const MINIMUM_CARRION_ENERGY = 24;
 export const MAX_ENERGY_MULTIPLIER = 100;
 
 // ============================================================================
-// Movement Constants
-// ============================================================================
-
-/** Maximum traversal cost; water cells exceeding this cost are impassable */
-export const MAX_MOVEMENT_COST = 5.0;
-
-// ============================================================================
 // Mutation Constants
 // ============================================================================
 
@@ -215,7 +208,6 @@ export interface SimulationConstants {
   dispersalRange: number;
   dispersalMinimumPressureImprovement: number;
   dispersalEnergyCostPerCell: number;
-  maxMovementCost: number;
   maxCreatureAgeTicks: number;
   corpseDecayRate: number;
   corpseDecayDurationTicks: number;
@@ -272,7 +264,6 @@ export const SIMULATION_CONSTANTS: SimulationConstants = {
   dispersalRange: DISPERSAL_RANGE,
   dispersalMinimumPressureImprovement: DISPERSAL_MINIMUM_PRESSURE_IMPROVEMENT,
   dispersalEnergyCostPerCell: DISPERSAL_ENERGY_COST_PER_CELL,
-  maxMovementCost: MAX_MOVEMENT_COST,
   maxCreatureAgeTicks: MAX_CREATURE_AGE_TICKS,
   corpseDecayRate: CORPSE_DECAY_RATE,
   corpseDecayDurationTicks: CORPSE_DECAY_DURATION_TICKS,
