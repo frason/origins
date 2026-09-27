@@ -810,20 +810,19 @@ describe('Simulation Engine', () => {
         predationHungerThresholdShare: 0.9, // Very hungry at 90% threshold
       });
 
-      // Tick 1: predator (hungry) should attack herbivore at same location (creating attack sound),
-      // herbivore may detect it
+      // Tick 1: predator (hungry) should attack herbivore at same location (creating attack sound)
       engine = tickEngine(engine);
 
-      // Tick 2: If herbivore survived, check for sound-flee event
-      // (Or if herbivore died, no flee event expected but no crash)
+      // Tick 2: herbivore should detect the threat sound and emit sound-flee event
+      engine = tickEngine(engine);
+
+      // Check for sound-flee events from herbivore
       const soundFleeEvents = engine.events.filter((e) => e.type === 'sound-flee');
       const herbivoresInEvents = soundFleeEvents.filter((e) => e.speciesId === 'herbivore_species');
 
-      // We should have at least one herbivore that detected threat sounds
-      expect(herbivoresInEvents.length).toBeGreaterThanOrEqual(0);
-
-      // Or verify the engine didn't crash
-      expect(engine.tick).toBe(1);
+      // Verify that herbivore detected threat sounds and fled
+      expect(herbivoresInEvents.length).toBeGreaterThan(0);
+      expect(engine.tick).toBe(2);
     });
 
     it('predator investigation: carnivore detects feeding sound from prey', () => {
@@ -871,8 +870,8 @@ describe('Simulation Engine', () => {
           e.speciesId === 'carnivore_species'
       );
 
-      // Should have at least one investigate event from the carnivore
-      expect(investigateEvents.length).toBeGreaterThanOrEqual(0);
+      // Verify that carnivore detected feeding sound and investigated
+      expect(investigateEvents.length).toBeGreaterThan(0);
       expect(engine.tick).toBe(2);
     });
 

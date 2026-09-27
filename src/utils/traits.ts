@@ -50,6 +50,7 @@ export const TRAIT_STATUS: Record<keyof Omit<Traits, 'energyStrategy'>, TraitSta
   thermalTolerance: 'active',  // reduces tundra traversal penalty
   waterRetention: 'active',    // reduces desert traversal penalty
   aquaticAffinity: 'active',   // improves wetland/ocean movement
+  aquaticAdaptation: 'active', // efficient movement in water depth
   terrainGrip: 'active',       // improves mountain/tundra movement
   toxinResistance: 'active',   // reduces toxicity damage
 };
@@ -86,6 +87,7 @@ export interface Traits {
   thermalTolerance: number;
   waterRetention: number;
   aquaticAffinity: number;
+  aquaticAdaptation: number; // efficient movement in water (0-1)
   terrainGrip: number;
   toxinResistance: number;
 
@@ -122,6 +124,7 @@ export const DEFAULT_TRAITS: Traits = {
   thermalTolerance: 0,
   waterRetention: 0,
   aquaticAffinity: 0,
+  aquaticAdaptation: 0,
   terrainGrip: 0,
   toxinResistance: 0,
 
@@ -166,6 +169,7 @@ export const TRAIT_MUTATION_RATES: Record<
   thermalTolerance: 0.05,
   waterRetention: 0.05,
   aquaticAffinity: 0.05,
+  aquaticAdaptation: 0.05,
   terrainGrip: 0.05,
   toxinResistance: 0.05,
   auditorySteal: 0.05,
@@ -191,6 +195,7 @@ export const TRAIT_MIN: Partial<Traits> = {
   thermalTolerance: 0,
   waterRetention: 0,
   aquaticAffinity: 0,
+  aquaticAdaptation: 0,
   terrainGrip: 0,
   toxinResistance: 0,
   auditorySteal: 0,
@@ -216,6 +221,7 @@ export const TRAIT_MAX: Partial<Traits> = {
   thermalTolerance: 1,
   waterRetention: 1,
   aquaticAffinity: 1,
+  aquaticAdaptation: 1,
   terrainGrip: 1,
   toxinResistance: 1,
   auditorySteal: 1,

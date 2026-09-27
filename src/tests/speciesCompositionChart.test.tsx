@@ -34,6 +34,7 @@ describe('SpeciesCompositionChart', () => {
       thermalTolerance: 0,
       waterRetention: 0,
       aquaticAffinity: 0,
+      aquaticAdaptation: 0,
       terrainGrip: 0,
       toxinResistance: 0,
       auditorySteal: 0,
