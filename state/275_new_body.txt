@@ -1,0 +1,1 @@
+# stale scratch file from issue #275 planning pass, neutralized per issue #275 cleanup
