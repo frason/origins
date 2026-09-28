@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Creature } from '../simulation/creature';
 import { World } from '../simulation/world';
 import { CreatureSpatialIndex } from '../simulation/creatureSpatialIndex';
@@ -13,6 +13,12 @@ import {
 import { DEFAULT_TRAITS } from '../utils/traits';
 import { getProducerTraits } from '../simulation/producerTypes';
 import { CORPSE_DECAY_DURATION_TICKS } from '../utils/constants';
+import { StreamedRng } from '../simulation/rng';
+
+/** Helper to create an RNG that always returns a low value for guaranteed detection in tests */
+function createGuaranteedDetectionRng(): () => number {
+  return () => 0.01; // Always very low, ensures detection probability threshold is met
+}
 
 describe('Simulation Engine', () => {
   beforeEach(() => {
@@ -784,12 +790,12 @@ describe('Simulation Engine', () => {
 
   describe('Sound ecology integration', () => {
     it('prey flight: herbivore detects threat sound and emits sound-flee event', () => {
-      // Create a herbivore with good hearing
+      // Create a herbivore with excellent hearing
       const herbivore = new Creature({
         speciesId: 'herbivore_species',
         lineageId: 'herbivore_lineage',
         parentId: null,
-        traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore', hearingRange: 50 },
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore', hearingRange: 50, brainSize: 5 },
         x: 50,
         y: 50,
         energy: 200,
@@ -806,24 +812,37 @@ describe('Simulation Engine', () => {
         energy: 30, // Very low energy - will be hungry
       });
 
-      let engine = createEngine(42, [herbivore, predator], 100, 100, {
+      // Create another herbivore nearby that the predator will attack, creating sounds
+      const herbivore2 = new Creature({
+        speciesId: 'herbivore_species',
+        lineageId: 'herbivore_lineage',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore' },
+        x: 50,
+        y: 50,
+        energy: 100,
+      });
+
+      let engine = createEngine(2024, [herbivore, predator, herbivore2], 100, 100, {
         predationHungerThresholdShare: 0.9, // Very hungry at 90% threshold
       });
 
-      // Tick 1: predator (hungry) should attack herbivore at same location (creating attack sound),
-      // herbivore may detect it
+      // Tick 1: predator attacks herbivore2 (creating attack and distress sounds)
+      // Herbivore1 can detect these attack sounds from the predator
       engine = tickEngine(engine);
 
-      // Tick 2: If herbivore survived, check for sound-flee event
-      // (Or if herbivore died, no flee event expected but no crash)
-      const soundFleeEvents = engine.events.filter((e) => e.type === 'sound-flee');
-      const herbivoresInEvents = soundFleeEvents.filter((e) => e.speciesId === 'herbivore_species');
+      // Tick 2: herbivore1 detects sounds from tick 1 and reacts
+      engine = tickEngine(engine);
 
-      // We should have at least one herbivore that detected threat sounds
-      expect(herbivoresInEvents.length).toBeGreaterThanOrEqual(0);
+      // Check for sound-detection or sound-flee events from the first herbivore
+      const detectionEvents = engine.events.filter((e) =>
+        (e.type === 'sound-detection' || e.type === 'sound-flee') &&
+        e.speciesId === 'herbivore_species'
+      );
 
-      // Or verify the engine didn't crash
-      expect(engine.tick).toBe(1);
+      // Herbivore should have detected the threat sound
+      expect(detectionEvents.length).toBeGreaterThan(0);
+      expect(engine.tick).toBe(2);
     });
 
     it('predator investigation: carnivore detects feeding sound from prey', () => {
@@ -832,47 +851,51 @@ describe('Simulation Engine', () => {
         speciesId: 'herbivore_species',
         lineageId: 'herbivore_lineage',
         parentId: null,
-        traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore', size: 1 },
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore', size: 2, hearingRange: 50 },
         x: 50,
         y: 50,
         energy: 200,
       });
 
-      // Create a carnivore positioned nearby with good hearing
+      // Create a carnivore positioned very nearby with excellent hearing
       const carnivore = new Creature({
         speciesId: 'carnivore_species',
         lineageId: 'carnivore_lineage',
         parentId: null,
-        traits: { ...DEFAULT_TRAITS, energyStrategy: 'carnivore', hearingRange: 50 },
-        x: 55,
+        traits: { ...DEFAULT_TRAITS, energyStrategy: 'carnivore', hearingRange: 50, brainSize: 5 },
+        x: 50,
         y: 50,
         energy: 200,
       });
 
-      let engine = createEngine(43, [herbivore, carnivore]);
+      let engine = createEngine(2025, [herbivore, carnivore]);
 
-      // Add producer biomass at herbivore location so it can feed
-      const cell = engine.world.getCell(50, 50);
-      engine.world.setCell(50, 50, {
-        ...cell,
-        producerBiomass: 50,
-      });
+      // Add abundant producer biomass everywhere to ensure feeding sounds are created frequently
+      for (let y = 0; y < engine.world.height; y++) {
+        for (let x = 0; x < engine.world.width; x++) {
+          const cell = engine.world.getCell(x, y);
+          engine.world.setCell(x, y, {
+            ...cell,
+            producerBiomass: 50,
+          });
+        }
+      }
 
-      // Tick 1: herbivore feeds at (50, 50), creating feeding sound
+      // Tick 1: herbivore feeds, creating feeding sound
       engine = tickEngine(engine);
 
-      // Tick 2: carnivore nearby should detect the feeding sound and investigate
+      // Tick 2: carnivore detects the feeding sound from tick 1
       engine = tickEngine(engine);
 
-      // Check for sound-investigate event from any carnivore
-      const investigateEvents = engine.events.filter(
+      // Check for sound-detection or sound-investigate events from carnivore
+      const detectionEvents = engine.events.filter(
         (e) =>
-          e.type === 'sound-investigate' &&
+          (e.type === 'sound-detection' || e.type === 'sound-investigate') &&
           e.speciesId === 'carnivore_species'
       );
 
-      // Should have at least one investigate event from the carnivore
-      expect(investigateEvents.length).toBeGreaterThanOrEqual(0);
+      // Carnivore should have detected the feeding sound
+      expect(detectionEvents.length).toBeGreaterThan(0);
       expect(engine.tick).toBe(2);
     });
 
@@ -917,10 +940,13 @@ describe('Simulation Engine', () => {
       // Tick 1: predator attacks prey (both create attack and distress sounds)
       engine = tickEngine(engine);
 
-      // Tick 2: scavenger should detect sounds and potentially investigate
+      // Tick 2: scavenger detects sounds created on tick 1
       engine = tickEngine(engine);
 
-      // Check for sound-investigate or sound-detection event from scavenger
+      // Tick 3: verify investigation event was created
+      engine = tickEngine(engine);
+
+      // Check for sound-detection or sound-investigate event from scavenger
       const soundEvents = engine.events.filter(
         (e) =>
           (e.type === 'sound-investigate' || e.type === 'sound-detection') &&
@@ -928,12 +954,12 @@ describe('Simulation Engine', () => {
       );
 
       // Scavenger should have detected something
-      expect(soundEvents.length).toBeGreaterThanOrEqual(0);
-      expect(engine.tick).toBe(2);
+      expect(soundEvents.length).toBeGreaterThan(0);
+      expect(engine.tick).toBe(3);
     });
 
     it('sound-detection event is emitted when creature hears activity', () => {
-      // Create two creatures
+      // Create two creatures with good hearing close to each other
       const creature1 = new Creature({
         speciesId: 'species_1',
         lineageId: 'lineage_1',
@@ -956,7 +982,7 @@ describe('Simulation Engine', () => {
 
       let engine = createEngine(45, [creature1, creature2]);
 
-      // Add producer biomass so creatures don't starve
+      // Add producer biomass so creatures feed and create sounds
       for (let y = 0; y < engine.world.height; y++) {
         for (let x = 0; x < engine.world.width; x++) {
           const cell = engine.world.getCell(x, y);
@@ -967,16 +993,20 @@ describe('Simulation Engine', () => {
       // Tick 1: creatures move/feed, creating sounds
       engine = tickEngine(engine);
 
-      // Tick 2: creatures should detect sounds from tick 1
+      // Tick 2: creatures detect sounds created on tick 1
       engine = tickEngine(engine);
 
-      // Check for sound-detection events (evidence that sound ecology is working)
+      // Tick 3: verify detection event was recorded
+      engine = tickEngine(engine);
+
+      // Check for sound-detection events
       const detectionEvents = engine.events.filter(
         (e) => e.type === 'sound-detection'
       );
 
-      // The engine ran without crashing and sound detection was attempted
-      expect(engine.tick).toBe(2);
+      // At least one creature should have detected sounds
+      expect(detectionEvents.length).toBeGreaterThan(0);
+      expect(engine.tick).toBe(3);
       expect(engine.creatures.length).toBeGreaterThan(0);
     });
 
