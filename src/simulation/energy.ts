@@ -218,3 +218,160 @@ export function payReproductionCost(
   creature.energy -= energyPaid;
   return energyPaid;
 }
+
+/**
+ * Determine if a creature is adjacent to water suitable for drinking.
+ * Fresh water (waterDepth > 0, low salinity) is always drinkable.
+ * Saline water (salinity > 0) is drinkable only if creature has saltTolerance.
+ *
+ * @param creature - the creature to check
+ * @param world - the world grid
+ * @returns true if adjacent to drinkable water
+ */
+export function isAdjacentToDrinkableWater(creature: Creature, world: World): boolean {
+  const adjacentCells = [
+    { x: creature.x - 1, y: creature.y },
+    { x: creature.x + 1, y: creature.y },
+    { x: creature.x, y: creature.y - 1 },
+    { x: creature.x, y: creature.y + 1 },
+  ];
+
+  for (const { x, y } of adjacentCells) {
+    // Boundary check
+    if (x < 0 || x >= world.width || y < 0 || y >= world.height) {
+      continue;
+    }
+
+    const cell = world.getCell(x, y);
+
+    // Fresh water is always drinkable
+    if (cell.waterDepth > 0 && cell.salinity < 0.1) {
+      return true;
+    }
+
+    // Saline water is drinkable only if creature has salt tolerance
+    if (cell.waterDepth > 0 && cell.salinity >= 0.1 && creature.traits.saltTolerance > 0) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Apply hydration decline per tick based on creature's waterNeed trait.
+ * Hydration is a 0-1 meter, declining each tick.
+ *
+ * @param creature - the creature to dehydrate
+ * @param depletionRate - base hydration loss per tick
+ */
+export function applyHydrationDecline(
+  creature: Creature,
+  depletionRate: number = 0.1
+): void {
+  const decline = depletionRate * creature.traits.waterNeed;
+  creature.hydration = Math.max(0, creature.hydration - decline);
+}
+
+/**
+ * Creature drinks drinkable water, restoring hydration.
+ * For fresh water: full recovery.
+ * For saline water: partial recovery based on saltTolerance.
+ *
+ * @param creature - the creature drinking
+ * @param world - the world grid
+ * @returns amount of hydration restored (0-1)
+ */
+export function drinkWater(creature: Creature, world: World): number {
+  const adjacentCells = [
+    { x: creature.x - 1, y: creature.y },
+    { x: creature.x + 1, y: creature.y },
+    { x: creature.x, y: creature.y - 1 },
+    { x: creature.x, y: creature.y + 1 },
+  ];
+
+  for (const { x, y } of adjacentCells) {
+    // Boundary check
+    if (x < 0 || x >= world.width || y < 0 || y >= world.height) {
+      continue;
+    }
+
+    const cell = world.getCell(x, y);
+
+    // Fresh water: full recovery
+    if (cell.waterDepth > 0 && cell.salinity < 0.1) {
+      const restored = Math.min(1 - creature.hydration, 1.0);
+      creature.hydration = Math.min(1, creature.hydration + restored);
+      return restored;
+    }
+
+    // Saline water: partial recovery based on salt tolerance
+    if (cell.waterDepth > 0 && cell.salinity >= 0.1 && creature.traits.saltTolerance > 0) {
+      // Recovery efficiency depends on saltTolerance (0 = none, 1 = full)
+      const recovery = 0.5 * creature.traits.saltTolerance;
+      const restored = Math.min(1 - creature.hydration, recovery);
+      creature.hydration = Math.min(1, creature.hydration + restored);
+
+      // Low salt tolerance creatures accrue toxicity from saline water
+      const salinity = Math.max(0, Math.min(1, cell.salinity));
+      const toxicityDamage = (1 - creature.traits.saltTolerance) * salinity * 0.5;
+      creature.toxinExposure += toxicityDamage;
+      return restored;
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * Apply metabolism penalty for low hydration.
+ * Low hydration increases energy cost before causing death.
+ * The penalty scales from 0 (full hydration) to maximum (zero hydration).
+ *
+ * @param creature - the creature to apply penalty to
+ * @param baseCost - the base metabolic cost already calculated
+ * @param threshold - hydration level below which penalty starts (0-1)
+ * @param maxPenaltyMultiplier - maximum additional cost multiplier at zero hydration
+ * @returns additional energy cost from hydration penalty
+ */
+export function getHydrationMetabolismPenalty(
+  creature: Creature,
+  baseCost: number,
+  threshold: number = 0.3,
+  maxPenaltyMultiplier: number = 1.5
+): number {
+  if (creature.hydration >= threshold) {
+    return 0;
+  }
+
+  // Scale penalty from 0 (at threshold) to maxPenaltyMultiplier (at zero hydration)
+  const deprivationRatio = (threshold - creature.hydration) / threshold;
+  const penaltyMultiplier = deprivationRatio * (maxPenaltyMultiplier - 1);
+  return baseCost * penaltyMultiplier;
+}
+
+/**
+ * Check if hydration deprivation should cause death.
+ * Death only occurs after prolonged deprivation (prolonged at zero hydration),
+ * not from a single tick of low hydration.
+ *
+ * @param creature - the creature to check
+ * @param deathThreshold - hydration level that triggers mortality (typically 0)
+ * @param criticalMortalityRate - probability of death per tick at critical hydration
+ * @param rng - random number generator for death chance
+ * @returns true if the creature should die
+ */
+export function shouldDieFromHydration(
+  creature: Creature,
+  deathThreshold: number = 0.0,
+  criticalMortalityRate: number = 0.02,
+  rng: () => number = Math.random
+): boolean {
+  // Only check at critical hydration (zero or near-zero)
+  if (creature.hydration > deathThreshold) {
+    return false;
+  }
+
+  // Apply probabilistic death only at critical threshold
+  return rng() < criticalMortalityRate;
+}

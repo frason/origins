@@ -53,6 +53,10 @@ export const TRAIT_STATUS: Record<keyof Omit<Traits, 'energyStrategy'>, TraitSta
   aquaticAdaptation: 'active', // reduces water depth traversal cost
   terrainGrip: 'active',       // improves mountain/tundra movement
   toxinResistance: 'active',   // reduces toxicity damage
+
+  // Hydration/osmoregulation - ACTIVE
+  waterNeed: 'active',      // hydration demand per tick
+  saltTolerance: 'active',  // ability to drink saline water
 };
 
 /**
@@ -94,6 +98,10 @@ export interface Traits {
   // Sensory/behavioral traits
   auditorySteal: number; // auditory stealth (0-1) reduces sound production
 
+  // Hydration/osmoregulation traits
+  waterNeed: number; // hydration demand per tick
+  saltTolerance: number; // ability to drink saline water (0-1)
+
   // Ecological trait
   energyStrategy: EnergyStrategy; // herbivore, carnivore, omnivore, or scavenger
 }
@@ -130,6 +138,10 @@ export const DEFAULT_TRAITS: Traits = {
 
   // Sensory/behavioral
   auditorySteal: 0,
+
+  // Hydration/osmoregulation
+  waterNeed: 0.5,
+  saltTolerance: 0,
 
   // Ecological
   energyStrategy: 'omnivore',
@@ -173,6 +185,8 @@ export const TRAIT_MUTATION_RATES: Record<
   terrainGrip: 0.05,
   toxinResistance: 0.05,
   auditorySteal: 0.05,
+  waterNeed: 0.05,
+  saltTolerance: 0.05,
 };
 
 /**
@@ -199,6 +213,8 @@ export const TRAIT_MIN: Partial<Traits> = {
   terrainGrip: 0,
   toxinResistance: 0,
   auditorySteal: 0,
+  waterNeed: 0,
+  saltTolerance: 0,
 };
 
 /**
@@ -225,4 +241,6 @@ export const TRAIT_MAX: Partial<Traits> = {
   terrainGrip: 1,
   toxinResistance: 1,
   auditorySteal: 1,
+  waterNeed: 5,
+  saltTolerance: 1,
 };

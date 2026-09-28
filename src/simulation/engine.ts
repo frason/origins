@@ -56,6 +56,11 @@ import {
   canReproduce,
   payReproductionCost,
   getEnergyCapacity,
+  applyHydrationDecline,
+  isAdjacentToDrinkableWater,
+  drinkWater,
+  getHydrationMetabolismPenalty,
+  shouldDieFromHydration,
 } from './energy';
 import {
   checkAgeAndStarvation,
@@ -460,6 +465,7 @@ export function tickEngine(
         dispersalTargetY: c.dispersalTargetY,
         lastDispersalTick: c.lastDispersalTick,
         dispersalMoves: c.dispersalMoves,
+        hydration: c.hydration,
       })
   );
 
@@ -509,6 +515,13 @@ export function tickEngine(
 
   // Step 2: Producer Growth
   growProducers(newWorld, 'solar', constants.producerGrowthRate, true, true);
+
+  // Step 2.5: Hydration Decline (per tick, before decision-making)
+  for (const creature of creatures) {
+    if (creature.lifecycleState === 'alive') {
+      applyHydrationDecline(creature, constants.hydrationDepletionRate);
+    }
+  }
 
   // Step 3 & 4: Creature Decisions and Movement
   // Refactored to use single perception pass per creature decision + DecisionIntent pattern
@@ -893,6 +906,16 @@ export function tickEngine(
   for (const creature of creatures) {
     if (creature.lifecycleState === 'alive') {
       applyMetabolism(creature, constants.baseMetabolism);
+      // Apply hydration-based metabolism penalty (low hydration increases energy cost)
+      const hydrationPenalty = getHydrationMetabolismPenalty(
+        creature,
+        constants.baseMetabolism,
+        constants.hydrationMetabolismPenaltyThreshold,
+        constants.hydrationMetabolismPenaltyMultiplier
+      );
+      if (hydrationPenalty > 0) {
+        creature.energy = Math.max(0, creature.energy - hydrationPenalty);
+      }
       if (creature.energy <= 0) {
         deathCauses.set(creature.id, 'starvation');
         continue;
@@ -1092,6 +1115,8 @@ export function tickEngine(
   creatures.push(...offspring);
 
   // Step 8: Death (Age and Starvation)
+  // Get a deterministic RNG stream for hydration death checks
+  const hydrationDeathStream = rngStreams.getStream(RNG_STREAMS.DEATH);
   for (const creature of creatures) {
     if (creature.lifecycleState !== 'alive') continue;
     creature.age++;
@@ -1102,6 +1127,18 @@ export function tickEngine(
     );
     if (creature.energy <= 0 || creature.age >= constants.maxCreatureAgeTicks) {
       deathCauses.set(creature.id, creature.energy <= 0 ? 'starvation' : 'age');
+    }
+    // Check if creature dies from prolonged hydration deprivation
+    if (
+      !deathCauses.has(creature.id) &&
+      shouldDieFromHydration(
+        creature,
+        constants.hydrationDeathThreshold,
+        constants.hydrationCriticalMortalityRate,
+        hydrationDeathStream.fn
+      )
+    ) {
+      deathCauses.set(creature.id, 'dehydration');
     }
   }
 

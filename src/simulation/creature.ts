@@ -7,6 +7,7 @@ import {
 } from '../utils/constants';
 import type { CreatureSpatialIndex } from './creatureSpatialIndex';
 import { moveAcrossTerrain, reachableTerrainCells } from './biomeTraversal';
+import { isAdjacentToDrinkableWater, drinkWater } from './energy';
 
 const DEFAULT_SCAVENGER_FORAGING_ENERGY_TARGET = 120;
 const CRITICAL_SCAVENGER_ENERGY_SHARE = 0.2;
@@ -19,7 +20,7 @@ export type LifecycleState = 'alive' | 'dead' | 'corpse';
 /**
  * Decision types for per-tick creature behavior
  */
-export type DecisionType = 'move-to-food' | 'flee' | 'search' | 'disperse' | 'idle' | 'eat' | 'reproduce';
+export type DecisionType = 'move-to-food' | 'flee' | 'search' | 'disperse' | 'idle' | 'eat' | 'reproduce' | 'drink';
 
 /**
  * Parameters for Creature construction (all fields except auto-generated id)
@@ -46,6 +47,7 @@ export interface CreatureParams {
   dispersalTargetY?: number | null;
   lastDispersalTick?: number | null;
   dispersalMoves?: number;
+  hydration?: number;
 }
 
 /**
@@ -75,6 +77,7 @@ export class Creature {
   dispersalTargetY: number | null;
   lastDispersalTick: number | null;
   dispersalMoves: number;
+  hydration: number;
   stalkingMetabolismMultiplier: number = 1; // Temporary per-tick stalking cost multiplier
 
   private static creatureCounter: number = 0;
@@ -110,6 +113,7 @@ export class Creature {
     this.dispersalTargetY = params.dispersalTargetY ?? null;
     this.lastDispersalTick = params.lastDispersalTick ?? null;
     this.dispersalMoves = params.dispersalMoves ?? 0;
+    this.hydration = params.hydration ?? 1;
     this.stalkingMetabolismMultiplier = 1; // Always initialize to 1 (no stalking by default)
   }
 
@@ -143,6 +147,7 @@ export class Creature {
       dispersalTargetY: this.dispersalTargetY,
       lastDispersalTick: this.lastDispersalTick,
       dispersalMoves: this.dispersalMoves,
+      hydration: this.hydration,
     };
   }
 
@@ -181,6 +186,7 @@ export class Creature {
       dispersalTargetY,
       lastDispersalTick,
       dispersalMoves,
+      hydration,
     } = data;
 
     if (
@@ -218,6 +224,7 @@ export class Creature {
       dispersalTargetY,
       lastDispersalTick,
       dispersalMoves,
+      hydration,
     });
 
     // Restore the original id from serialized data
@@ -465,8 +472,13 @@ export function decideTick(
 
   let decision: DecisionType;
 
-  // If threatened, flee
-  if (scan.threats.length > 0 && !criticalScavengerForaging) {
+  // Check if creature should drink (high priority when dehydrated and water is adjacent)
+  const isDehydrated = creature.hydration < 0.3;
+  const canDrink = isAdjacentToDrinkableWater(creature, world);
+  if (isDehydrated && canDrink) {
+    decision = 'drink';
+  } else if (scan.threats.length > 0 && !criticalScavengerForaging) {
+    // If threatened, flee
     decision = 'flee';
   } else if (criticalScavengerForaging && scan.foodCreatures.length === 0) {
     decision = 'search';
@@ -764,6 +776,12 @@ export function applyMovementWithScan(
   spatialIndex?: CreatureSpatialIndex,
   explicitTarget?: { x: number; y: number }
 ): void {
+  // Handle drink decision (restores hydration from adjacent water)
+  if (decision === 'drink') {
+    drinkWater(creature, world);
+    return;
+  }
+
   if (decision === 'idle' || decision === 'eat' || decision === 'reproduce') {
     // No movement
     return;

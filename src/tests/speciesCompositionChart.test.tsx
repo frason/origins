@@ -38,6 +38,8 @@ describe('SpeciesCompositionChart', () => {
       terrainGrip: 0,
       toxinResistance: 0,
       auditorySteal: 0,
+      waterNeed: 0.5,
+      saltTolerance: 0,
       energyStrategy: 'herbivore',
     },
     ...overrides,

@@ -84,6 +84,28 @@ export const DISPERSAL_ENERGY_COST_PER_CELL = 0.5;
 export const MAX_MOVEMENT_COST = 5.0;
 
 // ============================================================================
+// Hydration Constants
+// ============================================================================
+
+/** Base hydration depletion rate per tick (affected by waterNeed trait) */
+export const HYDRATION_DEPLETION_RATE = 0.1;
+
+/** Hydration recovery when drinking fresh water (full restoration) */
+export const HYDRATION_RECOVERY_FRESH = 1.0;
+
+/** Minimum hydration before metabolism penalty starts (0-1 scale) */
+export const HYDRATION_METABOLISM_PENALTY_THRESHOLD = 0.3;
+
+/** Metabolism multiplier at zero hydration (additional cost on top of base metabolism) */
+export const HYDRATION_METABOLISM_PENALTY_MULTIPLIER = 1.5;
+
+/** Minimum hydration before death starts (prolonged deprivation) */
+export const HYDRATION_DEATH_THRESHOLD = 0.0;
+
+/** Additional mortality rate per tick when hydration is critically low (triggers after prolonged deprivation) */
+export const HYDRATION_CRITICAL_MORTALITY_RATE = 0.02;
+
+// ============================================================================
 // Lifecycle Constants
 // ============================================================================
 
@@ -215,6 +237,13 @@ export interface SimulationConstants {
   dispersalRange: number;
   dispersalMinimumPressureImprovement: number;
   dispersalEnergyCostPerCell: number;
+  maxMovementCost: number;
+  hydrationDepletionRate: number;
+  hydrationRecoveryFresh: number;
+  hydrationMetabolismPenaltyThreshold: number;
+  hydrationMetabolismPenaltyMultiplier: number;
+  hydrationDeathThreshold: number;
+  hydrationCriticalMortalityRate: number;
   maxCreatureAgeTicks: number;
   corpseDecayRate: number;
   corpseDecayDurationTicks: number;
@@ -271,6 +300,13 @@ export const SIMULATION_CONSTANTS: SimulationConstants = {
   dispersalRange: DISPERSAL_RANGE,
   dispersalMinimumPressureImprovement: DISPERSAL_MINIMUM_PRESSURE_IMPROVEMENT,
   dispersalEnergyCostPerCell: DISPERSAL_ENERGY_COST_PER_CELL,
+  maxMovementCost: MAX_MOVEMENT_COST,
+  hydrationDepletionRate: HYDRATION_DEPLETION_RATE,
+  hydrationRecoveryFresh: HYDRATION_RECOVERY_FRESH,
+  hydrationMetabolismPenaltyThreshold: HYDRATION_METABOLISM_PENALTY_THRESHOLD,
+  hydrationMetabolismPenaltyMultiplier: HYDRATION_METABOLISM_PENALTY_MULTIPLIER,
+  hydrationDeathThreshold: HYDRATION_DEATH_THRESHOLD,
+  hydrationCriticalMortalityRate: HYDRATION_CRITICAL_MORTALITY_RATE,
   maxCreatureAgeTicks: MAX_CREATURE_AGE_TICKS,
   corpseDecayRate: CORPSE_DECAY_RATE,
   corpseDecayDurationTicks: CORPSE_DECAY_DURATION_TICKS,
