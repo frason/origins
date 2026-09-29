@@ -290,6 +290,10 @@ export function drinkWater(creature: Creature, world: World): number {
     { x: creature.x, y: creature.y + 1 },
   ];
 
+  // Scan all adjacent cells to find the best water source
+  let bestFreshWater: { x: number; y: number } | null = null;
+  let bestSalineWater: { x: number; y: number; salinity: number } | null = null;
+
   for (const { x, y } of adjacentCells) {
     // Boundary check
     if (x < 0 || x >= world.width || y < 0 || y >= world.height) {
@@ -298,26 +302,39 @@ export function drinkWater(creature: Creature, world: World): number {
 
     const cell = world.getCell(x, y);
 
-    // Fresh water: full recovery
+    // Fresh water (salinity < 0.1): full recovery
     if (cell.waterDepth > 0 && cell.salinity < 0.1) {
-      const restored = Math.min(1 - creature.hydration, 1.0);
-      creature.hydration = Math.min(1, creature.hydration + restored);
-      return restored;
+      bestFreshWater = { x, y };
+      break; // Found fresh water, prefer it and stop scanning
     }
 
-    // Saline water: partial recovery based on salt tolerance
+    // Saline water (salinity >= 0.1): partial recovery based on salt tolerance
     if (cell.waterDepth > 0 && cell.salinity >= 0.1 && creature.traits.saltTolerance > 0) {
-      // Recovery efficiency depends on saltTolerance (0 = none, 1 = full)
-      const recovery = 0.5 * creature.traits.saltTolerance;
-      const restored = Math.min(1 - creature.hydration, recovery);
-      creature.hydration = Math.min(1, creature.hydration + restored);
-
-      // Low salt tolerance creatures accrue toxicity from saline water
-      const salinity = Math.max(0, Math.min(1, cell.salinity));
-      const toxicityDamage = (1 - creature.traits.saltTolerance) * salinity * 0.5;
-      creature.toxinExposure += toxicityDamage;
-      return restored;
+      // Keep the freshest (least salty) saline water as backup
+      if (!bestSalineWater || cell.salinity < bestSalineWater.salinity) {
+        bestSalineWater = { x, y, salinity: cell.salinity };
+      }
     }
+  }
+
+  // Use fresh water if available
+  if (bestFreshWater) {
+    const restored = Math.min(1 - creature.hydration, 1.0);
+    creature.hydration = Math.min(1, creature.hydration + restored);
+    return restored;
+  }
+
+  // Fall back to saline water
+  if (bestSalineWater) {
+    const recovery = 0.5 * creature.traits.saltTolerance;
+    const restored = Math.min(1 - creature.hydration, recovery);
+    creature.hydration = Math.min(1, creature.hydration + restored);
+
+    // Low salt tolerance creatures accrue toxicity from saline water
+    const salinity = Math.max(0, Math.min(1, bestSalineWater.salinity));
+    const toxicityDamage = (1 - creature.traits.saltTolerance) * salinity * 0.5;
+    creature.toxinExposure += toxicityDamage;
+    return restored;
   }
 
   return 0;
