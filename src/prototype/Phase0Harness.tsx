@@ -37,7 +37,6 @@ import {
 import type { LLMProviderSettings } from '../services/llmProviderConfig';
 import { EquilibriumTracker } from '../simulation/pivot/equilibrium';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
-import { AdaptationMetricsTracker } from '../simulation/adaptationMetrics';
 import {
   captureCheckpoint,
   restoreCheckpoint,
@@ -160,7 +159,6 @@ export function serializePhase0HarnessToPersistedState(state: Phase0HarnessState
       creatureIdCounter: 0,
       activeSounds: [],
       soundEventCounter: 0,
-      adaptationMetrics: new AdaptationMetricsTracker(),
       lastAdaptationObservations: [],
     },
     phase0,

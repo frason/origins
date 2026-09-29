@@ -24,7 +24,6 @@ import {
 } from '../state/saveSlotManager';
 import { listManualSaves } from '../state/indexedDbSaveSystem';
 import type { PersistedEngineState } from '../simulation/enginePersistence';
-import { AdaptationMetricsTracker } from '../simulation/adaptationMetrics';
 import { RNG_STREAM_VERSION } from '../simulation/rng';
 
 /** Create a minimal test checkpoint matching Phase 0 structure */
@@ -60,7 +59,6 @@ function createTestCheckpoint(tick: number, seed: number = 12345): PersistedEngi
       creatureIdCounter: 0,
       activeSounds: [],
       soundEventCounter: 0,
-      adaptationMetrics: new AdaptationMetricsTracker(),
       lastAdaptationObservations: [],
     },
     phase0: {
