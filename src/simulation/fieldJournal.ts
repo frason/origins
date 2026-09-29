@@ -217,6 +217,7 @@ export function createExtinctionEntry(
         overcrowding: 'overcrowding and resource exhaustion',
         'environmental-stress': 'environmental changes and toxicity',
         'dispersal-exhaustion': 'failed dispersal attempts',
+        dehydration: 'prolonged dehydration without access to water',
         unknown: 'unknown causes',
       }[deathCause] || 'unknown causes'
     : 'unknown causes';

@@ -369,6 +369,7 @@ export function createEngine(
         dispersalTargetY: c.dispersalTargetY,
         lastDispersalTick: c.lastDispersalTick,
         dispersalMoves: c.dispersalMoves,
+        hydration: c.hydration,
       })
   );
 
@@ -889,6 +890,14 @@ export function tickEngine(
           newSounds.push(scavengingSound);
         }
       }
+    }
+  }
+
+  // Step 5.5: Drinking (hydration restoration)
+  // Creatures can choose to drink when adjacent to water
+  for (const creature of creatures) {
+    if (creature.lifecycleState === 'alive' && decisions.get(creature.id) === 'drink') {
+      drinkWater(creature, newWorld);
     }
   }
 

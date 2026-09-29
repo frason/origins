@@ -20,6 +20,7 @@ const causePresentation: Record<DeathCause, { title: string; tone: PressureTone;
   overcrowding: { title: 'Overcrowding is forcing mortality', tone: 'critical', priority: 95 },
   'environmental-stress': { title: 'Local climate is costing lives', tone: 'warning', priority: 78 },
   'dispersal-exhaustion': { title: 'Costly migration is exhausting travelers', tone: 'warning', priority: 76 },
+  dehydration: { title: 'Water scarcity is claiming lives', tone: 'critical', priority: 88 },
   unknown: { title: 'Unclassified mortality occurred', tone: 'watch', priority: 20 },
 };
 

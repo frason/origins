@@ -386,6 +386,42 @@ describe('Simulation Engine', () => {
       }
     });
 
+    it('should be deterministic with hydration: same seed produces same hydration values', () => {
+      const creature1 = new Creature({
+        speciesId: 'species_1',
+        lineageId: 'lineage_1',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS, waterNeed: 1 },
+        x: 50,
+        y: 50,
+        energy: 100,
+        hydration: 0.8,
+      });
+
+      Creature.resetIdCounter();
+      const engine1 = createEngine(42, [creature1]);
+      const state1 = tickEngine(engine1);
+
+      Creature.resetIdCounter();
+      const creature2 = new Creature({
+        speciesId: 'species_1',
+        lineageId: 'lineage_1',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS, waterNeed: 1 },
+        x: 50,
+        y: 50,
+        energy: 100,
+        hydration: 0.8,
+      });
+      const engine2 = createEngine(42, [creature2]);
+      const state2 = tickEngine(engine2);
+
+      // Both should have identical hydration values after the same seed tick
+      if (state1.creatures.length > 0 && state2.creatures.length > 0) {
+        expect(state1.creatures[0].hydration).toBeCloseTo(state2.creatures[0].hydration, 5);
+      }
+    });
+
     it('should log birth events during reproduction', () => {
       const creature = new Creature({
         speciesId: 'species_1',
