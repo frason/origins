@@ -17,6 +17,8 @@ import {
   createTraitFrequencyHistory,
   appendTraitFrequency,
   type TraitFrequencyHistory,
+  DEFAULT_EVIDENCE_THRESHOLDS,
+  type EvidenceThresholds,
 } from './traitFrequency';
 import type { Traits } from '../utils/traits';
 
@@ -52,6 +54,7 @@ export interface AdaptationDetectionConfig {
   minPopulationSize: number; // minimum creatures to report frequency
   confidenceThreshold: number; // min confidence for reporting adaptation
   divergenceThreshold: number; // min trait divergence to report as change
+  evidenceThresholds?: EvidenceThresholds; // thresholds for classification (optional, uses defaults if not provided)
 }
 
 export const DEFAULT_ADAPTATION_CONFIG: AdaptationDetectionConfig = {
@@ -68,9 +71,11 @@ export class AdaptationMetricsTracker {
   private lineageHistories: Map<string, LineageAdaptationHistory> = new Map();
   private lastSampleTick: Map<string, number> = new Map();
   private config: AdaptationDetectionConfig;
+  private evidenceThresholds: EvidenceThresholds;
 
   constructor(config: Partial<AdaptationDetectionConfig> = {}) {
     this.config = { ...DEFAULT_ADAPTATION_CONFIG, ...config };
+    this.evidenceThresholds = config.evidenceThresholds || DEFAULT_EVIDENCE_THRESHOLDS;
   }
 
   /**
@@ -158,7 +163,8 @@ export class AdaptationMetricsTracker {
                 previous,
                 trait,
                 summary.survivalRate,
-                summary.reproductionRate
+                summary.reproductionRate,
+                this.evidenceThresholds
               );
 
               const observation: AdaptationObservation = {

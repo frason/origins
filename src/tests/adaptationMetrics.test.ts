@@ -294,4 +294,97 @@ describe('Helper functions', () => {
     const quality = rateEvidenceQuality(driftEvidence);
     expect(quality).toBeLessThan(0.7);
   });
+
+  describe('Deterministic classification with same seed', () => {
+    it('produces identical adaptation observations across two runs with same data', () => {
+      // Run 1
+      const tracker1 = new AdaptationMetricsTracker({
+        windowSize: 10,
+        minPopulationSize: 2,
+        confidenceThreshold: 0.5,
+      });
+
+      const creatures1_1 = Array.from({ length: 5 }, (_, i) =>
+        createMockCreature(i, {
+          speciesId: 'test-species',
+          lineageId: 'test-lineage',
+          traits: { ...DEFAULT_TRAITS, speed: 1.0 },
+        })
+      );
+      const creatures1_2 = Array.from({ length: 5 }, (_, i) =>
+        createMockCreature(i, {
+          speciesId: 'test-species',
+          lineageId: 'test-lineage',
+          traits: { ...DEFAULT_TRAITS, speed: 1.5 },
+        })
+      );
+
+      tracker1.updateMetrics(10, creatures1_1, []);
+      const obs1 = tracker1.updateMetrics(20, creatures1_2, []);
+
+      // Run 2 (identical inputs)
+      const tracker2 = new AdaptationMetricsTracker({
+        windowSize: 10,
+        minPopulationSize: 2,
+        confidenceThreshold: 0.5,
+      });
+
+      const creatures2_1 = Array.from({ length: 5 }, (_, i) =>
+        createMockCreature(i, {
+          speciesId: 'test-species',
+          lineageId: 'test-lineage',
+          traits: { ...DEFAULT_TRAITS, speed: 1.0 },
+        })
+      );
+      const creatures2_2 = Array.from({ length: 5 }, (_, i) =>
+        createMockCreature(i, {
+          speciesId: 'test-species',
+          lineageId: 'test-lineage',
+          traits: { ...DEFAULT_TRAITS, speed: 1.5 },
+        })
+      );
+
+      tracker2.updateMetrics(10, creatures2_1, []);
+      const obs2 = tracker2.updateMetrics(20, creatures2_2, []);
+
+      // Observations should be identical
+      expect(obs1.length).toBe(obs2.length);
+      for (let i = 0; i < Math.min(obs1.length, obs2.length); i++) {
+        expect(obs1[i].changeType).toBe(obs2[i].changeType);
+        expect(obs1[i].trait).toBe(obs2[i].trait);
+        if (obs1[i].evidence && obs2[i].evidence) {
+          expect(obs1[i].evidence!.confidence).toBeCloseTo(obs2[i].evidence!.confidence);
+        }
+      }
+    });
+
+    it('retrieves identical adaptation summary across two trackers with same lineage data', () => {
+      // Run 1
+      const tracker1 = new AdaptationMetricsTracker({ windowSize: 10 });
+      const creatures1 = Array.from({ length: 5 }, (_, i) =>
+        createMockCreature(i, {
+          speciesId: 'test-species',
+          lineageId: 'test-lineage',
+          traits: { ...DEFAULT_TRAITS, speed: 1.0 },
+        })
+      );
+      tracker1.updateMetrics(10, creatures1, []);
+      const summary1 = tracker1.getAdaptationSummary('test-species', 'test-lineage');
+
+      // Run 2
+      const tracker2 = new AdaptationMetricsTracker({ windowSize: 10 });
+      const creatures2 = Array.from({ length: 5 }, (_, i) =>
+        createMockCreature(i, {
+          speciesId: 'test-species',
+          lineageId: 'test-lineage',
+          traits: { ...DEFAULT_TRAITS, speed: 1.0 },
+        })
+      );
+      tracker2.updateMetrics(10, creatures2, []);
+      const summary2 = tracker2.getAdaptationSummary('test-species', 'test-lineage');
+
+      // Summaries should be identical
+      expect(summary1).toEqual(summary2);
+    });
+  });
 });

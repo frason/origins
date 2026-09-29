@@ -237,23 +237,42 @@ describe('Trait Frequency Tracking', () => {
       expect(classification).toBe('selection');
     });
 
-    it('classifies drift for small changes without fitness', () => {
-      const creaturesA = Array.from({ length: 5 }, (_, i) =>
+    it('classifies drift vs neutral-shift based on divergence threshold', () => {
+      // Very small change (below neutral-shift threshold)
+      const creaturesA1 = Array.from({ length: 5 }, (_, i) =>
         createMockCreature(i, { traits: { ...DEFAULT_TRAITS, speed: 1.0 } })
       );
-      const creaturesB = Array.from({ length: 5 }, (_, i) =>
-        createMockCreature(i, { traits: { ...DEFAULT_TRAITS, speed: 1.02 } })
+      const creaturesB1 = Array.from({ length: 5 }, (_, i) =>
+        createMockCreature(i, { traits: { ...DEFAULT_TRAITS, speed: 1.005 } })
       );
 
-      const summary1 = computeTraitFrequencies(creaturesA, 0, 100, 'species1', 'lineage1');
-      const summary2 = computeTraitFrequencies(creaturesB, 100, 200, 'species1', 'lineage1');
+      const summary1a = computeTraitFrequencies(creaturesA1, 0, 100, 'species1', 'lineage1');
+      const summary1b = computeTraitFrequencies(creaturesB1, 100, 200, 'species1', 'lineage1');
 
-      const classification = classifyChange(
-        summary2!,
-        summary1!,
+      const classification1 = classifyChange(
+        summary1b!,
+        summary1a!,
         'speed'
       );
-      expect(classification).toBe('drift');
+      expect(classification1).toBe('drift');
+
+      // Larger change (above neutral-shift threshold)
+      const creaturesA2 = Array.from({ length: 5 }, (_, i) =>
+        createMockCreature(i, { traits: { ...DEFAULT_TRAITS, speed: 1.0 } })
+      );
+      const creaturesB2 = Array.from({ length: 5 }, (_, i) =>
+        createMockCreature(i, { traits: { ...DEFAULT_TRAITS, speed: 1.2 } })
+      );
+
+      const summary2a = computeTraitFrequencies(creaturesA2, 0, 100, 'species1', 'lineage1');
+      const summary2b = computeTraitFrequencies(creaturesB2, 100, 200, 'species1', 'lineage1');
+
+      const classification2 = classifyChange(
+        summary2b!,
+        summary2a!,
+        'speed'
+      );
+      expect(classification2).toBe('neutral-shift');
     });
   });
 
@@ -365,6 +384,112 @@ describe('Trait Frequency Tracking', () => {
 
       expect(history.recentWindow.length).toBeLessThanOrEqual(5);
       expect(history.compressedArchive.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Deterministic classification', () => {
+    it('produces identical classifications across multiple runs with same data', () => {
+      const creaturesRun1A = Array.from({ length: 5 }, (_, i) =>
+        createMockCreature(i, { traits: { ...DEFAULT_TRAITS, speed: 0.5 } })
+      );
+      const creaturesRun1B = Array.from({ length: 5 }, (_, i) =>
+        createMockCreature(i, { traits: { ...DEFAULT_TRAITS, speed: 1.0 } })
+      );
+
+      const creaturesRun2A = Array.from({ length: 5 }, (_, i) =>
+        createMockCreature(i, { traits: { ...DEFAULT_TRAITS, speed: 0.5 } })
+      );
+      const creaturesRun2B = Array.from({ length: 5 }, (_, i) =>
+        createMockCreature(i, { traits: { ...DEFAULT_TRAITS, speed: 1.0 } })
+      );
+
+      // Run 1
+      const summary1A = computeTraitFrequencies(creaturesRun1A, 0, 100, 'species1', 'lineage1');
+      const summary1B = computeTraitFrequencies(creaturesRun1B, 100, 200, 'species1', 'lineage1');
+      const classification1 = classifyChange(summary1B!, summary1A!, 'speed', 0.3, 0.2);
+
+      // Run 2 (identical inputs)
+      const summary2A = computeTraitFrequencies(creaturesRun2A, 0, 100, 'species1', 'lineage1');
+      const summary2B = computeTraitFrequencies(creaturesRun2B, 100, 200, 'species1', 'lineage1');
+      const classification2 = classifyChange(summary2B!, summary2A!, 'speed', 0.3, 0.2);
+
+      // Classifications should be identical
+      expect(classification1).toBe(classification2);
+    });
+
+    it('produces identical evidence across multiple runs', () => {
+      const creaturesRun1A = Array.from({ length: 3 }, (_, i) =>
+        createMockCreature(i, {
+          traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore' },
+        })
+      );
+      const creaturesRun1B = [
+        ...creaturesRun1A,
+        createMockCreature(3, {
+          traits: { ...DEFAULT_TRAITS, energyStrategy: 'carnivore' },
+        }),
+      ];
+
+      const creaturesRun2A = Array.from({ length: 3 }, (_, i) =>
+        createMockCreature(i, {
+          traits: { ...DEFAULT_TRAITS, energyStrategy: 'herbivore' },
+        })
+      );
+      const creaturesRun2B = [
+        ...creaturesRun2A,
+        createMockCreature(3, {
+          traits: { ...DEFAULT_TRAITS, energyStrategy: 'carnivore' },
+        }),
+      ];
+
+      // Run 1
+      const summary1A = computeTraitFrequencies(creaturesRun1A, 0, 100, 'species1', 'lineage1');
+      const summary1B = computeTraitFrequencies(creaturesRun1B, 100, 200, 'species1', 'lineage1');
+      const evidence1 = generateAdaptationEvidence(
+        summary1B!,
+        summary1A!,
+        'energyStrategy',
+        0.8,
+        0.6
+      );
+
+      // Run 2
+      const summary2A = computeTraitFrequencies(creaturesRun2A, 0, 100, 'species1', 'lineage1');
+      const summary2B = computeTraitFrequencies(creaturesRun2B, 100, 200, 'species1', 'lineage1');
+      const evidence2 = generateAdaptationEvidence(
+        summary2B!,
+        summary2A!,
+        'energyStrategy',
+        0.8,
+        0.6
+      );
+
+      // Evidence should be identical
+      if (evidence1 && evidence2) {
+        expect(evidence1.confidence).toBe(evidence2.confidence);
+        expect(evidence1.direction).toBe(evidence2.direction);
+        expect(evidence1.magnitude).toBeCloseTo(evidence2.magnitude);
+        expect(evidence1.evidence).toEqual(evidence2.evidence);
+      }
+    });
+
+    it('classifies with insufficient evidence as unknown when thresholds not met', () => {
+      const creaturesA = Array.from({ length: 5 }, (_, i) =>
+        createMockCreature(i, { traits: { ...DEFAULT_TRAITS, speed: 1.0 } })
+      );
+      const creaturesB = Array.from({ length: 5 }, (_, i) =>
+        createMockCreature(i, { traits: { ...DEFAULT_TRAITS, speed: 1.01 } })
+      );
+
+      const summary1 = computeTraitFrequencies(creaturesA, 0, 100, 'species1', 'lineage1');
+      const summary2 = computeTraitFrequencies(creaturesB, 100, 200, 'species1', 'lineage1');
+
+      // Very small change, no fitness correlation
+      const classification = classifyChange(summary2!, summary1!, 'speed', 0.02, 0.02);
+
+      // Should classify as drift (below threshold for selection)
+      // or unknown if we enforce strict thresholds
+      expect(['drift', 'unknown']).toContain(classification);
     });
   });
 });

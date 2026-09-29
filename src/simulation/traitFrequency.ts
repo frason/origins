@@ -68,6 +68,14 @@ export type AdaptationEvidenceReason =
 
 /**
  * Classification of an evolutionary change
+ *
+ * Evidence-based classifications with documented thresholds:
+ * - 'mutation-appearance': New trait value not seen in previous window (confidence 1.0)
+ * - 'selection': Trait frequency change correlated with survival/reproduction
+ *   (survival delta > 0.1 OR reproduction delta > 0.15)
+ * - 'neutral-shift': Measurable frequency change (divergence > 0.15) without fitness correlation
+ * - 'drift': Small frequency change (divergence ≤ 0.15) without fitness correlation
+ * - 'unknown': Insufficient data or no clear evidence (no previous baseline, etc.)
  */
 export type EvolutionaryChangeType =
   | 'drift' // random change in trait frequency
@@ -76,6 +84,23 @@ export type EvolutionaryChangeType =
   | 'speciation' // lineage diverges beyond threshold
   | 'neutral-shift' // change in frequency but no fitness effect
   | 'unknown'; // insufficient data to classify
+
+/**
+ * Evidence thresholds for evolutionary classification (documented for reproducibility)
+ */
+export interface EvidenceThresholds {
+  survivalCorrelationThreshold: number; // min survival delta to indicate selection
+  reproductionCorrelationThreshold: number; // min reproduction delta to indicate selection
+  divergenceThresholdForNeutralShift: number; // min trait divergence to detect neutral drift
+  divergenceThresholdForClassification: number; // min divergence to attempt classification
+}
+
+export const DEFAULT_EVIDENCE_THRESHOLDS: EvidenceThresholds = {
+  survivalCorrelationThreshold: 0.1, // 10% difference in survival suggests selection
+  reproductionCorrelationThreshold: 0.15, // 15% difference in reproduction suggests selection
+  divergenceThresholdForNeutralShift: 0.15, // 15% trait divergence = measurable change
+  divergenceThresholdForClassification: 0.01, // 1% minimum divergence to classify (vs unknown)
+};
 
 /**
  * Compute trait frequencies for a lineage in a time window
@@ -219,13 +244,16 @@ export function isMutationAppearance(
 
 /**
  * Classify an evolutionary change based on frequency and fitness data
+ * Uses documented evidence thresholds to determine classification
+ * Returns 'unknown' when evidence is insufficient (no threshold crossed)
  */
 export function classifyChange(
   current: TraitFrequencySummary,
   previous: TraitFrequencySummary | null,
   trait: keyof Traits,
   survivalDelta?: number,
-  reproductionDelta?: number
+  reproductionDelta?: number,
+  thresholds: EvidenceThresholds = DEFAULT_EVIDENCE_THRESHOLDS
 ): EvolutionaryChangeType {
   if (!previous) return 'unknown'; // need baseline for classification
 
@@ -234,27 +262,35 @@ export function classifyChange(
 
   if (!currentDist || !previousDist) return 'unknown';
 
-  // Check for mutation appearance
+  // Check for mutation appearance (highest confidence, always classifiable)
   if (isMutationAppearance(trait, current, previous)) {
     return 'mutation-appearance';
   }
 
-  // Check for fitness correlation
-  const hasSurvivalCorr = survivalDelta !== undefined && Math.abs(survivalDelta) > 0.1;
+  // Measure trait divergence to determine if change is detectable
+  const divergence = measureTraitDivergence(current, previous);
+
+  // If change is too small to measure reliably, insufficient evidence
+  if (divergence < thresholds.divergenceThresholdForClassification) {
+    return 'unknown';
+  }
+
+  // Check for fitness correlation (strongest signal for selection)
+  const hasSurvivalCorr =
+    survivalDelta !== undefined && Math.abs(survivalDelta) > thresholds.survivalCorrelationThreshold;
   const hasReproductionCorr =
-    reproductionDelta !== undefined && Math.abs(reproductionDelta) > 0.15;
+    reproductionDelta !== undefined && Math.abs(reproductionDelta) > thresholds.reproductionCorrelationThreshold;
 
   if (hasSurvivalCorr || hasReproductionCorr) {
     return 'selection';
   }
 
-  // Check for neutral shift (frequency change but no fitness effect)
-  const divergence = measureTraitDivergence(current, previous);
-  if (divergence > 0.15) {
+  // Check for neutral shift (measurable change but no fitness effect)
+  if (divergence > thresholds.divergenceThresholdForNeutralShift) {
     return 'neutral-shift';
   }
 
-  // Small frequency change with no fitness correlation = drift
+  // Measurable change without clear fitness link = drift
   return 'drift';
 }
 
