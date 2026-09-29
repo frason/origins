@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { Creature } from '../simulation/creature';
 import { createEngine, tickEngine } from '../simulation/engine';
 import { DEFAULT_TRAITS } from '../utils/traits';
+import { SIMULATION_CONSTANTS } from '../utils/constants';
 import {
   applyHydrationDecline,
   getHydrationMetabolismPenalty,
@@ -214,7 +215,7 @@ describe('hydration system', () => {
         hydration: 0.3,
       });
 
-      const restored = drinkWater(creature, world);
+      const restored = drinkWater(creature, world, SIMULATION_CONSTANTS);
       expect(restored).toBeCloseTo(0.7); // 1 - 0.3
       expect(creature.hydration).toBe(1); // Fully restored
     });
@@ -235,7 +236,7 @@ describe('hydration system', () => {
         hydration: 0.3,
       });
 
-      const restored = drinkWater(creature, world);
+      const restored = drinkWater(creature, world, SIMULATION_CONSTANTS);
       // Recovery = 0.5 * saltTolerance = 0.5 * 0.5 = 0.25
       expect(restored).toBeCloseTo(0.25);
       expect(creature.hydration).toBeCloseTo(0.55);
@@ -257,7 +258,7 @@ describe('hydration system', () => {
         hydration: 0.3,
       });
 
-      const restored = drinkWater(creature, world);
+      const restored = drinkWater(creature, world, SIMULATION_CONSTANTS);
       expect(restored).toBe(0);
       expect(creature.hydration).toBe(0.3); // Unchanged
     });
@@ -279,7 +280,7 @@ describe('hydration system', () => {
         toxinExposure: 0,
       });
 
-      drinkWater(creature, world);
+      drinkWater(creature, world, SIMULATION_CONSTANTS);
       // toxicityDamage = (1 - 0.1) * 0.4 * 0.5 = 0.9 * 0.4 * 0.5 = 0.18
       expect(creature.toxinExposure).toBeCloseTo(0.18);
     });
@@ -303,7 +304,7 @@ describe('hydration system', () => {
         toxinExposure: 0,
       });
 
-      drinkWater(creature, world);
+      drinkWater(creature, world, SIMULATION_CONSTANTS);
       // Should use fresh water
       expect(creature.hydration).toBe(1);
       expect(creature.toxinExposure).toBe(0);
@@ -323,7 +324,7 @@ describe('hydration system', () => {
         hydration: 0.3,
       });
 
-      const restored = drinkWater(creature, world);
+      const restored = drinkWater(creature, world, SIMULATION_CONSTANTS);
       expect(restored).toBe(0);
       expect(creature.hydration).toBe(0.3); // Unchanged
     });

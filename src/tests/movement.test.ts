@@ -14,6 +14,7 @@ import {
 import { World } from '../simulation/world';
 import { createRng } from '../simulation/rng';
 import { DEFAULT_TRAITS } from '../utils/traits';
+import { SIMULATION_CONSTANTS } from '../utils/constants';
 import {
   BIOME_MOVEMENT_COST,
   isTerrainTraversable,
@@ -813,7 +814,10 @@ describe('Movement and Decision Logic', () => {
       expect(decision).toBe('move-to-food');
 
       // Use the scan from decideTick to avoid rescanning
-      applyMovementWithScan(creature, decision, scan, world, [creature]);
+      applyMovementWithScan(creature, decision, scan, world, [creature], {
+        hydrationRecoveryFresh: SIMULATION_CONSTANTS.hydrationRecoveryFresh,
+        hydrationRecoverySalineMultiplier: SIMULATION_CONSTANTS.hydrationRecoverySalineMultiplier,
+      });
 
       // Creature should have moved toward the food
       expect(creature.x).toBeGreaterThan(40);
@@ -847,7 +851,10 @@ describe('Movement and Decision Logic', () => {
       expect(decision).toBe('flee');
 
       // Use the scan from decideTick to avoid rescanning
-      applyMovementWithScan(herbivore, decision, scan, world, [herbivore, predator]);
+      applyMovementWithScan(herbivore, decision, scan, world, [herbivore, predator], {
+        hydrationRecoveryFresh: SIMULATION_CONSTANTS.hydrationRecoveryFresh,
+        hydrationRecoverySalineMultiplier: SIMULATION_CONSTANTS.hydrationRecoverySalineMultiplier,
+      });
 
       // Herbivore should move away from predator
       expect(herbivore.x).toBeLessThan(40);

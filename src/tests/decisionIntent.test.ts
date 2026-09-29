@@ -5,6 +5,7 @@ import { CreatureSpatialIndex } from '../simulation/creatureSpatialIndex';
 import { DEFAULT_TRAITS } from '../utils/traits';
 import { createRng } from '../simulation/rng';
 import { createDecisionIntent } from '../simulation/decisionIntent';
+import { SIMULATION_CONSTANTS } from '../utils/constants';
 
 describe('DecisionIntent - Single Perception Pass Optimization', () => {
   beforeEach(() => {
@@ -81,6 +82,10 @@ describe('DecisionIntent - Single Perception Pass Optimization', () => {
       scan,
       world,
       [creature],
+      {
+        hydrationRecoveryFresh: SIMULATION_CONSTANTS.hydrationRecoveryFresh,
+        hydrationRecoverySalineMultiplier: SIMULATION_CONSTANTS.hydrationRecoverySalineMultiplier,
+      },
       spatialIndex
     );
 
@@ -174,6 +179,10 @@ describe('DecisionIntent - Single Perception Pass Optimization', () => {
       scan,
       world,
       creatures,
+      {
+        hydrationRecoveryFresh: SIMULATION_CONSTANTS.hydrationRecoveryFresh,
+        hydrationRecoverySalineMultiplier: SIMULATION_CONSTANTS.hydrationRecoverySalineMultiplier,
+      },
       spatialIndex
     );
 

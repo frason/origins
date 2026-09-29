@@ -12,6 +12,7 @@ import { CreatureSpatialIndex } from '../simulation/creatureSpatialIndex';
 import { tickEngine, createEngine } from '../simulation/engine';
 import { DEFAULT_TRAITS } from '../utils/traits';
 import { createRng } from '../simulation/rng';
+import { SIMULATION_CONSTANTS } from '../utils/constants';
 
 describe('DecisionIntent Performance - Perception Scan Optimization', () => {
   beforeEach(() => {
@@ -74,6 +75,10 @@ describe('DecisionIntent Performance - Perception Scan Optimization', () => {
           scan,
           world,
           creatures,
+          {
+            hydrationRecoveryFresh: SIMULATION_CONSTANTS.hydrationRecoveryFresh,
+            hydrationRecoverySalineMultiplier: SIMULATION_CONSTANTS.hydrationRecoverySalineMultiplier,
+          },
           spatialIndex
         );
       }
@@ -187,7 +192,18 @@ describe('DecisionIntent Performance - Perception Scan Optimization', () => {
     // Apply movement
     const prevX = creature.x;
     const prevY = creature.y;
-    applyMovementWithScan(creature, decision, scan, world, creatures, spatialIndex);
+    applyMovementWithScan(
+      creature,
+      decision,
+      scan,
+      world,
+      creatures,
+      {
+        hydrationRecoveryFresh: SIMULATION_CONSTANTS.hydrationRecoveryFresh,
+        hydrationRecoverySalineMultiplier: SIMULATION_CONSTANTS.hydrationRecoverySalineMultiplier,
+      },
+      spatialIndex
+    );
 
     // Verify correctness:
     // 1. If there was food nearby and decision was move-to-food, creature should move
