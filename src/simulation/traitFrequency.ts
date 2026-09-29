@@ -91,15 +91,19 @@ export type EvolutionaryChangeType =
 export interface EvidenceThresholds {
   survivalCorrelationThreshold: number; // min survival delta to indicate selection
   reproductionCorrelationThreshold: number; // min reproduction delta to indicate selection
-  divergenceThresholdForNeutralShift: number; // min trait divergence to detect neutral drift
+  divergenceThresholdForNeutralShift: number; // min trait divergence to detect neutral shift
   divergenceThresholdForClassification: number; // min divergence to attempt classification
+  divergenceThresholdForSpeciation: number; // min trait divergence to indicate speciation
+  reproductiveIsolationThreshold: number; // min strategy divergence to indicate isolation
 }
 
 export const DEFAULT_EVIDENCE_THRESHOLDS: EvidenceThresholds = {
   survivalCorrelationThreshold: 0.1, // 10% difference in survival suggests selection
   reproductionCorrelationThreshold: 0.15, // 15% difference in reproduction suggests selection
-  divergenceThresholdForNeutralShift: 0.15, // 15% trait divergence = measurable change
-  divergenceThresholdForClassification: 0.01, // 1% minimum divergence to classify (vs unknown)
+  divergenceThresholdForNeutralShift: 0.02, // 2% trait divergence = measurable change without fitness
+  divergenceThresholdForClassification: 0.001, // 0.1% minimum divergence to classify (vs unknown)
+  divergenceThresholdForSpeciation: 0.05, // 5% trait divergence + isolation signal indicates speciation
+  reproductiveIsolationThreshold: 0.5, // 50% shift in energyStrategy indicates reproductive isolation
 };
 
 /**
@@ -246,6 +250,15 @@ export function isMutationAppearance(
  * Classify an evolutionary change based on frequency and fitness data
  * Uses documented evidence thresholds to determine classification
  * Returns 'unknown' when evidence is insufficient (no threshold crossed)
+ *
+ * Speciation classification requires:
+ * - High overall trait divergence (> divergenceThresholdForSpeciation, typically 0.3)
+ * - Plus reproductive isolation signal (energyStrategy shift > reproductiveIsolationThreshold)
+ * This indicates lineage split into divergent ecotypes/subspecies with different strategies
+ *
+ * Note: Speciation mutations (new strategy appearing with high divergence) are classified
+ * as 'speciation' rather than 'mutation-appearance' because they represent lineage divergence,
+ * not just allelic novelty.
  */
 export function classifyChange(
   current: TraitFrequencySummary,
@@ -262,17 +275,44 @@ export function classifyChange(
 
   if (!currentDist || !previousDist) return 'unknown';
 
-  // Check for mutation appearance (highest confidence, always classifiable)
-  if (isMutationAppearance(trait, current, previous)) {
-    return 'mutation-appearance';
-  }
-
   // Measure trait divergence to determine if change is detectable
   const divergence = measureTraitDivergence(current, previous);
 
   // If change is too small to measure reliably, insufficient evidence
   if (divergence < thresholds.divergenceThresholdForClassification) {
     return 'unknown';
+  }
+
+  // Check for speciation first (high divergence + reproductive isolation signal)
+  // Speciation takes precedence over mutation-appearance when strategy diverges at speciation scale
+  if (divergence > thresholds.divergenceThresholdForSpeciation && trait === 'energyStrategy') {
+    // Speciation requires energyStrategy to diverge substantially
+    const currentStrategy = current.traitFrequencies['energyStrategy'];
+    const previousStrategy = previous.traitFrequencies['energyStrategy'];
+
+    if (currentStrategy && previousStrategy && currentStrategy.frequency && previousStrategy.frequency) {
+      // Measure strategy divergence: max frequency shift for any strategy value
+      let maxStrategyShift = 0;
+      for (const strategy of new Set([
+        ...Object.keys(currentStrategy.frequency),
+        ...Object.keys(previousStrategy.frequency),
+      ])) {
+        const shift = Math.abs(
+          (currentStrategy.frequency[strategy] ?? 0) - (previousStrategy.frequency[strategy] ?? 0)
+        );
+        maxStrategyShift = Math.max(maxStrategyShift, shift);
+      }
+
+      // If strategy shifted significantly, this is speciation (lineage divergence with reproductive isolation)
+      if (maxStrategyShift > thresholds.reproductiveIsolationThreshold) {
+        return 'speciation';
+      }
+    }
+  }
+
+  // Check for mutation appearance (high confidence, but secondary to speciation)
+  if (isMutationAppearance(trait, current, previous)) {
+    return 'mutation-appearance';
   }
 
   // Check for fitness correlation (strongest signal for selection)

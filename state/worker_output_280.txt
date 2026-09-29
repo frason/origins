@@ -1,0 +1,28 @@
+## Summary
+Added a `set_issue_label()` helper function to `scripts/dispatcher.sh` that verifies GitHub label edits actually land before logging success, with automatic retries and greppable mismatch logging. Refactored all 8 label-change call sites (promote_backlog, worker dispatch/completion, worker crash handler, cycle detection, and karen verification) to use this helper, eliminating the silent failure pattern documented in issue #279.
+
+## Changes
+- scripts/dispatcher.sh: Added `set_issue_label()` helper (lines 76-124) that:
+  - Executes `gh issue edit` to change labels
+  - Re-reads the issue's actual labels via `gh issue view --json labels`
+  - Retries up to 2 additional times (3 total attempts) if labels don't match expected state
+  - Logs `LABEL-MISMATCH: issue #N expected add [X] remove [Y], got [Z] after retries` on final failure
+  - Returns 0 on success, 1 on failure (caller uses `|| true` to continue)
+
+- Refactored all 8 label-change call sites to use the helper:
+  - Line 418: promote_backlog (agent-backlog → agent-todo, no dependencies)
+  - Line 431: promote_backlog (agent-backlog → agent-todo, all deps closed)
+  - Line 701: karen verified PASSED (agent-review → agent-done) [HIGH-IMPACT]
+  - Line 706: karen verified FAILED (agent-review → agent-todo) [HIGH-IMPACT]
+  - Line 785: worker cycle detection (agent-todo → agent-blocked)
+  - Line 810: worker dispatch claim (agent-todo → agent-doing)
+  - Line 867: worker crash recovery (agent-doing → agent-todo)
+  - Line 893: worker completion handoff (agent-doing → agent-review) [HIGH-IMPACT]
+
+## Caveats / follow-up
+- Helper uses `paste -sd ',' -` to join label names in mismatch message for readability
+- All refactored call sites retain `|| true` to allow dispatcher to continue even if verification ultimately fails, preventing the original silent-hang issue from escalating to a stuck process
+- The helper is deterministic (uses only `gh` CLI and bash builtins) and portable across macOS/Linux
+- Bash syntax validation with `bash -n` requires manual approval due to script execution policy
+
+Changed files: scripts/dispatcher.sh

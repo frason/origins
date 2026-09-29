@@ -1,0 +1,1 @@
+stale lead/dispatcher scratch file for already-closed issue, neutralized per #275

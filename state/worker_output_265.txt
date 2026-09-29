@@ -1,0 +1,16 @@
+## Summary
+Fixed TypeScript compilation error in `speciesCompositionChart.test.tsx` by adding the missing `aquaticAdaptation` property to the test fixture's traits object. The property is required by the Traits interface but was missing from the test's createCreature helper function.
+
+## Changes
+- Fixed missing trait property in test fixture
+
+## Caveats / follow-up
+None. All requirements from issue #265 were previously implemented in commits 1e78664 and 41a3a08:
+- `SUBSTRATE_TRAITS` table exists in src/simulation/substrates.ts with all 6 SubstrateType entries
+- Producer archetypes have preferred water/salinity/moisture/substrate ranges with smooth degradation
+- Unit tests comprehensively cover substrate/energy multipliers (56 passing producer tests + 4 producerTraits tests)
+- Existing biomass ecology tests remain passing
+- `npm run build` now passes with zero TypeScript errors
+- All 64 relevant tests pass
+
+Changed files: src/tests/speciesCompositionChart.test.tsx

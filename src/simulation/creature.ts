@@ -4,6 +4,7 @@ import { RngFn } from './rng';
 import {
   MAX_ENERGY_MULTIPLIER,
   PREDATION_HUNGER_THRESHOLD_SHARE,
+  type SimulationConstants,
 } from '../utils/constants';
 import type { CreatureSpatialIndex } from './creatureSpatialIndex';
 import { moveAcrossTerrain, reachableTerrainCells } from './biomeTraversal';
@@ -773,12 +774,13 @@ export function applyMovementWithScan(
   scan: VisionScan,
   world: World,
   allCreatures: Creature[],
+  constants: Pick<SimulationConstants, 'hydrationRecoveryFresh' | 'hydrationRecoverySalineMultiplier'>,
   spatialIndex?: CreatureSpatialIndex,
   explicitTarget?: { x: number; y: number }
 ): void {
   // Handle drink decision (restores hydration from adjacent water)
   if (decision === 'drink') {
-    drinkWater(creature, world);
+    drinkWater(creature, world, constants);
     return;
   }
 

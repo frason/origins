@@ -93,6 +93,9 @@ export const HYDRATION_DEPLETION_RATE = 0.1;
 /** Hydration recovery when drinking fresh water (full restoration) */
 export const HYDRATION_RECOVERY_FRESH = 1.0;
 
+/** Saline water recovery multiplier (multiplied by saltTolerance trait) */
+export const HYDRATION_RECOVERY_SALINE_MULTIPLIER = 0.5;
+
 /** Minimum hydration before metabolism penalty starts (0-1 scale) */
 export const HYDRATION_METABOLISM_PENALTY_THRESHOLD = 0.3;
 
@@ -240,6 +243,7 @@ export interface SimulationConstants {
   maxMovementCost: number;
   hydrationDepletionRate: number;
   hydrationRecoveryFresh: number;
+  hydrationRecoverySalineMultiplier: number;
   hydrationMetabolismPenaltyThreshold: number;
   hydrationMetabolismPenaltyMultiplier: number;
   hydrationDeathThreshold: number;
@@ -303,6 +307,7 @@ export const SIMULATION_CONSTANTS: SimulationConstants = {
   maxMovementCost: MAX_MOVEMENT_COST,
   hydrationDepletionRate: HYDRATION_DEPLETION_RATE,
   hydrationRecoveryFresh: HYDRATION_RECOVERY_FRESH,
+  hydrationRecoverySalineMultiplier: HYDRATION_RECOVERY_SALINE_MULTIPLIER,
   hydrationMetabolismPenaltyThreshold: HYDRATION_METABOLISM_PENALTY_THRESHOLD,
   hydrationMetabolismPenaltyMultiplier: HYDRATION_METABOLISM_PENALTY_MULTIPLIER,
   hydrationDeathThreshold: HYDRATION_DEATH_THRESHOLD,

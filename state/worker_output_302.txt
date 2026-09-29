@@ -1,0 +1,21 @@
+## Summary
+Committed 6 missing source files that were already imported by committed code. The files were sitting on disk but never staged to git, causing fresh-checkout builds to fail. All files now committed; fresh build passes.
+
+## Changes
+- src/simulation/challenges.ts (challenge framework, 609 lines)
+- src/ui/useChallenges.ts (challenge state hook, 148 lines)
+- src/ui/ChallengePanel.tsx (UI component, 382 lines)
+- src/ui/ChallengePanel.module.css (component styles, 300 lines)
+- src/ui/SpeciesCompositionChart.tsx (composition chart, 158 lines)
+- src/tests/challenges.test.ts (test suite, 510 lines, 37 tests passing)
+
+## Verification
+✓ `git status --short` shows these files no longer untracked
+✓ `npx tsc --noEmit -p .` passes (TypeScript compilation)
+✓ `npm run build` succeeds (Vite build completes, 5.08s)
+✓ `npx vitest run` passes (45 total tests: 37 challenges.test.ts + 8 speciesCompositionChart.test.tsx)
+
+Commit: bccc912 - "Commit missing ChallengePanel/SpeciesCompositionChart files (#302)"
+
+## Caveats / follow-up
+None. All done-when criteria met. Fresh checkout would now build successfully.

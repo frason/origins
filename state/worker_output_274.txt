@@ -1,0 +1,13 @@
+## Summary
+Wired the `show2dView` toggle state to make the 2D map fallback reachable. Added a visible toggle button with M-key shortcut and conditional rendering so only one view is in the DOM at a time.
+
+## Changes
+- src/App.tsx: Subscribed to `show2dView` state, added M-key handler (with input/textarea guard), added toggle button with aria-labels and data-testid
+- src/App.tsx: Changed render logic to conditionally show either `LiveThreeWorldView` or `WorldView` (not both)
+- src/tests/viewToggle.test.tsx: New 6-test suite covering button presence, click toggles, M-key shortcut, and modifier/input-focus guards
+
+## Caveats / follow-up
+- Full `npm test` suite status: background process still running (earlier targeted run showed 6/6 viewToggle tests passing)
+- TypeScript compiles successfully (npx tsc --noEmit -p . exit code 0)
+
+Changed files: src/App.tsx, src/tests/viewToggle.test.tsx

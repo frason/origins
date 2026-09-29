@@ -81,11 +81,14 @@ export class AdaptationMetricsTracker {
   /**
    * Update adaptation metrics for a tick
    * Call this once per tick in the simulation loop
+   *
+   * Checks events for speciation markers to enhance classification:
+   * If a lineage has an explicit speciation event, trait changes may be labeled as 'speciation'
    */
   updateMetrics(
     tick: number,
     creatures: CreatureSnapshot[],
-    _events: EventSnapshot[]
+    events: EventSnapshot[]
   ): AdaptationObservation[] {
     const observations: AdaptationObservation[] = [];
 
@@ -99,6 +102,14 @@ export class AdaptationMetricsTracker {
         byLineage.set(key, []);
       }
       byLineage.get(key)!.push(creature);
+    }
+
+    // Index speciation events by lineageId for quick lookup
+    const speciationEvents = new Set<string>();
+    for (const event of events) {
+      if (event.type === 'speciation' && event.lineageId) {
+        speciationEvents.add(event.lineageId);
+      }
     }
 
     // Sample trait frequencies at configured interval
@@ -158,7 +169,7 @@ export class AdaptationMetricsTracker {
             );
 
             if (evidence && evidence.confidence >= this.config.confidenceThreshold) {
-              const changeType = classifyChange(
+              let changeType = classifyChange(
                 summary,
                 previous,
                 trait,
@@ -166,6 +177,11 @@ export class AdaptationMetricsTracker {
                 summary.reproductionRate,
                 this.evidenceThresholds
               );
+
+              // If this lineage has a speciation event, mark high-divergence changes as speciation
+              if (speciationEvents.has(lineageId) && changeType === 'neutral-shift') {
+                changeType = 'speciation';
+              }
 
               const observation: AdaptationObservation = {
                 speciesId,

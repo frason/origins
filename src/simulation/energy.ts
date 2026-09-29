@@ -7,6 +7,7 @@ import {
   REPRODUCTION_ENERGY_COST,
   SCAVENGING_RATE,
   MAX_ENERGY_MULTIPLIER,
+  type SimulationConstants,
 } from '../utils/constants';
 import { getProducerTraits } from './producerTypes';
 import { metabolicPerformanceMultiplier, DEFAULT_TRAITS } from '../utils/traits';
@@ -275,14 +276,19 @@ export function applyHydrationDecline(
 
 /**
  * Creature drinks drinkable water, restoring hydration.
- * For fresh water: full recovery.
- * For saline water: partial recovery based on saltTolerance.
+ * For fresh water: full recovery based on hydrationRecoveryFresh constant.
+ * For saline water: partial recovery based on saltTolerance and hydrationRecoverySalineMultiplier.
  *
  * @param creature - the creature drinking
  * @param world - the world grid
+ * @param constants - simulation constants (for recovery rates)
  * @returns amount of hydration restored (0-1)
  */
-export function drinkWater(creature: Creature, world: World): number {
+export function drinkWater(
+  creature: Creature,
+  world: World,
+  constants: Pick<SimulationConstants, 'hydrationRecoveryFresh' | 'hydrationRecoverySalineMultiplier'>
+): number {
   const adjacentCells = [
     { x: creature.x - 1, y: creature.y },
     { x: creature.x + 1, y: creature.y },
@@ -319,14 +325,14 @@ export function drinkWater(creature: Creature, world: World): number {
 
   // Use fresh water if available
   if (bestFreshWater) {
-    const restored = Math.min(1 - creature.hydration, 1.0);
+    const restored = Math.min(1 - creature.hydration, constants.hydrationRecoveryFresh);
     creature.hydration = Math.min(1, creature.hydration + restored);
     return restored;
   }
 
   // Fall back to saline water
   if (bestSalineWater) {
-    const recovery = 0.5 * creature.traits.saltTolerance;
+    const recovery = constants.hydrationRecoverySalineMultiplier * creature.traits.saltTolerance;
     const restored = Math.min(1 - creature.hydration, recovery);
     creature.hydration = Math.min(1, creature.hydration + restored);
 

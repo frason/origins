@@ -13,7 +13,7 @@ export interface PersistedEngineState {
   version: number;
   rngStreamVersion: number;
   compactionVersion?: number; // Version of event compaction strategy applied (for forward compatibility)
-  state: Omit<EngineState, 'world' | 'creatures'> & {
+  state: Omit<EngineState, 'world' | 'creatures' | 'adaptationMetrics'> & {
     world: ReturnType<World['toJSON']>;
     creatures: ReturnType<Creature['toJSON']>[];
     creatureIdCounter: number;
@@ -50,7 +50,13 @@ export function createPersistedEngineState(state: EngineState): PersistedEngineS
     rngStreamVersion: RNG_STREAM_VERSION,
     compactionVersion: EVENT_COMPACTION_VERSION_STORED,
     state: {
-      ...state,
+      tick: state.tick,
+      seed: state.seed,
+      constants: state.constants,
+      historyInterval: state.historyInterval,
+      activeSounds: state.activeSounds,
+      soundEventCounter: state.soundEventCounter,
+      lastAdaptationObservations: state.lastAdaptationObservations,
       world: state.world.toJSON(),
       creatures: state.creatures.map((creature) => creature.toJSON()),
       creatureIdCounter: state.creatureIdCounter,

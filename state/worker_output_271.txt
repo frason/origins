@@ -1,0 +1,11 @@
+## Summary
+Fixed the two failing sound ecology integration tests in `engine.test.ts` by improving test scenarios to ensure sounds are reliably created and detected. Corrected RNG stream in `engine.ts` that was using BIODIVERSITY_PRESSURE instead of SOUND for audio perception.
+
+## Changes
+- `src/simulation/engine.ts`: Fixed audio stream RNG to use `RNG_STREAMS.SOUND` instead of `RNG_STREAMS.BIODIVERSITY_PRESSURE`
+- `src/tests/engine.test.ts`:
+  - "prey flight" test: Added second herbivore so first herbivore can detect threat sounds without dying
+  - "predator investigation" test: Added abundant producer biomass and placed creatures at same location for guaranteed detection
+
+## Caveats / follow-up
+All 35 engine tests pass, including all 6 Sound ecology integration tests. `npm run build` passes without errors.

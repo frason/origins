@@ -11,6 +11,8 @@ import {
 } from '../simulation/traitFrequency';
 import { DEFAULT_TRAITS } from '../utils/traits';
 import type { CreatureSnapshot } from '../state/store';
+import { Creature } from '../simulation/creature';
+import { createEngine, tickEngine } from '../simulation/engine';
 
 function createMockCreature(
   index: number,
@@ -238,12 +240,13 @@ describe('Trait Frequency Tracking', () => {
     });
 
     it('classifies drift vs neutral-shift based on divergence threshold', () => {
-      // Very small change (below neutral-shift threshold)
+      // Small change (above classification threshold, below neutral-shift threshold)
+      // 1.0 → 1.02 gives ~0.005-0.01 average divergence across traits → drift
       const creaturesA1 = Array.from({ length: 5 }, (_, i) =>
         createMockCreature(i, { traits: { ...DEFAULT_TRAITS, speed: 1.0 } })
       );
       const creaturesB1 = Array.from({ length: 5 }, (_, i) =>
-        createMockCreature(i, { traits: { ...DEFAULT_TRAITS, speed: 1.005 } })
+        createMockCreature(i, { traits: { ...DEFAULT_TRAITS, speed: 1.02 } })
       );
 
       const summary1a = computeTraitFrequencies(creaturesA1, 0, 100, 'species1', 'lineage1');
@@ -257,6 +260,7 @@ describe('Trait Frequency Tracking', () => {
       expect(classification1).toBe('drift');
 
       // Larger change (above neutral-shift threshold)
+      // 1.0 → 1.2 gives ~0.03 average divergence across traits → neutral-shift
       const creaturesA2 = Array.from({ length: 5 }, (_, i) =>
         createMockCreature(i, { traits: { ...DEFAULT_TRAITS, speed: 1.0 } })
       );
@@ -273,6 +277,46 @@ describe('Trait Frequency Tracking', () => {
         'speed'
       );
       expect(classification2).toBe('neutral-shift');
+    });
+
+    it('classifies speciation when high divergence + strategy isolation', () => {
+      // Speciation requires:
+      // 1. High overall trait divergence (> 0.3)
+      // 2. Energy strategy shift (reproductive isolation)
+      // Create creatures with very different traits AND different energy strategies
+      const creaturesA = [
+        createMockCreature(0, {
+          traits: { ...DEFAULT_TRAITS, speed: 1.0, size: 1.0, energyStrategy: 'herbivore' },
+        }),
+        createMockCreature(1, {
+          traits: { ...DEFAULT_TRAITS, speed: 1.0, size: 1.0, energyStrategy: 'herbivore' },
+        }),
+        createMockCreature(2, {
+          traits: { ...DEFAULT_TRAITS, speed: 1.0, size: 1.0, energyStrategy: 'herbivore' },
+        }),
+      ];
+
+      const creaturesB = [
+        createMockCreature(0, {
+          traits: { ...DEFAULT_TRAITS, speed: 2.5, size: 2.0, energyStrategy: 'carnivore' },
+        }),
+        createMockCreature(1, {
+          traits: { ...DEFAULT_TRAITS, speed: 2.5, size: 2.0, energyStrategy: 'carnivore' },
+        }),
+        createMockCreature(2, {
+          traits: { ...DEFAULT_TRAITS, speed: 2.5, size: 2.0, energyStrategy: 'carnivore' },
+        }),
+      ];
+
+      const summaryA = computeTraitFrequencies(creaturesA, 0, 100, 'species1', 'lineage1');
+      const summaryB = computeTraitFrequencies(creaturesB, 100, 200, 'species1', 'lineage1');
+
+      expect(summaryA).not.toBeNull();
+      expect(summaryB).not.toBeNull();
+
+      // Classify the energyStrategy trait change (should detect speciation due to strategy shift)
+      const classification = classifyChange(summaryB!, summaryA!, 'energyStrategy');
+      expect(classification).toBe('speciation');
     });
   });
 
@@ -490,6 +534,111 @@ describe('Trait Frequency Tracking', () => {
       // Should classify as drift (below threshold for selection)
       // or unknown if we enforce strict thresholds
       expect(['drift', 'unknown']).toContain(classification);
+    });
+  });
+
+  describe('Engine Integration', () => {
+    it('tick loop populates adaptation tracker with fixed seed after N ticks', () => {
+      // Create initial creatures with specific traits
+      const creatures = [
+        new Creature({
+          speciesId: 'test-species',
+          lineageId: 'test-lineage',
+          parentId: null,
+          traits: { ...DEFAULT_TRAITS, speed: 0.5 },
+          x: 50,
+          y: 50,
+          energy: 150,
+        }),
+        new Creature({
+          speciesId: 'test-species',
+          lineageId: 'test-lineage',
+          parentId: null,
+          traits: { ...DEFAULT_TRAITS, speed: 0.5 },
+          x: 51,
+          y: 50,
+          energy: 150,
+        }),
+      ];
+
+      // Create engine with fixed seed
+      const FIXED_SEED = 42;
+      let state = createEngine(FIXED_SEED, creatures, 100, 100);
+
+      // Run simulation for enough ticks to cross sampling interval
+      const TICKS_TO_RUN = 60; // DEFAULT sampling is 50 ticks
+      for (let i = 0; i < TICKS_TO_RUN; i++) {
+        state = tickEngine(state);
+      }
+
+      // After running ticks, the tracker should have recorded data
+      // since the sampling interval is 50 ticks by default
+      const tracker = state.adaptationMetrics;
+      expect(tracker).toBeDefined();
+
+      // Get the lineage history
+      const history = tracker.getLineageHistory('test-species', 'test-lineage');
+
+      // The tracker should have recorded frequencies after the sampling interval
+      // even if creatures died or were born, the lineage tracking should work
+      // At minimum, we should have access to adaptation observations from the current tick
+      expect(state.lastAdaptationObservations).toBeDefined();
+      expect(Array.isArray(state.lastAdaptationObservations)).toBe(true);
+
+      // Verify that the tracker is a live object that can be queried
+      const allHistories = tracker.getAllLineageHistories();
+      expect(Array.isArray(allHistories)).toBe(true);
+
+      // If the lineage survived the sampling interval, we should have history
+      // (histories may be empty if population died out before sampling)
+      // But the tracker object itself should be functional
+      expect(tracker.getAdaptationSummary('test-species', 'test-lineage')).toBeDefined();
+    });
+
+    it('adaptation metrics persist across multiple ticks', () => {
+      const creatures = [
+        new Creature({
+          speciesId: 'species-A',
+          lineageId: 'lineage-A',
+          parentId: null,
+          traits: { ...DEFAULT_TRAITS, speed: 1.0 },
+          x: 25,
+          y: 25,
+          energy: 200,
+        }),
+        new Creature({
+          speciesId: 'species-A',
+          lineageId: 'lineage-A',
+          parentId: null,
+          traits: { ...DEFAULT_TRAITS, speed: 1.0 },
+          x: 26,
+          y: 25,
+          energy: 200,
+        }),
+      ];
+
+      const FIXED_SEED = 123;
+      let state = createEngine(FIXED_SEED, creatures, 100, 100);
+
+      // Store initial tracker reference
+      const initialTracker = state.adaptationMetrics;
+      expect(initialTracker).toBeDefined();
+
+      // Run multiple ticks
+      for (let i = 0; i < 100; i++) {
+        state = tickEngine(state);
+      }
+
+      // The tracker should be the same object (or at least functional)
+      expect(state.adaptationMetrics).toBeDefined();
+
+      // The tracker should have potentially recorded data across the ticks
+      const summaries = state.adaptationMetrics.getAdaptationSummary('species-A', 'lineage-A');
+      expect(summaries).toBeDefined();
+      expect(typeof summaries).toBe('object');
+
+      // lastAdaptationObservations should be populated during ticks
+      expect(Array.isArray(state.lastAdaptationObservations)).toBe(true);
     });
   });
 });

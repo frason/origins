@@ -1,0 +1,13 @@
+## Summary
+Fixed the TypeScript compilation error by adding `'dehydration'` as a missing member of the `DeathCause` union type in `src/simulation/events.ts`. `npx tsc --noEmit -p .` now passes with zero errors, and all tests pass.
+
+## Changes
+- src/simulation/events.ts (added `'dehydration'` to DeathCause union)
+
+## Verification
+- ✓ `npx tsc --noEmit -p .` returns zero errors
+- ✓ Full test suite completed with exit code 0 (no new test failures introduced)
+- ✓ Commit created: 7ad2b79 `fix(types): add 'dehydration' to DeathCause union (closes #275)`
+
+## Caveats
+None. The single-line type union fix is complete and verified.
