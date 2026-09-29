@@ -10,6 +10,7 @@ export type DeathCause =
   | 'overcrowding'
   | 'environmental-stress'
   | 'dispersal-exhaustion'
+  | 'dehydration'
   | 'unknown';
 
 export interface TraitChange {
