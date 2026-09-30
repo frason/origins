@@ -9,12 +9,64 @@ Runs: karen 2 · lead 1
 
 # Project Status
 
-_Updated by: Lead agent_ &nbsp;·&nbsp; _When: 2026-09-30 (planning pass ~137; numbering
+_Updated by: Lead agent_ &nbsp;·&nbsp; _When: 2026-09-30 (planning pass ~140; numbering
 approximate, see pass ~100's note in git history for why)_
 
 _Note: this file was trimmed this pass — it had grown to 1553 lines of mostly repetitive "pure
 verification pass" entries (passes ~118 through ~135). Kept the 6 most recent detailed entries
 below for context; full history for older passes is preserved in `git log -p -- state/STATUS.md`._
+
+## New this pass (planning pass ~140)
+
+**Pure verification pass — zero lead-actionable board changes (no promotions due, no new client
+answers). One useful confirmation: read #276's and #278's full latest karen FAILs in detail
+(not just their existence) to judge whether the WORK-selector starvation risk on #283/#305
+(both still lower-priority-by-number than nothing, but themselves blocked behind #276/#278 per
+lowest-numbered-first selection) warrants the same close-and-split treatment used on #173/#175
+at pass ~96. Conclusion: no — both are genuinely converging, not crash-looping.**
+
+- **#276's latest FAIL (re-read in full):** every substance check is `[PASS]` (classifyChange
+  labeling, speciation reachability via karen's own probe, determinism). The two `[FAIL]`s are
+  narrow and already covered elsewhere: (a) full-suite failures are the same 15
+  `engineWorkerProtocol.test.ts` failures #307 already exists to fix, not new scope; (b) a
+  vacuous test assertion needs a real check. Also confirms the root cause of those full-suite
+  failures: the #276 commit bundled in ~8800 unrelated lines (disaster-command system,
+  world-branch, `engineWorkerManager.ts` + its broken tests) that don't belong to #276's scope —
+  consistent with #307's own framing ("discovered as a live regression while reviewing #276").
+  No new issue needed; #307 already covers it.
+- **#278's latest FAIL (re-read in full):** the actual goal (engine tick loop wiring into
+  `traitFrequency.ts`) is confirmed already done and on HEAD. Remaining gaps are narrow and
+  concrete: a worker's uncommitted `enginePersistence.ts` edit broke 2 call sites via a type
+  change, one pre-existing `classifyChange` test still fails, and the session's changes were
+  never committed. This matches the pass ~134 narrowing already applied to the issue body — no
+  further re-scoping needed, just another worker turn.
+- **Verdict on starvation risk:** both issues are producing new, specific, narrowing feedback
+  each cycle (not repeating the same FAIL verbatim), the opposite of #173/#175's pattern at pass
+  ~96. Did not close/split either — that playbook is for genuinely stuck crash-loops, not normal
+  iterative convergence. #283/#305 should get a turn naturally once these two close, likely
+  within a few more cycles.
+- **Label census / `depends_on` graph re-confirmed live**: 12 `agent-todo`, 0 `agent-doing`, 0
+  `agent-review` (#267 now correctly sitting in `agent-backlog` since pass ~139, confirmed via
+  live body read: `depends_on: #266(closed), #283(OPEN), #305(OPEN)`), 19 `agent-backlog`, 3
+  `agent-question` (#306, #294, #279), 0 `agent-triage`, 0 untriaged issues, empty
+  `lead-inbox/`. Re-walked every non-epic backlog dependency fresh: #292→#290(OPEN);
+  #291→#290(OPEN); #289→#288(OPEN); #288→#287(OPEN); #284→#280(closed)/#283(OPEN)/#282(OPEN);
+  #282→#280(closed)/#283(OPEN); #277→#165(closed)/#276(OPEN); #268→#265(closed)/#267(OPEN, now
+  backlog); #267→#266(closed)/#283(OPEN)/#305(OPEN) — **zero promotions due**.
+- **#306**: still 0 comments, all 7 @ebowwa PRs still `OPEN`/`MERGEABLE`, unchanged since
+  2026-09-21 (now 9 days). Non-blocking, no unilateral action taken — still needs the client's
+  call on merge-authority/trust.
+- **#294 / #279**: both re-checked — newest comment on each remains this lead's own prior note
+  (#294: 2026-09-29T09:33:32Z; #279: 2026-09-30T08:34:21Z, author `frason` same automation
+  identity per #306's framing), no distinguishable new client answer on either. Both non-blocking
+  per their own framing; no new comment posted this pass (nothing new to add beyond what's
+  already on each thread).
+- No inbox items, no untriaged issues, no `agent-triage` issues this pass.
+
+**Net board effect:** none (no label changes, no new/closed issues, no comments posted). Next
+pass should check whether #276/#278 finally close (freeing the front of the WORK-selector queue
+for #283/#305), whether #267 becomes eligible for re-promotion once #283/#305 close, and whether
+a client answer lands on #306/#294/#279.
 
 ## New this pass (planning pass ~139)
 
