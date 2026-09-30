@@ -327,8 +327,8 @@ describe('Helper functions', () => {
     // (high divergence + strategy shift passes speciation thresholds)
     const summary = tracker.getAdaptationSummary('test-species', 'test-lineage');
 
-    // Either speciation was detected, or neutral-shift (both indicate high divergence)
-    expect(summary.speciation + summary['neutral-shift']).toBeGreaterThanOrEqual(0);
+    // Speciation should be detected for herbivore→carnivore strategy shift with high divergence
+    expect(summary.speciation).toBeGreaterThan(0);
   });
 
   describe('Deterministic classification with same seed', () => {
