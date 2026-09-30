@@ -16,6 +16,48 @@ _Note: this file was trimmed this pass — it had grown to 1553 lines of mostly 
 verification pass" entries (passes ~118 through ~135). Kept the 6 most recent detailed entries
 below for context; full history for older passes is preserved in `git log -p -- state/STATUS.md`._
 
+## New this pass (planning pass ~139)
+
+**First lead-actionable change in several passes: stopped the #267 karen-verify loop from
+burning further money on a gate it can never pass until #283/#305 land, by moving it to
+`agent-backlog`. Everything else on the board re-confirmed unchanged.**
+
+- **#267 moved from `agent-review` to `agent-backlog`, `depends_on: #266, #283, #305`.** Counted
+  8+ karen PASSED verdicts on this issue's substance since 2026-09-28, every single one
+  immediately followed by the "⚠️ Verified but not committed" gate — confirmed via direct `git
+  log` in the lead's own sandbox that the relevant commits (`f8f64a2`, `8ab944a`, `3f90814`,
+  `9fe1e38`, `95cad83`, `63f2e6c`) genuinely exist locally, and confirmed via `git fetch`/`git
+  status` that local `main` remains `ahead 39, behind 1` vs `origin/main` (unchanged in kind from
+  pass ~133/~138). `git merge`/`git rebase`/`git stash` all still blocked ("This command requires
+  approval") in this sandbox, so reconciliation genuinely cannot happen here — it needs #305
+  (plain-bash push-reconciliation fix, runs outside the agent-tool approval gate) and/or #283
+  (fix the gate to check git log instead of the current run's worker-output manifest). Rather
+  than let a guaranteed-fail gate keep re-running karen at real cost indefinitely, sequenced #267
+  behind both fixes; posted a comment on #267 explaining the change and confirming no new
+  implementation work is needed there. Standard `agent-backlog` promotion rules apply once
+  #283/#305 close — no exception carved out for this issue.
+- **Re-walked the full `depends_on` graph fresh** (19 non-epic-inclusive `agent-backlog` issues
+  incl. #267 now): #292→#290(OPEN); #291→#290(OPEN); #289→#288(OPEN); #288→#287(OPEN);
+  #284→#280(closed)/#283(OPEN)/#282(OPEN); #282→#280(closed)/#283(OPEN); #277→#165(closed)/
+  #276(OPEN); #268→#265(closed)/#267(now OPEN in backlog); #267→#266(closed)/#283(OPEN)/
+  #305(OPEN) — **zero promotions due** besides the #267 move above.
+- **#306**: still 0 comments, all 7 @ebowwa PRs still `OPEN`/`MERGEABLE` (per prior passes'
+  checks). Non-blocking, no unilateral action taken — genuinely needs the client's call on
+  merge-authority/trust, not something this lead can resolve by re-checking state again.
+- **#294 / #279**: re-confirmed both threads' comment history is entirely this lead's own prior
+  diagnostic notes (author `frason`, same GitHub identity this automation posts under — there is
+  no way to distinguish a real client answer from a self-authored update by username alone in
+  this repo's setup). No distinguishable new client answer on either. Did not add a redundant
+  comment to either this pass since the #267 action above is fully captured in a comment on #267
+  itself.
+- No inbox items, no untriaged issues, no `agent-triage` issues this pass.
+
+**Net board effect:** 1 issue relabeled (`#267`: agent-review → agent-backlog) + body updated
+with `depends_on` and a lead note, 1 comment posted (#267). No new/closed issues otherwise. Next
+pass should check whether #283/#276/#278 finally get a worker turn (WORK selector still picks
+lowest-numbered ready `agent-todo` issue per #284's diagnosis), whether #267 becomes eligible for
+re-promotion once #283/#305 close, and whether a client answer lands on #306/#294/#279.
+
 ## New this pass (planning pass ~138)
 
 **Board unchanged from pass ~137 (same label census, same `depends_on` graph, same zero
