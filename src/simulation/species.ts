@@ -66,6 +66,8 @@ export function mutateTraits(
     'collectiveConnection',
     'auditorySteal',
     'aquaticAdaptation',
+    'waterNeed',
+    'saltTolerance',
   ] as const;
 
   if (rng() >= mutationRate) return mutated;

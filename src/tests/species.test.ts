@@ -145,11 +145,75 @@ describe('Species - Mutations and Lineage Tracking', () => {
     });
 
     it('lets armor mutations co-evolve toxin resistance without extra randomness', () => {
-      const draws = [0, 0.33, 0.9];
+      const draws = [0, 0.25, 0.9];
       const mutated = mutateTraits(DEFAULT_TRAITS, () => draws.shift() ?? 0, 0.1, 1);
 
       expect(mutated.armor).toBeGreaterThan(DEFAULT_TRAITS.armor);
       expect(mutated.toxinResistance).toBeGreaterThan(0);
+    });
+
+    it('can mutate waterNeed trait', () => {
+      const rng = createRng(12345);
+      let current = { ...DEFAULT_TRAITS };
+      let waterNeedChanged = false;
+
+      // Test multiple mutations to ensure waterNeed can change
+      for (let i = 0; i < 100; i++) {
+        current = mutateTraits(current, rng, 0.1, 1); // 100% mutation rate for testing
+        if (current.waterNeed !== DEFAULT_TRAITS.waterNeed) {
+          waterNeedChanged = true;
+          break;
+        }
+      }
+
+      expect(waterNeedChanged).toBe(true);
+      // Verify it stays within bounds
+      expect(current.waterNeed).toBeGreaterThanOrEqual(TRAIT_MIN.waterNeed ?? 0);
+      expect(current.waterNeed).toBeLessThanOrEqual(TRAIT_MAX.waterNeed ?? 5);
+    });
+
+    it('can mutate saltTolerance trait', () => {
+      const rng = createRng(54321);
+      let current = { ...DEFAULT_TRAITS };
+      let saltToleranceChanged = false;
+
+      // Test multiple mutations to ensure saltTolerance can change
+      for (let i = 0; i < 100; i++) {
+        current = mutateTraits(current, rng, 0.1, 1); // 100% mutation rate for testing
+        if (current.saltTolerance !== DEFAULT_TRAITS.saltTolerance) {
+          saltToleranceChanged = true;
+          break;
+        }
+      }
+
+      expect(saltToleranceChanged).toBe(true);
+      // Verify it stays within bounds (0..1)
+      expect(current.saltTolerance).toBeGreaterThanOrEqual(TRAIT_MIN.saltTolerance ?? 0);
+      expect(current.saltTolerance).toBeLessThanOrEqual(TRAIT_MAX.saltTolerance ?? 1);
+    });
+
+    it('mutates waterNeed and saltTolerance within their respective bounds', () => {
+      const rng = createRng(98765);
+      let current = { ...DEFAULT_TRAITS };
+
+      // Apply many mutations to stress-test the bounds
+      for (let i = 0; i < 1000; i++) {
+        current = mutateTraits(current, rng, 0.2, 1); // Aggressive drift for testing
+
+        if (TRAIT_MIN.waterNeed !== undefined) {
+          expect(current.waterNeed).toBeGreaterThanOrEqual(TRAIT_MIN.waterNeed);
+        }
+        if (TRAIT_MAX.waterNeed !== undefined) {
+          expect(current.waterNeed).toBeLessThanOrEqual(TRAIT_MAX.waterNeed);
+        }
+
+        if (TRAIT_MIN.saltTolerance !== undefined) {
+          expect(current.saltTolerance).toBeGreaterThanOrEqual(TRAIT_MIN.saltTolerance);
+        }
+        if (TRAIT_MAX.saltTolerance !== undefined) {
+          expect(current.saltTolerance).toBeLessThanOrEqual(TRAIT_MAX.saltTolerance);
+        }
+      }
     });
   });
 
