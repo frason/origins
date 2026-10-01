@@ -143,6 +143,21 @@ commit_verified_issue() {
   local number="$1" title="$2" manifest paths path base_branch changed_files fallback_used
   manifest=$(grep '^Changed files:' "$STATE/worker_output_${number}.txt" 2>/dev/null | tail -1 | sed 's/^Changed files:[[:space:]]*//')
 
+  # Check if a qualifying commit for this issue already exists and is pushed.
+  # This handles the case where work was completed in a prior pass (no current
+  # worker_output file, but commit already landed and pushed to origin).
+  base_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+  if [ -n "$base_branch" ]; then
+    matching_commit=$(git rev-list --all --grep="(closes #${number})" --oneline 2>/dev/null | head -1)
+    if [ -n "$matching_commit" ]; then
+      commit_hash=$(printf '%s' "$matching_commit" | cut -d' ' -f1)
+      if git rev-list "origin/${base_branch}" 2>/dev/null | grep -qF "$commit_hash"; then
+        # Commit already exists and is pushed to origin — treat as success
+        return 0
+      fi
+    fi
+  fi
+
   if [ -n "$manifest" ]; then
     # Primary path: worker left changes uncommitted with manifest.
     # Do not absorb an operator's already-staged work into an issue commit.
