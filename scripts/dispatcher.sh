@@ -287,6 +287,7 @@ if ! git diff --quiet -- "$SCHEDULE" 2>/dev/null; then
 fi
 
 now_epoch=$(date +%s)
+STALE_HOURS=6  # Watchdog: reset agent-doing/agent-review issues stale for this many hours
 hour=$(( 10#$(date +%H) ))
 minute=$(( 10#$(date +%M) ))
 max_turns=$(        jq -r '.max_turns               // 25'      "$SCHEDULE")
@@ -448,6 +449,89 @@ promote_backlog() {
     fi
   done < <(printf '%s' "$issues" | jq -c '.[]' 2>/dev/null)
 }
+
+# ============================================================
+# WATCHDOG — reconcile agent-doing/agent-review against ground truth
+# ============================================================
+# This function runs once per dispatcher invocation to detect issues that have been
+# stuck in agent-doing or agent-review for longer than STALE_HOURS. For stuck issues:
+# - If a commit landing the issue exists in git log, relabel to agent-done and close it
+# - Otherwise, relabel to agent-todo and post a comment explaining the reset
+#
+# This catches any "internal state disagrees with GitHub ground truth" instances that
+# slip past the read-back/retry fix in #280 or other label-write bugs, providing a
+# self-healing backstop that prevents silent multi-day stalls.
+#
+# Testing: To manually exercise the watchdog with a shorter stale threshold:
+#   1. Temporarily set STALE_HOURS=0 in this script (for immediate stale detection)
+#   2. Label a test issue with agent-doing or agent-review (leave it for a few minutes)
+#   3. Run: scripts/dispatcher.sh --force-lead
+#   (The watchdog runs before LEAD PASS, so --force-lead lets you trigger it cleanly)
+#   4. Observe the "WATCHDOG:" log line and verify the relabel happened
+#   5. Check the GitHub issue to confirm the comment was posted (if reset) or it was closed (if committed)
+#   6. Restore the original STALE_HOURS=6 value
+watchdog_reconcile_stale_issues() {
+  local stale_json issue old_label issue_num issue_updated_at issue_epoch
+  local base_branch matching_commit commit_hash hours_stale stale_cutoff
+
+  # Fetch all open issues with agent-doing or agent-review labels
+  stale_json=$(gh issue list --repo "$REPO" --label "agent-doing,agent-review" \
+    --state open --json number,updatedAt,labels 2>/dev/null || echo "[]")
+
+  # Exit early if no results
+  [ -z "${stale_json:-}" ] || [ "$stale_json" = "[]" ] && return 0
+
+  stale_cutoff=$(( now_epoch - STALE_HOURS * 3600 ))
+
+  # Process each stale issue
+  while IFS= read -r issue; do
+    issue_num=$(printf '%s' "$issue" | jq -r '.number')
+    issue_updated_at=$(printf '%s' "$issue" | jq -r '.updatedAt')
+
+    # Convert ISO 8601 updatedAt to epoch seconds
+    # Try macOS date -j first, then Linux date -d, then fall back to current epoch
+    issue_epoch=$(
+      date -j -f "%Y-%m-%dT%H:%M:%SZ" "$issue_updated_at" "+%s" 2>/dev/null ||
+      date -d "$issue_updated_at" "+%s" 2>/dev/null ||
+      echo "$now_epoch"
+    )
+
+    # Only process if stale (older than cutoff)
+    if [ "$issue_epoch" -lt "$stale_cutoff" ]; then
+      hours_stale=$(( (now_epoch - issue_epoch) / 3600 ))
+
+      # Extract the current stale label (should be one of agent-doing or agent-review)
+      old_label=$(printf '%s' "$issue" | jq -r '.labels[] | select(.name == "agent-doing" or .name == "agent-review") | .name' | head -1)
+      [ -z "$old_label" ] && continue  # Safety: skip if no stale label found
+
+      # Check if a commit landing this issue exists in git
+      base_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+      matching_commit=$(git rev-list --all --grep="(closes #${issue_num})" --oneline 2>/dev/null | head -1)
+
+      if [ -n "$matching_commit" ]; then
+        commit_hash=$(printf '%s' "$matching_commit" | cut -d' ' -f1)
+        # Verify commit is pushed to origin
+        if git rev-list "origin/${base_branch}" 2>/dev/null | grep -qF "$commit_hash"; then
+          # Commit exists in origin — relabel to agent-done and close
+          set_issue_label "$issue_num" "$old_label" "agent-done" || true
+          gh issue close "$issue_num" --repo "$REPO" >/dev/null 2>&1 || true
+          log "WATCHDOG: issue #$issue_num stale ${hours_stale}h (found commit $(printf '%s' "$commit_hash" | cut -c1-7)) — $old_label → agent-done, closed"
+          continue
+        fi
+      fi
+
+      # No landing commit found; reset to agent-todo and post explanatory comment
+      set_issue_label "$issue_num" "$old_label" "agent-todo" || true
+      gh issue comment "$issue_num" --repo "$REPO" \
+        --body "⚠️ **Watchdog reset:** This issue was labeled \`$old_label\` for ${hours_stale} hours with no dispatcher activity. Resetting to \`agent-todo\` for a fresh attempt. (If the issue was actually completed, add a commit with message '(closes #${issue_num})' to re-close automatically.)" \
+        >/dev/null 2>&1 || true
+      log "WATCHDOG: issue #$issue_num stale ${hours_stale}h (no commit found) — $old_label → agent-todo, comment posted"
+    fi
+  done < <(printf '%s' "$stale_json" | jq -c '.[]' 2>/dev/null)
+}
+
+# Run watchdog early, before any main dispatch passes
+watchdog_reconcile_stale_issues
 
 # ============================================================
 # LEAD PASS — at configured lead_windows minute values, when untriaged issues
