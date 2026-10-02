@@ -81,7 +81,7 @@ function createSnapshot(engineState: EngineState): CompactSnapshot {
  * Process a single command sequentially
  */
 function processCommand(command: WorkerCommand): void {
-  if (!state.engineState) {
+  if (!state.engineState && command.type !== 'init') {
     throw new Error('Worker not initialized. Call init command first.');
   }
 
@@ -103,13 +103,13 @@ function processCommand(command: WorkerCommand): void {
         if (!state.paused && state.isRunning) {
           for (let i = 0; i < command.count; i++) {
             state.engineState = tickEngine(
-              state.engineState,
+              state.engineState!,
               command.constantOverrides
             );
             state.ticksProcessed++;
           }
         }
-        const snapshot = createSnapshot(state.engineState);
+        const snapshot = createSnapshot(state.engineState!);
         sendSnapshot(snapshot);
         break;
       }
@@ -117,7 +117,7 @@ function processCommand(command: WorkerCommand): void {
       case 'pause': {
         state.paused = true;
         state.isRunning = false;
-        const snapshot = createSnapshot(state.engineState);
+        const snapshot = createSnapshot(state.engineState!);
         sendSnapshot(snapshot);
         break;
       }
@@ -125,7 +125,7 @@ function processCommand(command: WorkerCommand): void {
       case 'resume': {
         state.paused = false;
         state.isRunning = true;
-        const snapshot = createSnapshot(state.engineState);
+        const snapshot = createSnapshot(state.engineState!);
         sendSnapshot(snapshot);
         break;
       }
@@ -158,14 +158,14 @@ function processCommand(command: WorkerCommand): void {
       case 'speed': {
         // Speed change is mainly a UI-side concern
         // Worker just acknowledges it
-        const snapshot = createSnapshot(state.engineState);
+        const snapshot = createSnapshot(state.engineState!);
         sendSnapshot(snapshot);
         break;
       }
 
       case 'introduce-species': {
         const result = introduceSpecies(
-          state.engineState,
+          state.engineState!,
           command.strategy,
           command.origin,
           command.requestedName,
@@ -178,8 +178,8 @@ function processCommand(command: WorkerCommand): void {
       }
 
       case 'checkpoint': {
-        const snapshot = createSnapshot(state.engineState);
-        sendSnapshot(snapshot, state.engineState);
+        const snapshot = createSnapshot(state.engineState!);
+        sendSnapshot(snapshot, state.engineState!);
         break;
       }
 
@@ -190,8 +190,8 @@ function processCommand(command: WorkerCommand): void {
     const errorSnapshot: CompactSnapshot = {
       tick: state.engineState?.tick ?? -1,
       seed: state.engineState?.seed ?? -1,
-      worldSnapshot: state.engineState
-        ? snapshotEngine(state.engineState)
+      worldSnapshot: state.engineState!
+        ? snapshotEngine(state.engineState!)
         : { width: 0, height: 0, cells: [], creatures: [], events: [] },
       isRunning: false,
       isPaused: true,
@@ -265,5 +265,42 @@ onmessage = (event: MessageEvent) => {
   }
 };
 
+/**
+ * Execute a command and return the snapshot for testing (bypasses postMessage)
+ */
+function executeCommand(command: WorkerCommand): CompactSnapshot {
+  // Store the original postMessage to restore it later
+  const originalPostMessage = (globalThis as any).postMessage;
+  let capturedSnapshot: CompactSnapshot | null = null;
+
+  try {
+    // Mock postMessage to capture the snapshot instead of sending it
+    (globalThis as any).postMessage = (response: WorkerResponse) => {
+      if (response.snapshot) {
+        capturedSnapshot = response.snapshot;
+      }
+    };
+
+    // Process the command (which will call our mocked postMessage)
+    processCommand(command);
+
+    // Return the captured snapshot
+    if (!capturedSnapshot) {
+      throw new Error('Command did not produce a snapshot');
+    }
+
+    // If the snapshot contains an error, throw it for testing
+    const snapshot: CompactSnapshot = capturedSnapshot;
+    if (snapshot.error) {
+      throw new Error(snapshot.error.message);
+    }
+
+    return snapshot;
+  } finally {
+    // Always restore the original postMessage
+    (globalThis as any).postMessage = originalPostMessage;
+  }
+}
+
 // Export for testing: allow direct engine access without worker
-export { processCommand, state as workerState, createSnapshot };
+export { executeCommand, processCommand, state as workerState, createSnapshot };
