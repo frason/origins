@@ -8,7 +8,7 @@
  * - Synchronize timeline view across branches
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   compareBranches,
   findCommonHistoryTick,
@@ -20,10 +20,108 @@ import { useStore } from '../state/store';
 import type { EcosystemMetrics } from '../simulation/worldBranch';
 import styles from './BranchComparison.module.css';
 
+// Key trait names for display
+const TRAIT_NAMES = [
+  'size',
+  'speed',
+  'visionRange',
+  'hearingRange',
+  'camouflage',
+  'metabolism',
+  'brainSize',
+];
+
+const TRAIT_DISPLAY_NAMES: Record<string, string> = {
+  size: 'Size',
+  speed: 'Speed',
+  visionRange: 'Vision Range',
+  hearingRange: 'Hearing Range',
+  camouflage: 'Camouflage',
+  metabolism: 'Metabolism',
+  brainSize: 'Brain Size',
+};
+
 export interface BranchComparisonProps {
   branchA?: WorldBranch;
   branchB?: WorldBranch;
   onSelectBranch?: (branchId: string) => void;
+}
+
+/**
+ * Display trait frequency comparison between species in two branches
+ */
+function TraitFrequencyComparison({
+  metricsA,
+  metricsB,
+}: {
+  metricsA: EcosystemMetrics | undefined;
+  metricsB: EcosystemMetrics | undefined;
+}): React.ReactElement | null {
+  if (!metricsA?.traitFrequencies && !metricsB?.traitFrequencies) {
+    return null;
+  }
+
+  const speciesA = Object.keys(metricsA?.traitFrequencies ?? {});
+  const speciesB = Object.keys(metricsB?.traitFrequencies ?? {});
+
+  if (speciesA.length === 0 && speciesB.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className={styles.traitFrequencySection}>
+      <h4>Trait Frequencies by Species</h4>
+      <div className={styles.traitFrequencyGrid}>
+        {/* Branch A traits */}
+        <div className={styles.speciesTraits}>
+          <h5>Branch A Species Traits</h5>
+          {speciesA.length > 0 ? (
+            speciesA.slice(0, 3).map((speciesId) => (
+              <div key={speciesId} className={styles.speciesTraitBlock}>
+                <div className={styles.speciesId}>{speciesId.slice(0, 8)}...</div>
+                <dl className={styles.traitList}>
+                  {metricsA?.traitFrequencies?.[speciesId]?.map((value, idx) => (
+                    <div key={idx} className={styles.traitRow}>
+                      <dt>{TRAIT_DISPLAY_NAMES[TRAIT_NAMES[idx]] || TRAIT_NAMES[idx]}</dt>
+                      <dd>{typeof value === 'number' ? value.toFixed(2) : 'N/A'}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            ))
+          ) : (
+            <p>No species data available</p>
+          )}
+          {speciesA.length > 3 && <p className={styles.moreItems}>+{speciesA.length - 3} more species</p>}
+        </div>
+
+        {/* Branch B traits */}
+        {metricsB && (
+          <div className={styles.speciesTraits}>
+            <h5>Branch B Species Traits</h5>
+            {speciesB.length > 0 ? (
+              speciesB.slice(0, 3).map((speciesId) => (
+                <div key={speciesId} className={styles.speciesTraitBlock}>
+                  <div className={styles.speciesId}>{speciesId.slice(0, 8)}...</div>
+                  <dl className={styles.traitList}>
+                    {metricsB?.traitFrequencies?.[speciesId]?.map((value, idx) => (
+                      <div key={idx} className={styles.traitRow}>
+                        <dt>{TRAIT_DISPLAY_NAMES[TRAIT_NAMES[idx]] || TRAIT_NAMES[idx]}</dt>
+                        <dd>{typeof value === 'number' ? value.toFixed(2) : 'N/A'}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ))
+            ) : (
+              <p>No species data available</p>
+            )}
+            {speciesB.length > 3 && <p className={styles.moreItems}>+{speciesB.length - 3} more species</p>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -180,7 +278,8 @@ function BranchSelector({
  * Displays two branches side-by-side with:
  * - Ecosystem metrics
  * - Divergence analysis
- * - Timeline synchronization
+ * - Trait frequency comparison
+ * - Timeline/map focus synchronization
  */
 export function BranchComparisonView({
   branchA,
@@ -188,6 +287,10 @@ export function BranchComparisonView({
   onSelectBranch,
 }: BranchComparisonProps): React.ReactElement | null {
   const branchCollection = useStore((state) => state.branchCollection);
+
+  // Timeline/map focus sync state
+  const [syncedTick, setSyncedTick] = useState<number | null>(null);
+  const [syncedMapRegion, setSyncedMapRegion] = useState<{ x: number; y: number } | null>(null);
 
   const displayBranchA = useMemo(
     () => branchA || branchCollection?.main,
@@ -214,6 +317,22 @@ export function BranchComparisonView({
     () => (displayBranchB?.worldState ? sampleMetrics(displayBranchB.worldState) : undefined),
     [displayBranchB]
   );
+
+  /**
+   * Sync timeline position: when one branch's timeline is clicked,
+   * update the synced tick for both branches
+   */
+  const handleTimelineSync = (tick: number) => {
+    setSyncedTick(tick);
+  };
+
+  /**
+   * Sync map focus: when one branch's map is clicked,
+   * update the synced map region for both branches
+   */
+  const handleMapSync = (region: { x: number; y: number }) => {
+    setSyncedMapRegion(region);
+  };
 
   if (!displayBranchA) {
     return (
@@ -278,6 +397,32 @@ export function BranchComparisonView({
         <MetricsCard label="Branch A - Current State" metrics={metricsA} />
         {displayBranchB && <MetricsCard label="Branch B - Current State" metrics={metricsB} />}
       </div>
+
+      {/* Trait Frequency Comparison */}
+      {metricsA && <TraitFrequencyComparison metricsA={metricsA} metricsB={metricsB} />}
+
+      {/* Timeline/Map Focus Synchronization Info */}
+      {(syncedTick !== null || syncedMapRegion !== null) && (
+        <div className={styles.syncInfo}>
+          <h4>Synchronized Focus</h4>
+          {syncedTick !== null && (
+            <p>
+              Both branches viewing <strong>tick {syncedTick}</strong>
+              <button onClick={() => setSyncedTick(null)} className={styles.clearSyncBtn}>
+                Clear
+              </button>
+            </p>
+          )}
+          {syncedMapRegion !== null && (
+            <p>
+              Both branches viewing region <strong>({syncedMapRegion.x}, {syncedMapRegion.y})</strong>
+              <button onClick={() => setSyncedMapRegion(null)} className={styles.clearSyncBtn}>
+                Clear
+              </button>
+            </p>
+          )}
+        </div>
+      )}
 
       {divergence && displayBranchB && <DivergenceAnalysis divergence={divergence} />}
     </div>

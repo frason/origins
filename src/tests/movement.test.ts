@@ -620,6 +620,53 @@ describe('Movement and Decision Logic', () => {
   });
 
   describe('biome traversal', () => {
+    it('routes around a lake obstacle instead of oscillating', () => {
+      // Create a multi-cell-wide lake (high-cost water wall) directly between creature and target
+      // Lake is at x=15-35, y=48-52 (5 rows wide, 21 cells tall)
+      for (let x = 15; x <= 35; x++) {
+        for (let y = 48; y <= 52; y++) {
+          world.setCell(x, y, { biome: 'wetland', waterDepth: 1.5 }); // High-cost water
+        }
+      }
+      // Leave open ground above and below for detours
+      for (let x = 15; x <= 35; x++) {
+        world.setCell(x, 47, { biome: 'grassland', waterDepth: 0 });
+        world.setCell(x, 53, { biome: 'grassland', waterDepth: 0 });
+      }
+
+      const creature = new Creature({
+        speciesId: 'detourer', lineageId: 'detourer', parentId: null,
+        traits: { ...DEFAULT_TRAITS, speed: 2, aquaticAdaptation: 0.1 },
+        x: 10, y: 50, energy: 500,
+      });
+
+      const targetX = 40;
+      const targetY = 50;
+      const initialY = creature.y;
+      const path = [{ x: creature.x, y: creature.y }];
+
+      // Run movement for up to 30 ticks
+      for (let tick = 0; tick < 30; tick++) {
+        const nextPos = moveAcrossTerrain(creature, { x: targetX, y: targetY }, world);
+        creature.x = nextPos.x;
+        creature.y = nextPos.y;
+        path.push({ x: creature.x, y: creature.y });
+
+        // Check if reached target
+        if (creature.x >= targetX - 1 && creature.x <= targetX + 1) break;
+      }
+
+      // Assert (a): creature's y-coordinate changed (deviated to go around the lake)
+      const yCoordinates = new Set(path.map((p) => p.y));
+      expect(yCoordinates.size).toBeGreaterThan(1);
+      const maxYDeviation = Math.max(...path.map((p) => Math.abs(p.y - initialY)));
+      expect(maxYDeviation).toBeGreaterThan(0);
+
+      // Assert (b): creature reached the target (or got very close) within bounded ticks
+      expect(creature.x).toBeGreaterThanOrEqual(targetX - 2);
+      expect(path.length).toBeLessThanOrEqual(30);
+    });
+
     it('makes ocean and mountain impassable while keeping land costs distinct', () => {
       world.setCell(51, 50, { biome: 'ocean' });
       world.setCell(52, 50, { biome: 'mountain' });

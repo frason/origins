@@ -83,8 +83,13 @@ export interface WorldBranch {
   tick: number;
   /** Most recent world state */
   worldState: WorldSnapshot | null;
-  /** Checkpoints stored for this branch (independent from parent) */
-  checkpoints: Array<{ tick: number; creatureIdCounter?: number }>;
+  /** Checkpoints stored for this branch with replay references to real engine state */
+  checkpoints: Array<{
+    tick: number;
+    creatureIdCounter?: number;
+    /** Reference to a real engine checkpoint tick for deterministic replay */
+    replayCheckpointTick?: number;
+  }>;
   /** The seed used for the parent timeline */
   seed: number;
   /** Timestamp when branch was created */
@@ -138,6 +143,10 @@ export function createBranch(
 
 /**
  * Record a checkpoint on a branch
+ * @param branch - the branch to capture onto
+ * @param worldState - the current world state
+ * @param interval - only capture at tick % interval === 0
+ * @param limit - maximum number of checkpoints to keep
  */
 export function captureCheckpointOnBranch(
   branch: WorldBranch,
@@ -150,6 +159,44 @@ export function captureCheckpointOnBranch(
   const newCheckpoint = {
     tick: worldState.tick!,
     creatureIdCounter: undefined, // Can be populated if needed
+  };
+
+  // Replace any existing checkpoint at the same tick
+  const updated = [
+    ...branch.checkpoints.filter((cp) => cp.tick !== worldState.tick!),
+    newCheckpoint,
+  ].sort((a, b) => a.tick - b.tick);
+
+  return {
+    ...branch,
+    tick: worldState.tick!,
+    worldState: { ...worldState },
+    checkpoints: updated.slice(-Math.max(1, limit)),
+  };
+}
+
+/**
+ * Record a checkpoint on a branch with a reference to a real engine checkpoint for deterministic replay
+ * @param branch - the branch to capture onto
+ * @param worldState - the current world state
+ * @param replayCheckpointTick - the tick from the checkpoint-persistence system that contains
+ *                               the full EngineState needed to replay from this branch checkpoint
+ * @param interval - only capture at tick % interval === 0
+ * @param limit - maximum number of checkpoints to keep
+ */
+export function captureCheckpointOnBranchWithReplay(
+  branch: WorldBranch,
+  worldState: WorldSnapshot,
+  replayCheckpointTick: number,
+  interval: number = 10,
+  limit: number = 30
+): WorldBranch {
+  if (worldState.tick! % interval !== 0) return branch;
+
+  const newCheckpoint = {
+    tick: worldState.tick!,
+    creatureIdCounter: undefined,
+    replayCheckpointTick, // Reference to real engine checkpoint for deterministic replay
   };
 
   // Replace any existing checkpoint at the same tick
@@ -188,6 +235,9 @@ export function sampleMetrics(world: WorldSnapshot): EcosystemMetrics {
   // Count extinctions (species that existed before but don't now)
   const extinctionCount = (world.events ?? []).filter((e) => e.type === 'extinction').length;
 
+  // Sample trait frequencies from alive creatures
+  const traitFrequencies = sampleTraitFrequencies(world);
+
   return {
     tick: world.tick ?? 0,
     population,
@@ -195,7 +245,69 @@ export function sampleMetrics(world: WorldSnapshot): EcosystemMetrics {
     livingEnergy,
     producerBiomass,
     extinctionCount,
+    traitFrequencies,
   };
+}
+
+/**
+ * Sample trait frequencies from alive creatures, grouped by species
+ * Returns the most common trait values for each species
+ */
+function sampleTraitFrequencies(world: WorldSnapshot): Record<string, number[]> {
+  const aliveCreatures = (world.creatures ?? []).filter((c) => c.lifecycleState === 'alive');
+
+  if (aliveCreatures.length === 0) {
+    return {};
+  }
+
+  // Key traits to sample for frequency analysis (active traits that affect gameplay)
+  const keysToSample = [
+    'size',
+    'speed',
+    'visionRange',
+    'hearingRange',
+    'camouflage',
+    'metabolism',
+    'brainSize',
+  ] as const;
+
+  // Group creatures by species
+  const creaturesBySpecies = new Map<string, typeof aliveCreatures>();
+  for (const creature of aliveCreatures) {
+    const existing = creaturesBySpecies.get(creature.speciesId) ?? [];
+    existing.push(creature);
+    creaturesBySpecies.set(creature.speciesId, existing);
+  }
+
+  const result: Record<string, number[]> = {};
+
+  // For each species, calculate most common trait values
+  for (const [speciesId, creatures] of creaturesBySpecies) {
+    const traitValues: number[] = [];
+
+    for (const traitKey of keysToSample) {
+      if (creatures.length === 0) continue;
+
+      // Get all trait values for this trait across creatures in this species
+      const values = creatures
+        .map((c) => {
+          const val = (c.traits as any)[traitKey];
+          return typeof val === 'number' ? val : 0;
+        })
+        .sort((a, b) => a - b);
+
+      // Find the median (most representative value for frequency analysis)
+      const median = values.length % 2 === 0
+        ? (values[values.length / 2 - 1] + values[values.length / 2]) / 2
+        : values[Math.floor(values.length / 2)];
+
+      traitValues.push(Math.round(median * 100) / 100);
+    }
+
+    result[speciesId] = traitValues;
+  }
+
+  return result;
 }
 
 /**
@@ -377,4 +489,16 @@ export function validateBranchCompatibility(branch: WorldBranch): boolean {
     return false;
   }
   return true;
+}
+
+/**
+ * Verify that a branch's stored checkpoint is sufficient for deterministic replay.
+ * A checkpoint is valid for replay if it has a replayCheckpointTick that references
+ * a real EngineState checkpoint from the checkpoint-persistence system.
+ *
+ * @param checkpoint - the checkpoint to verify
+ * @returns true if the checkpoint has a valid replayCheckpointTick reference
+ */
+export function checkpointCanReplay(checkpoint: WorldBranch['checkpoints'][number]): boolean {
+  return typeof checkpoint.replayCheckpointTick === 'number' && checkpoint.replayCheckpointTick >= 0;
 }

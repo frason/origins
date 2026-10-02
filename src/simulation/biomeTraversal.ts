@@ -45,6 +45,93 @@ export function isTerrainTraversable(
 
 const key = (x: number, y: number) => `${x},${y}`;
 
+/** Lookahead radius for finding alternative routes around obstacles. */
+const LOOKAHEAD_RADIUS = 3;
+
+/**
+ * Bounded BFS lookahead to find alternative routes when the greedy direct path
+ * is blocked or exceeds available movement budget. This prevents oscillation
+ * when creatures encounter lakes or other costly terrain.
+ *
+ * Returns the best alternative position reachable within the lookahead radius
+ * that makes progress toward target and is affordable within budget, or null if none found.
+ */
+function findAlternativeRoute(
+  creature: Creature,
+  startX: number,
+  startY: number,
+  targetX: number,
+  targetY: number,
+  world: World,
+  budget: number
+): { x: number; y: number; cost: number } | null {
+  const startDist = distance(startX, startY, targetX, targetY, world.width);
+  const visited = new Set<string>();
+  const queue: Array<{ x: number; y: number; cost: number; depth: number }> = [];
+  const candidates: Array<{ x: number; y: number; cost: number; dist: number }> = [];
+
+  // Start BFS from all neighbors, not the starting position itself
+  for (const direction of DIRECTIONS) {
+    const nx = wrapCoordinate(startX + direction.dx, world.width);
+    const ny = startY + direction.dy;
+
+    if (!isTerrainTraversable(world, nx, ny, creature.traits)) continue;
+    const cell = world.getCell(nx, ny);
+    if (!isWaterPassable(creature, cell, 1)) continue;
+
+    const biomeCost = terrainMovementCost(cell.biome, creature.traits);
+    const cellCost = getTraversalCost(creature, cell, biomeCost);
+    if (cellCost <= budget) {
+      queue.push({ x: nx, y: ny, cost: cellCost, depth: 1 });
+    }
+  }
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const posKey = key(current.x, current.y);
+
+    if (visited.has(posKey)) continue;
+    visited.add(posKey);
+
+    const dist = distance(current.x, current.y, targetX, targetY, world.width);
+    // Candidate is viable if it doesn't increase distance (allows detours at same distance)
+    // and doesn't exceed budget
+    if (dist <= startDist && current.cost <= budget) {
+      candidates.push({ x: current.x, y: current.y, cost: current.cost, dist });
+    }
+
+    // Continue BFS only if within depth limit
+    if (current.depth < LOOKAHEAD_RADIUS) {
+      for (const direction of DIRECTIONS) {
+        const nx = wrapCoordinate(current.x + direction.dx, world.width);
+        const ny = current.y + direction.dy;
+        const neighborKey = key(nx, ny);
+
+        if (visited.has(neighborKey)) continue;
+        if (!isTerrainTraversable(world, nx, ny, creature.traits)) continue;
+
+        const cell = world.getCell(nx, ny);
+        if (!isWaterPassable(creature, cell, 1)) continue;
+
+        const biomeCost = terrainMovementCost(cell.biome, creature.traits);
+        const cellCost = getTraversalCost(creature, cell, biomeCost);
+        const totalCost = current.cost + cellCost;
+
+        if (totalCost <= budget) {
+          queue.push({ x: nx, y: ny, cost: totalCost, depth: current.depth + 1 });
+        }
+      }
+    }
+  }
+
+  if (candidates.length === 0) return null;
+
+  // Sort by distance (closer is better), then cost (cheaper is better),
+  // then position (for deterministic tie-breaking)
+  candidates.sort((a, b) => a.dist - b.dist || a.cost - b.cost || a.y - b.y || a.x - b.x);
+  return candidates[0];
+}
+
 /** Return locally connected cells so perception does not select food behind barriers. */
 export function reachableTerrainCells(
   world: World,
@@ -117,16 +204,26 @@ export function moveAcrossTerrain(
       .sort((a, b) => a.distance - b.distance || a.directDistance - b.directDistance || a.cost - b.cost || a.y - b.y || a.x - b.x);
     const next = candidates[0];
     if (!next) break;
+
     if (next.cost > budget) {
-      // Slow terrain remains crossable for speed-1 creatures, but only on a
-      // deterministic cadence based on age rather than a new random draw.
-      const excessCost = Math.max(0.01, next.cost - creature.traits.speed);
-      const delayPeriod = Math.max(2, Math.round(1 / excessCost));
-      if (creature.age % delayPeriod === 0) break;
+      // Cost exceeds budget: try lookahead to find alternative route around obstacle
+      const alternative = findAlternativeRoute(creature, x, y, targetX, targetY, world, budget);
+      if (alternative) {
+        x = alternative.x;
+        y = alternative.y;
+        budget -= alternative.cost;
+      } else {
+        // No alternative found: slow terrain remains crossable for speed-1 creatures,
+        // but only on a deterministic cadence based on age rather than a new random draw.
+        const excessCost = Math.max(0.01, next.cost - creature.traits.speed);
+        const delayPeriod = Math.max(2, Math.round(1 / excessCost));
+        if (creature.age % delayPeriod === 0) break;
+      }
+    } else {
+      x = next.x;
+      y = next.y;
+      budget -= next.cost;
     }
-    x = next.x;
-    y = next.y;
-    budget -= next.cost;
   }
   return { x, y };
 }

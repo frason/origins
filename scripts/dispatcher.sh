@@ -123,6 +123,35 @@ set_issue_label() {
   return 1
 }
 
+# Helper: push with automatic non-fast-forward reconciliation.
+# Fetches latest from origin, attempts ff-only merge (fallback to auto-merge on conflicts),
+# and retries push. On merge conflicts, aborts and returns failure with a clear log message.
+# Usage: push_with_retry <base_branch>
+# Returns: 0 on success, 1 on failure (fetch, merge, or push failure)
+push_with_retry() {
+  local base_branch="$1"
+
+  # Fetch latest from origin
+  if ! git fetch origin "$base_branch" 2>/dev/null; then
+    log "  fetch origin/$base_branch failed; cannot reconcile"
+    return 1
+  fi
+
+  # Attempt fast-forward merge (preferred: no merge commit)
+  if ! git merge --ff-only "origin/${base_branch}" 2>/dev/null; then
+    # ff-only failed; try auto-merge with merge commit as fallback
+    if ! git merge --no-edit "origin/${base_branch}" 2>/dev/null; then
+      # Real merge conflict detected; abort and fail
+      git merge --abort 2>/dev/null || true
+      log "  merge conflict detected during non-ff reconciliation — cannot auto-merge, push failed"
+      return 1
+    fi
+  fi
+
+  # Merge succeeded (or was unnecessary); attempt push
+  git push origin HEAD
+}
+
 # A verified issue may commit only the explicit worker manifest; never stage the
 # whole worktree because client files and a later issue may already be present.
 #
@@ -176,8 +205,8 @@ EOF
       # Nothing new staged (already committed) — check if there are unpushed commits.
       base_branch=$(git rev-parse --abbrev-ref HEAD)
       if [ -n "$(git rev-list -n1 "origin/${base_branch}..HEAD" 2>/dev/null)" ]; then
-        # Unpushed commits exist — push them.
-        git push origin HEAD || return 1
+        # Unpushed commits exist — push them (with non-ff reconciliation).
+        push_with_retry "$base_branch" || return 1
       else
         # No staged changes and no unpushed commits — fail.
         return 1
@@ -185,7 +214,7 @@ EOF
     else
       # Staged changes exist — commit and push as normal.
       git commit -m "chore(issue): ${title} (closes #${number})" || return 1
-      git push origin HEAD
+      push_with_retry "$base_branch" || return 1
     fi
   else
     # Numbered manifest missing/malformed — try fallback paths.
@@ -234,8 +263,8 @@ EOF
         # Nothing new staged (already committed) — check if there are unpushed commits.
         base_branch=$(git rev-parse --abbrev-ref HEAD)
         if [ -n "$(git rev-list -n1 "origin/${base_branch}..HEAD" 2>/dev/null)" ]; then
-          # Unpushed commits exist — push them.
-          git push origin HEAD || return 1
+          # Unpushed commits exist — push them (with non-ff reconciliation).
+          push_with_retry "$base_branch" || return 1
         else
           # No staged changes and no unpushed commits — fail.
           return 1
@@ -243,14 +272,14 @@ EOF
       else
         # Staged changes exist — commit and push as normal.
         git commit -m "chore(issue): ${title} (closes #${number})" || return 1
-        git push origin HEAD
+        push_with_retry "$base_branch" || return 1
       fi
     else
       # No changes from either path — check for unpushed commits as last resort
       base_branch=$(git rev-parse --abbrev-ref HEAD)
       if [ -n "$(git rev-list -n1 "origin/${base_branch}..HEAD" 2>/dev/null)" ]; then
-        # Local commits exist but are not on origin — push them.
-        git push origin HEAD || return 1
+        # Local commits exist but are not on origin — push them (with non-ff reconciliation).
+        push_with_retry "$base_branch" || return 1
       else
         # No manifest, no git diff changes, and no unpushed commits — fail.
         return 1

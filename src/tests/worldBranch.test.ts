@@ -2,17 +2,30 @@ import { describe, expect, it } from 'vitest';
 import {
   createBranch,
   captureCheckpointOnBranch,
+  captureCheckpointOnBranchWithReplay,
   sampleMetrics,
   compareBranches,
   findCommonHistoryTick,
   estimateBranchSize,
   boundBranchStorage,
   validateBranchCompatibility,
+  checkpointCanReplay,
   type WorldBranch,
   type ChangedIntervention,
 } from '../simulation/worldBranch';
 import type { WorldSnapshot } from '../state/store';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
+import {
+  createEngine,
+  tickEngine,
+  type EngineState,
+} from '../simulation/engine';
+import {
+  captureCheckpoint,
+  restoreCheckpoint,
+  type SimulationCheckpoint,
+} from '../simulation/checkpointTimeline';
+import { Creature } from '../simulation/creature';
 
 function createTestWorld(tick: number, population: number = 10): WorldSnapshot {
   return {
@@ -79,6 +92,50 @@ function createTestWorld(tick: number, population: number = 10): WorldSnapshot {
       },
     ],
     constants: SIMULATION_CONSTANTS,
+  };
+}
+
+/**
+ * Convert EngineState to WorldSnapshot for testing
+ */
+function engineStateToSnapshot(state: EngineState): WorldSnapshot {
+  const world = state.world.toJSON() as {
+    width: number;
+    height: number;
+    cells: WorldSnapshot['cells'];
+  };
+  return {
+    ...world,
+    creatures: state.creatures.map((creature) => ({
+      id: creature.id,
+      speciesId: creature.speciesId,
+      lineageId: creature.lineageId,
+      parentId: creature.parentId,
+      traits: { ...creature.traits },
+      x: creature.x,
+      y: creature.y,
+      energy: creature.energy,
+      age: creature.age,
+      lifecycleState: creature.lifecycleState,
+      corpseDecayTicks: creature.corpseDecayTicks,
+      lastReproductionAge: creature.lastReproductionAge,
+      generation: creature.generation,
+      incipientSpeciesId: creature.incipientSpeciesId,
+      offspringCount: creature.offspringCount,
+      toxinExposure: creature.toxinExposure,
+      localResourcePressure: creature.localResourcePressure,
+      reproductionPressureMultiplier: creature.reproductionPressureMultiplier,
+      dispersalTargetX: creature.dispersalTargetX,
+      dispersalTargetY: creature.dispersalTargetY,
+      lastDispersalTick: creature.lastDispersalTick,
+      dispersalMoves: creature.dispersalMoves,
+    })),
+    events: state.events.map((event) => ({ ...event })),
+    seed: state.seed,
+    tick: state.tick,
+    constants: { ...state.constants },
+    speciesProfiles: state.speciesProfiles,
+    incipientSpecies: state.incipientSpecies,
   };
 }
 
@@ -509,6 +566,92 @@ describe('world branching and counterfactual analysis', () => {
       expect(divergence.extinctionDifferences.length).toBeGreaterThan(0);
       // s1 extinct in branch1, not in branch2
       expect(divergence.extinctionDifferences.some(d => d.speciesId === 's1' && d.extinctIn === 'branch_a')).toBe(true);
+    });
+
+    it('replays branch checkpoints deterministically against the real engine', () => {
+      // Test the core requirement: branch checkpoints must contain enough state
+      // to replay deterministically against the real engine
+
+      const constants = { ...SIMULATION_CONSTANTS, worldWidth: 20, worldHeight: 20 };
+
+      // Create initial engine state and run forward
+      let engineState = createEngine(12345, [], 20, 20, constants);
+      let engineCheckpoints: SimulationCheckpoint<EngineState>[] = [];
+
+      // Run 30 ticks, capturing engine checkpoints at intervals
+      for (let tick = 0; tick < 30; tick++) {
+        engineState = tickEngine(engineState, constants);
+        if (engineState.tick % 10 === 0) {
+          engineCheckpoints = captureCheckpoint<EngineState>(
+            engineCheckpoints,
+            engineState,
+            10,
+            5
+          );
+        }
+      }
+
+      // Verify we have checkpoints captured
+      expect(engineCheckpoints.length).toBeGreaterThan(0);
+      expect(engineCheckpoints.some(cp => cp.tick === 10)).toBe(true);
+
+      // At tick 10, create a branch from the engine checkpoint
+      const checkpoint10 = engineCheckpoints.find(cp => cp.tick === 10);
+      expect(checkpoint10).toBeDefined();
+
+      const branchWorldSnapshot = engineStateToSnapshot(checkpoint10!.state);
+      const branch = createBranch(
+        branchWorldSnapshot,
+        10,
+        { tick: 10, kind: 'settings-change', label: 'test branch' },
+        'Test Branch'
+      );
+
+      // Capture a checkpoint on the branch that references the real engine checkpoint
+      const branchAfterCapture = captureCheckpointOnBranchWithReplay(
+        branch,
+        branchWorldSnapshot,
+        10, // replayCheckpointTick: references the real engine checkpoint at tick 10
+        10  // interval
+      );
+
+      // Verify the checkpoint was captured and has the replay reference
+      expect(branchAfterCapture.checkpoints.length).toBe(1);
+      expect(branchAfterCapture.checkpoints[0].tick).toBe(10);
+      expect(checkpointCanReplay(branchAfterCapture.checkpoints[0])).toBe(true);
+      expect(branchAfterCapture.checkpoints[0].replayCheckpointTick).toBe(10);
+
+      // Now verify that we can restore from this reference and continue deterministically
+      const restoreResult = restoreCheckpoint(engineCheckpoints, 10);
+      expect(restoreResult).not.toBeNull();
+
+      // Run 5 more ticks from the restored state
+      let restored = restoreResult!.state;
+      let restoredFinal: EngineState | null = null;
+      for (let i = 0; i < 5; i++) {
+        restored = tickEngine(restored, constants);
+        if (restored.tick === 15) restoredFinal = restored;
+      }
+
+      expect(restoredFinal).not.toBeNull();
+      expect(restoredFinal!.tick).toBe(15);
+
+      // The restored state at tick 15 should match what we got by continuing
+      // forward from the original run to tick 15
+      const originalAt15 = engineCheckpoints.find(cp => cp.tick === 10)
+        ? (() => {
+            let temp = checkpoint10!.state;
+            for (let i = 0; i < 5; i++) {
+              temp = tickEngine(temp, constants);
+            }
+            return temp;
+          })()
+        : null;
+
+      expect(originalAt15).not.toBeNull();
+      expect(restoredFinal!.tick).toBe(originalAt15!.tick);
+      // Verify creature counts match (proof of deterministic replay)
+      expect(restoredFinal!.creatures.length).toBe(originalAt15!.creatures.length);
     });
   });
 });

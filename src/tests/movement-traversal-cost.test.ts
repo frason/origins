@@ -148,7 +148,8 @@ describe('Traversal Cost System (aquaticAdaptation + water depth)', () => {
       // Set up a scenario: start at (10, 50), target at (40, 50)
       // Route 1 (dry): (10->11->12->...->40, 30 cells, cost = 1 each)
       // Route 2 (water): (10->25->40, 3 cells, cost = 5 each for deep water)
-      // The creature should prefer the dry route
+      // With lookahead, the creature should detour around the water instead of
+      // staying on the direct path and freezing
 
       // Make a deep water zone in the middle
       for (let x = 15; x <= 35; x++) {
@@ -158,10 +159,11 @@ describe('Traversal Cost System (aquaticAdaptation + water depth)', () => {
       // Move toward target (40, 50)
       const result = moveAcrossTerrain(creature, { x: 40, y: 50 }, world);
 
-      // Should have moved east (along x axis), staying close to start position
-      // since water costs more than movement speed allows
+      // Should have moved east (along x axis)
       expect(result.x).toBeGreaterThan(10);
-      expect(result.y).toBe(50); // Should stay on same row
+      // With lookahead routing around water, creature may deviate from direct y=50 path
+      // (this is correct behavior - it's detouring around the obstacle)
+      expect(result.x).toBeLessThanOrEqual(20); // Budget allows only so much progress per tick
     });
 
     it('prefers shorter water route when creature is highly aquatic', () => {
@@ -240,6 +242,44 @@ describe('Traversal Cost System (aquaticAdaptation + water depth)', () => {
       });
 
       // Two runs with same seed should produce identical paths
+      expect(paths[0]).toEqual(paths[1]);
+    });
+
+    it('maintains determinism with lake obstacle and lookahead routing', () => {
+      const seeds = [123, 123]; // Same seed twice
+      const paths = seeds.map((seed) => {
+        Creature.resetIdCounter();
+        const worldCopy = new World(100, 100);
+        for (let y = 0; y < worldCopy.height; y++) {
+          for (let x = 0; x < worldCopy.width; x++) {
+            worldCopy.setCell(x, y, { biome: 'grassland', waterDepth: 0 });
+          }
+        }
+
+        // Create a lake obstacle: high-cost water from x=15-35, y=48-52
+        for (let x = 15; x <= 35; x++) {
+          for (let y = 48; y <= 52; y++) {
+            worldCopy.setCell(x, y, { biome: 'wetland', waterDepth: 1.2 });
+          }
+        }
+
+        const creature = new Creature({
+          speciesId: 'detourer', lineageId: 'detourer', parentId: null,
+          traits: { ...DEFAULT_TRAITS, speed: 2, aquaticAdaptation: 0.1 },
+          x: 10, y: 50, energy: 500,
+        });
+
+        const path = [{ x: creature.x, y: creature.y }];
+        for (let tick = 0; tick < 25; tick++) {
+          const nextPos = moveAcrossTerrain(creature, { x: 40, y: 50 }, worldCopy);
+          creature.x = nextPos.x;
+          creature.y = nextPos.y;
+          path.push({ x: creature.x, y: creature.y });
+        }
+        return path;
+      });
+
+      // Two runs with same seed should produce identical paths (determinism maintained)
       expect(paths[0]).toEqual(paths[1]);
     });
   });
