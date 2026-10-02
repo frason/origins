@@ -14,6 +14,7 @@ const adaptationLabels: Array<[keyof Traits, string]> = [
   ['thermalTolerance', 'thermal tolerance'],
   ['waterRetention', 'water retention'],
   ['aquaticAffinity', 'aquatic affinity'],
+  ['aquaticAdaptation', 'aquatic adaptation'],
   ['terrainGrip', 'terrain grip'],
 ];
 

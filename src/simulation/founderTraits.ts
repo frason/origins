@@ -15,6 +15,7 @@ export type FounderTraitKey =
   | 'thermalTolerance'
   | 'waterRetention'
   | 'aquaticAffinity'
+  | 'aquaticAdaptation'
   | 'terrainGrip'
   | 'toxinResistance';
 
@@ -38,6 +39,7 @@ export const FOUNDER_TRAIT_CONTROLS: FounderTraitControl[] = [
   { key: 'thermalTolerance', label: 'Cold tolerance', min: 0, max: 1, step: 0.1, description: 'Reduces tundra cold stress at an adaptation cost.' },
   { key: 'waterRetention', label: 'Water retention', min: 0, max: 1, step: 0.1, description: 'Reduces desert dehydration at an adaptation cost.' },
   { key: 'aquaticAffinity', label: 'Aquatic affinity', min: 0, max: 1, step: 0.1, description: 'Improves movement through wetland and shallow water.' },
+  { key: 'aquaticAdaptation', label: 'Aquatic adaptation', min: 0, max: 1, step: 0.1, description: 'Improves movement through deep water.' },
   { key: 'terrainGrip', label: 'Terrain grip', min: 0, max: 1, step: 0.1, description: 'Improves movement through tundra and steep terrain.' },
   { key: 'toxinResistance', label: 'Toxin resistance', min: 0, max: 1, step: 0.1, description: 'Reduces damage from environmental toxicity.' },
 ];
