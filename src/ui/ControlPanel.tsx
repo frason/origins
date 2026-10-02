@@ -18,6 +18,7 @@ import {
   suggestedIntroducedSpeciesName,
 } from '../simulation/speciesNames';
 import { describeFounderSuitability } from './habitatSuitability';
+import type { DisasterCommand } from '../simulation/disasterCommand';
 
 const TOTAL_GOD_MODE_CONTROL_COUNT = GOD_MODE_GROUPS.reduce(
   (total, group) => total + group.controls.length,
@@ -40,6 +41,7 @@ interface ControlPanelProps {
     name: string,
     traits: FounderTraitOverrides
   ) => string | null;
+  onIntroduceDisaster?: (command: DisasterCommand) => string | null;
   replayActive?: boolean;
   checkpointTicks?: number[];
   onRestoreCheckpoint?: (tick: number) => string | null;
@@ -177,6 +179,7 @@ export default function ControlPanel({
   worldSeed = 12345,
   worldName = 'Living World',
   onIntroduceSpecies,
+  onIntroduceDisaster,
   replayActive = false,
   checkpointTicks = [],
   onRestoreCheckpoint,

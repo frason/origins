@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../state/store';
 import type { NaturalDisasterKind } from '../simulation/disasters';
 import { getDisasterInfo } from '../simulation/disasters';
+import type { DisasterCommand } from '../simulation/disasterCommand';
 
 const DISASTER_KINDS: NaturalDisasterKind[] = [
   // Beneficial
@@ -19,7 +20,7 @@ const DISASTER_KINDS: NaturalDisasterKind[] = [
 interface DisasterPanelProps {
   onClose?: () => void;
   onApply?: () => void;
-  onIntroduceDisaster?: (command: { id: string; tick: number; disasterKind: string; centerX: number; centerY: number; radius: number }) => string | null;
+  onIntroduceDisaster?: (command: DisasterCommand) => string | null;
 }
 
 export default function DisasterPanel({ onClose, onApply, onIntroduceDisaster }: DisasterPanelProps) {
