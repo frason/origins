@@ -803,14 +803,27 @@ ${verdict_text}
     log "  issue #$iss_num PASSED — labelled agent-done, closed"
   else
     set_issue_label "$iss_num" "agent-review" "agent-todo" || true
-    # Fairness cooldown: a FAILed issue keeps its (now oldest) number, so plain
-    # oldest-number selection would let it re-win the very next worker pass and starve
-    # the rest of the queue. Mark it to be skipped for exactly one worker-dispatch pass.
+    # Fairness cooldown: escalating penalty for FAILed issues.
+    # Increment its cooldown count (or set to 1 if not already cooling).
+    # To properly escalate on repeated failures, use the pre-decrement state to check if
+    # this issue was already in cooldown before this pass's decrement operation.
     cooldown_file="$STATE/cooldown.json"
-    cd_now=$(cat "$cooldown_file" 2>/dev/null || echo '[]')
-    jq --argjson n "$iss_num" '(. // []) + [$n] | unique' <<<"$cd_now" > "$cooldown_file" 2>/dev/null \
-      || echo "[$iss_num]" > "$cooldown_file"
-    log "  issue #$iss_num FAILED — labelled agent-todo for rework (worker-selection cooldown for one pass)"
+    predecrement_file="$STATE/cooldown_predecrement.json"
+    cd_now=$(cat "$cooldown_file" 2>/dev/null || echo '{}')
+    predecrement_state=$(cat "$predecrement_file" 2>/dev/null || echo '{}')
+
+    # Check if issue was in cooldown before decrement (pre-decrement state)
+    # If so, increment from that value; otherwise start from 1
+    previous_value=$(printf '%s' "$predecrement_state" | jq -r ".[$iss_num|tostring] // 0" 2>/dev/null || echo "0")
+    next_value=$(( previous_value + 1 ))
+    if [ "$next_value" -gt 5 ]; then next_value=5; fi
+
+    # Increment the cooldown counter for this issue (or set to 1 if not present)
+    # Cap at 5 to prevent unbounded growth
+    updated_cooldown=$(printf '%s' "$cd_now" | jq --argjson n "$iss_num" --argjson v "$next_value" \
+      '.[$n|tostring] = $v')
+    printf '%s' "$updated_cooldown" > "$cooldown_file" 2>/dev/null || echo "{\"$iss_num\": 1}" > "$cooldown_file"
+    log "  issue #$iss_num FAILED — labelled agent-todo for rework (escalating cooldown: $next_value pass(es))"
   fi
   exit 0
 fi
@@ -831,30 +844,54 @@ if [ -n "$force_issue" ] && [ "$force_issue" != "next" ]; then
     log "--force-worker: issue #$force_issue does not have the agent-todo label"; exit 1
   fi
 else
-  # Fairness: a single issue that keeps failing karen and cycling back to agent-todo
-  # keeps the SAME (lowest) issue number, so plain sort_by(.number) lets it monopolize
-  # every worker pass and starve the rest of the queue. cooldown.json holds issue numbers
-  # that just failed karen verification; they're skipped for exactly one worker-dispatch
-  # pass (cleared below the moment they're seen this pass), then compete normally again.
+  # Fairness: escalating cooldown for issues that repeatedly fail.
+  # cooldown.json now holds {issue_number: remaining_passes} instead of a simple array.
+  # When an issue fails, its cooldown is set to 1 pass (or incremented if already cooling).
+  # At the start of each WORK pass, ONLY pre-existing cooldowns are decremented by 1.
+  # New entries added on crash are NOT decremented this pass (only on subsequent passes).
+  # This ensures a single issue that keeps crashing cannot monopolize every worker pass.
   cooldown_file="$STATE/cooldown.json"
-  [ -f "$cooldown_file" ] || echo '[]' > "$cooldown_file"
-  cooldown_ids=$(cat "$cooldown_file" 2>/dev/null || echo '[]')
+  [ -f "$cooldown_file" ] || echo '{}' > "$cooldown_file"
+  cooldown_map=$(cat "$cooldown_file" 2>/dev/null || echo '{}')
+
+  # Save the pre-decrement cooldown state for crash-handling code to read during increment.
+  # This prevents cooldown from resetting to 1 on repeated crashes of the same issue.
+  # We'll use this to ensure escalation: if an issue was already in cooldown, increment from that value.
+  pre_decrement_state=$(printf '%s' "$cooldown_map" | jq -c .)
+
+  # Save the set of pre-existing entries before any modifications
+  pre_existing=$(printf '%s' "$cooldown_map" | jq -c 'keys')
 
   todo_all=$(gh issue list --repo "$REPO" --label "agent-todo" --state open \
     --json number,title,body \
     --jq '[.[] | select(.body | (. != null and contains("<!-- agent-planned -->")))] | sort_by(.number)' \
     2>/dev/null || echo '[]')
 
-  # Pick the oldest candidate not currently in cooldown; if every candidate is in
-  # cooldown (shouldn't normally happen), fall back to the oldest overall so the
-  # queue never stalls completely.
-  todo_json=$(printf '%s' "$todo_all" | jq --argjson cd "$cooldown_ids" \
-    '(map(select(.number as $n | ($cd | index($n)) == null)) | first) // (first) // empty')
+  # Decrement only pre-existing cooldown counters (keep zero values for escalation tracking).
+  # New entries (added on crash this pass) are NOT decremented yet; they stay at their set value.
+  # Do NOT filter out values <= 0; we need to track history for proper escalation.
+  updated_cooldown=$(printf '%s' "$cooldown_map" | jq --argjson pre "$pre_existing" \
+    'with_entries(
+      if (.key as $k | $pre | index($k) != null) then
+        .value -= 1
+      else
+        .value
+      end
+    )')
 
-  # Any cooldown id present in this pass's candidate list has now served its one skip.
-  new_cooldown=$(printf '%s' "$cooldown_ids" | jq --argjson present "$(printf '%s' "$todo_all" | jq '[.[].number]')" \
-    'map(select(. as $n | ($present | index($n)) == null))')
-  printf '%s' "$new_cooldown" > "$cooldown_file"
+  # Pick the oldest candidate not currently in cooldown using the PRE-DECREMENT map.
+  # An issue is "in cooldown" if it appears as a KEY in the pre-decrement cooldown map.
+  # This ensures cooldown checks happen against the original state, not the decremented one.
+  # If every candidate is in cooldown (shouldn't normally happen), fall back to the oldest
+  # overall so the queue never stalls completely.
+  todo_json=$(printf '%s' "$todo_all" | jq --argjson cd "$cooldown_map" \
+    '(map(select(.number as $n | ($cd | has($n|tostring)) | not)) | first) // (first) // empty')
+
+  # Persist updated (decremented) cooldown
+  printf '%s' "$updated_cooldown" > "$cooldown_file"
+
+  # Also save pre-decrement state for crash-handling code to use when incrementing
+  printf '%s' "$pre_decrement_state" > "$STATE/cooldown_predecrement.json"
 fi
 
 if [ -z "${todo_json:-}" ]; then
@@ -964,15 +1001,27 @@ if ! run_agent worker "$effective_worker_model" "$tmp"; then
     --body "⚠️ **Worker run failed** (claude exited non-zero). Cycling back to \`agent-todo\` — check \`logs/dispatcher.log\` for the error." \
     >/dev/null 2>&1 || true
   set_issue_label "$iss_num" "agent-doing" "agent-todo" || true
-  # Fairness cooldown: a crashed worker keeps the issue in agent-todo with its (now oldest)
-  # number, so plain oldest-number selection would let it re-win the very next worker pass
-  # and starve the rest of the queue (same as karen-FAIL path below). Mark it to be skipped
-  # for exactly one worker-dispatch pass.
+  # Fairness cooldown: escalating penalty for crashed workers.
+  # Increment its cooldown count (or set to 1 if not already cooling).
+  # To properly escalate on repeated crashes, use the pre-decrement state to check if
+  # this issue was already in cooldown before this pass's decrement operation.
   cooldown_file="$STATE/cooldown.json"
-  cd_now=$(cat "$cooldown_file" 2>/dev/null || echo '[]')
-  jq --argjson n "$iss_num" '(. // []) + [$n] | unique' <<<"$cd_now" > "$cooldown_file" 2>/dev/null \
-    || echo "[$iss_num]" > "$cooldown_file"
-  log "  issue #$iss_num crashed — added to worker-selection cooldown for one pass"
+  predecrement_file="$STATE/cooldown_predecrement.json"
+  cd_now=$(cat "$cooldown_file" 2>/dev/null || echo '{}')
+  predecrement_state=$(cat "$predecrement_file" 2>/dev/null || echo '{}')
+
+  # Check if issue was in cooldown before decrement (pre-decrement state)
+  # If so, increment from that value; otherwise start from 1
+  previous_value=$(printf '%s' "$predecrement_state" | jq -r ".[$iss_num|tostring] // 0" 2>/dev/null || echo "0")
+  next_value=$(( previous_value + 1 ))
+  if [ "$next_value" -gt 5 ]; then next_value=5; fi
+
+  # Increment the cooldown counter for this issue (or set to 1 if not present)
+  # Cap at 5 to prevent unbounded growth
+  updated_cooldown=$(printf '%s' "$cd_now" | jq --argjson n "$iss_num" --argjson v "$next_value" \
+    '.[$n|tostring] = $v')
+  printf '%s' "$updated_cooldown" > "$cooldown_file" 2>/dev/null || echo "{\"$iss_num\": 1}" > "$cooldown_file"
+  log "  issue #$iss_num crashed — added to worker-selection cooldown for $next_value pass(es)"
   exit 0
 fi
 record_global_spend

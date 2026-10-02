@@ -10,6 +10,7 @@ import TurningPointChoice from './ui/TurningPointChoice';
 import FirstRunOnboarding from './ui/FirstRunOnboarding';
 import { useStore } from './state/store';
 import { introduceSpecies, tickEngine, EngineState } from './simulation/engine';
+import { EngineWorkerManager } from './simulation/engineWorkerManager';
 import type { EnergyStrategy } from './utils/traits';
 import type { FounderTraitOverrides } from './simulation/founderTraits';
 import { buildDemoEngine } from './simulation/demoWorld';
@@ -72,6 +73,8 @@ import { loadFieldJournal, saveFieldJournal } from './state/fieldJournalPersiste
 import ChallengePanel from './ui/ChallengePanel';
 import { buildWorldRecipe } from './ui/worldRecipe';
 import { buildSessionSummary } from './ui/sessionSummary';
+import BranchComparisonView from './ui/BranchComparison';
+import { createBranch as createBranchFromSnapshot } from './simulation/worldBranch';
 
 function browserStorage(): Storage | null {
   return typeof window === 'undefined' ? null : window.localStorage;
@@ -89,6 +92,7 @@ export default function App() {
   const recipeReplayRef = useRef<RecipeReplaySession | null>(null);
   const checkpointsRef = useRef<SimulationCheckpoint<EngineState>[]>([]);
   const lineageTrackerRef = useRef(createLineageTracker());
+  const engineWorkerManagerRef = useRef<EngineWorkerManager | null>(null);
   const autoPauseStateRef = useRef<{
     previousTick: number;
     previousCreatureCount: number;
@@ -119,6 +123,7 @@ export default function App() {
   const [watchesPanelOpen, setWatchesPanelOpen] = useState(false);
   const [comparedAlert, setComparedAlert] = useState<EcosystemAlert | null>(null);
   const [challengePanelOpen, setChallengePanelOpen] = useState(false);
+  const [branchComparisonOpen, setBranchComparisonOpen] = useState(false);
   const worldName = worldNameFromSeed(worldSeed);
 
   // Compute current world recipe and session summary from live engine state
@@ -242,6 +247,13 @@ export default function App() {
     engineRef.current = engine;
     previousEngineRef.current = null;
     lineageTrackerRef.current = createLineageTracker();
+    // Initialize engine worker manager with the new engine
+    if (engineWorkerManagerRef.current) {
+      engineWorkerManagerRef.current.dispose();
+    }
+    const manager = new EngineWorkerManager({ mode: 'direct' });
+    engineWorkerManagerRef.current = manager;
+    manager.init(engine).catch((err) => console.error('Failed to initialize engine worker manager:', err));
     // Load journal from storage if available, otherwise create new
     const storage = browserStorage();
     const loadedJournal = storage ? loadFieldJournal(storage, worldSeed) : createFieldJournal(worldSeed);
@@ -268,6 +280,13 @@ export default function App() {
     engineRef.current = engine;
     previousEngineRef.current = null;
     lineageTrackerRef.current = createLineageTracker();
+    // Initialize engine worker manager with the new engine
+    if (engineWorkerManagerRef.current) {
+      engineWorkerManagerRef.current.dispose();
+    }
+    const manager = new EngineWorkerManager({ mode: 'direct' });
+    engineWorkerManagerRef.current = manager;
+    manager.init(engine).catch((err) => console.error('Failed to initialize engine worker manager:', err));
     // Load journal from storage if available, otherwise create new
     const storage = browserStorage();
     const loadedJournal = storage ? loadFieldJournal(storage, seed) : createFieldJournal(seed);
@@ -317,6 +336,13 @@ export default function App() {
       store.updateConstants(engine.constants);
       engineRef.current = engine;
       lineageTrackerRef.current = createLineageTracker();
+      // Initialize engine worker manager with the imported engine
+      if (engineWorkerManagerRef.current) {
+        engineWorkerManagerRef.current.dispose();
+      }
+      const manager = new EngineWorkerManager({ mode: 'direct' });
+      engineWorkerManagerRef.current = manager;
+      await manager.init(engine);
       // Load field journal from storage if available, otherwise create new
       const storage = browserStorage();
       const loadedJournal = storage ? loadFieldJournal(storage, engine.seed) : createFieldJournal(engine.seed);
@@ -352,6 +378,13 @@ export default function App() {
     setReplayStatus(null);
     engineRef.current = engine;
     lineageTrackerRef.current = createLineageTracker();
+    // Initialize engine worker manager with the restored engine
+    if (engineWorkerManagerRef.current) {
+      engineWorkerManagerRef.current.dispose();
+    }
+    const manager = new EngineWorkerManager({ mode: 'direct' });
+    engineWorkerManagerRef.current = manager;
+    await manager.init(engine);
     // Load field journal from storage if available, otherwise create new
     const storage = browserStorage();
     const loadedJournal = storage ? loadFieldJournal(storage, engine.seed) : createFieldJournal(engine.seed);
@@ -420,6 +453,13 @@ export default function App() {
     checkpointsRef.current = restored.checkpoints;
     setCheckpointTicks(restored.checkpoints.map((checkpoint) => checkpoint.tick));
     engineRef.current = restored.state;
+    // Initialize engine worker manager with the restored engine state
+    if (engineWorkerManagerRef.current) {
+      engineWorkerManagerRef.current.dispose();
+    }
+    const manager = new EngineWorkerManager({ mode: 'direct' });
+    engineWorkerManagerRef.current = manager;
+    manager.init(restored.state).catch((err) => console.error('Failed to initialize engine worker manager:', err));
     publish(restored.state);
     return null;
   }, [publish]);
@@ -456,6 +496,36 @@ export default function App() {
     return error;
   }, [restoreToTick]);
 
+  const createBranchFromCheckpoint = useCallback((): string | null => {
+    const store = useStore.getState();
+    if (!store.worldState) return 'No world state available';
+    if (!engineRef.current) return 'Engine not initialized';
+
+    try {
+      // Create a new branch from the current world state
+      const branchName = `Branch at Tick ${store.tick}`;
+      const changedIntervention = {
+        tick: store.tick,
+        kind: 'settings-change' as const,
+        label: 'Manual branch creation',
+      };
+
+      const newBranch = createBranchFromSnapshot(
+        store.worldState,
+        store.tick,
+        changedIntervention,
+        branchName
+      );
+
+      // Add the branch to the store
+      store.createBranch(newBranch);
+
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : 'Could not create branch';
+    }
+  }, []);
+
   const startRecipeReplay = useCallback((recipe: WorldRecipe): string | null => {
     try {
       const session = createRecipeReplay(recipe);
@@ -466,6 +536,13 @@ export default function App() {
       store.updateConstants(session.constants);
       engineRef.current = session.state;
       lineageTrackerRef.current = createLineageTracker();
+      // Initialize engine worker manager with the replayed engine
+      if (engineWorkerManagerRef.current) {
+        engineWorkerManagerRef.current.dispose();
+      }
+      const manager = new EngineWorkerManager({ mode: 'direct' });
+      engineWorkerManagerRef.current = manager;
+      manager.init(session.state).catch((err) => console.error('Failed to initialize engine worker manager:', err));
       // Load field journal from storage if available, otherwise create new
       const storage = browserStorage();
       const loadedJournal = storage ? loadFieldJournal(storage, recipe.seed) : createFieldJournal(recipe.seed);
@@ -485,6 +562,16 @@ export default function App() {
       return message;
     }
   }, [publish, recordCheckpoint]);
+
+  // Cleanup engine worker manager on unmount
+  useEffect(() => {
+    return () => {
+      if (engineWorkerManagerRef.current) {
+        engineWorkerManagerRef.current.dispose();
+        engineWorkerManagerRef.current = null;
+      }
+    };
+  }, []);
 
   // Keyboard shortcut for toggling 2D/3D view (press 'M' for map)
   useEffect(() => {
@@ -523,6 +610,13 @@ export default function App() {
       const loadedJournal = storage ? loadFieldJournal(storage, engine.seed) : createFieldJournal(engine.seed);
       store.setFieldJournal(loadedJournal);
       lineageTrackerRef.current = createLineageTracker();
+      // Initialize engine worker manager with the loaded/created engine
+      if (engineWorkerManagerRef.current) {
+        engineWorkerManagerRef.current.dispose();
+      }
+      const manager = new EngineWorkerManager({ mode: 'direct' });
+      engineWorkerManagerRef.current = manager;
+      manager.init(engine).catch((err) => console.error('Failed to initialize engine worker manager:', err));
       // Load observatory state from storage (first-run objectives progress)
       const loadedObservatoryState = loadObservatoryState();
       store.setObservatoryState(loadedObservatoryState);
@@ -549,17 +643,25 @@ export default function App() {
     let last = performance.now();
     let acc = 0;
     const tickMs = 1000 / speed;
+    let tickInProgress = false;
+
     const interval = setInterval(() => {
+      // Update accumulator based on elapsed time
       const now = performance.now();
       acc += now - last;
       last = now;
       if (acc > tickMs * 5) acc = tickMs * 5;
-      let ticked = false;
-      while (acc >= tickMs) {
+
+      // Don't start a new tick if one is already in progress
+      if (tickInProgress) return;
+
+      // Process one tick (or recipe replay step) per interval callback
+      if (acc >= tickMs) {
         const prev = engineRef.current;
         if (prev) {
           const replay = recipeReplayRef.current;
           if (replay) {
+            // Recipe replay is synchronous, run it directly
             try {
               const advanced = advanceRecipeReplay(replay);
               engineRef.current = advanced.state;
@@ -574,6 +676,10 @@ export default function App() {
                   `Replaying tick ${advanced.state.tick.toLocaleString()} of ${advanced.recipe.throughTick.toLocaleString()}`
                 );
               }
+              if (engineRef.current) {
+                recordCheckpoint(engineRef.current);
+                publish(engineRef.current);
+              }
             } catch (error) {
               recipeReplayRef.current = null;
               setReplayActive(false);
@@ -581,16 +687,45 @@ export default function App() {
               useStore.getState().setRunning(false);
             }
           } else {
-            engineRef.current = tickEngine(prev, useStore.getState().constants);
+            // Normal simulation tick: use EngineWorkerManager (with direct fallback)
+            tickInProgress = true;
+            (async () => {
+              try {
+                const manager = engineWorkerManagerRef.current;
+                if (manager) {
+                  // Use manager to execute tick
+                  await manager.sendCommand({
+                    type: 'tick',
+                    count: 1,
+                    constantOverrides: useStore.getState().constants,
+                  });
+                  // Retrieve updated engine state from manager
+                  const updated = manager.getCurrentEngine();
+                  if (updated) {
+                    engineRef.current = updated;
+                  }
+                } else {
+                  // Fallback if manager not initialized yet
+                  engineRef.current = tickEngine(prev, useStore.getState().constants);
+                }
+                if (engineRef.current) {
+                  recordCheckpoint(engineRef.current);
+                  publish(engineRef.current);
+                }
+              } catch (error) {
+                console.error('Engine tick failed:', error);
+                useStore.getState().setRunning(false);
+              } finally {
+                tickInProgress = false;
+              }
+            })();
           }
-          if (engineRef.current) recordCheckpoint(engineRef.current);
-          ticked = true;
+          acc -= tickMs;
         }
-        acc -= tickMs;
-        if (!useStore.getState().isRunning) break;
+        if (!useStore.getState().isRunning) return;
       }
-      if (ticked && engineRef.current) publish(engineRef.current);
     }, getUiFrameInterval(speed));
+
     return () => clearInterval(interval);
   }, [isRunning, speed, publish, recordCheckpoint]);
 
@@ -650,6 +785,15 @@ export default function App() {
               onClick={() => setFeedbackOpen(true)}
             >
               Feedback
+            </button>
+            <button
+              type="button"
+              className={`sim-button sim-button--compact${branchComparisonOpen ? ' sim-button--pressed' : ''}`}
+              aria-pressed={branchComparisonOpen}
+              aria-label="Open branch comparison"
+              onClick={() => setBranchComparisonOpen(!branchComparisonOpen)}
+            >
+              Compare
             </button>
           </>
         )}
@@ -779,6 +923,38 @@ export default function App() {
         <div className="modal-overlay" onClick={() => setWatchesPanelOpen(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <WatchesPanel onClose={() => setWatchesPanelOpen(false)} />
+          </div>
+        </div>
+      )}
+      {branchComparisonOpen && (
+        <div className="modal-overlay" onClick={() => setBranchComparisonOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90vw', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ margin: 0 }}>Branch and Compare</h2>
+              <button
+                type="button"
+                className="sim-button sim-button--compact"
+                onClick={() => setBranchComparisonOpen(false)}
+                aria-label="Close branch comparison"
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ marginBottom: '1rem' }}>
+              <button
+                type="button"
+                className="sim-button"
+                onClick={() => {
+                  const error = createBranchFromCheckpoint();
+                  if (!error) {
+                    // Optionally close the panel or show success message
+                  }
+                }}
+              >
+                Create Branch from Current Checkpoint (Tick {tick})
+              </button>
+            </div>
+            <BranchComparisonView />
           </div>
         </div>
       )}

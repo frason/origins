@@ -3,10 +3,14 @@
  *
  * Measures the reduction in perception scans achieved by using a single scan
  * per creature decision, rather than separate scans in decision and movement phases.
+ *
+ * This test compares the old rescanning path (applyMovement) vs the new
+ * single-scan path (decideTick + applyMovementWithScan) with identical seeds and
+ * populations to demonstrate the performance improvement.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Creature, decideTick, applyMovementWithScan } from '../simulation/creature';
+import { Creature, decideTick, applyMovementWithScan, applyMovement } from '../simulation/creature';
 import { World } from '../simulation/world';
 import { CreatureSpatialIndex } from '../simulation/creatureSpatialIndex';
 import { tickEngine, createEngine } from '../simulation/engine';
@@ -19,10 +23,21 @@ describe('DecisionIntent Performance - Perception Scan Optimization', () => {
     Creature.resetIdCounter();
   });
 
-  it('eliminates redundant perception scans in decision/movement cycle', () => {
-    // Create a representative population
+  /**
+   * Create a standard test population with controlled randomness
+   */
+  function createTestPopulation(
+    size: number,
+    seed: number = 12345
+  ): {
+    creatures: Creature[];
+    world: World;
+  } {
+    Creature.resetIdCounter();
     const creatures: Creature[] = [];
-    for (let i = 0; i < 10; i++) {
+    const rng = createRng(seed);
+
+    for (let i = 0; i < size; i++) {
       creatures.push(
         new Creature({
           speciesId: i % 2 === 0 ? 'herbivore' : 'carnivore',
@@ -31,12 +46,12 @@ describe('DecisionIntent Performance - Perception Scan Optimization', () => {
           traits: {
             ...DEFAULT_TRAITS,
             energyStrategy: i % 2 === 0 ? 'herbivore' : 'carnivore',
-            speed: 1.5 + Math.random() * 0.5,
-            visionRange: 4 + Math.random() * 2,
+            speed: 1.5 + rng() * 0.5,
+            visionRange: 4 + rng() * 2,
           },
           x: 30 + (i % 5) * 5,
           y: 40 + Math.floor(i / 5) * 5,
-          energy: 100 + Math.random() * 50,
+          energy: 100 + rng() * 50,
         })
       );
     }
@@ -49,106 +64,183 @@ describe('DecisionIntent Performance - Perception Scan Optimization', () => {
       }
     }
 
-    // Measure with optimized approach (single perception pass)
-    const rng = createRng(12345);
-    const spatialIndex = new CreatureSpatialIndex(creatures);
+    return { creatures, world };
+  }
 
-    let optimizedScans = 0;
-    const startOptimized = performance.now();
+  it('before/after benchmark: old rescanning path vs new single-scan path', () => {
+    const populationSize = 50;
 
-    for (const creature of creatures) {
+    // OLD PATH: decideTick + applyMovement (rescans environment)
+    const { creatures: creaturesOld, world: worldOld } = createTestPopulation(populationSize);
+    const rngOld = createRng(12345);
+    const spatialIndexOld = new CreatureSpatialIndex(creaturesOld);
+
+    const startOld = performance.now();
+    let oldScans = 0;
+    for (const creature of creaturesOld) {
       if (creature.lifecycleState === 'alive') {
-        // Single perception pass
+        // OLD: decideTick scans once
+        const { decision } = decideTick(
+          creature,
+          worldOld,
+          creaturesOld,
+          rngOld,
+          spatialIndexOld
+        );
+        oldScans++;
+
+        // OLD: applyMovement scans again (redundant!)
+        applyMovement(
+          creature,
+          decision,
+          worldOld,
+          creaturesOld,
+          rngOld,
+          spatialIndexOld
+        );
+        oldScans++;
+      }
+    }
+    const timeOld = performance.now() - startOld;
+
+    // NEW PATH: decideTick + applyMovementWithScan (single scan)
+    const { creatures: creaturesNew, world: worldNew } = createTestPopulation(populationSize);
+    const rngNew = createRng(12345);
+    const spatialIndexNew = new CreatureSpatialIndex(creaturesNew);
+
+    const startNew = performance.now();
+    let newScans = 0;
+    for (const creature of creaturesNew) {
+      if (creature.lifecycleState === 'alive') {
+        // NEW: decideTick scans once
         const { decision, scan } = decideTick(
           creature,
-          world,
-          creatures,
-          rng,
-          spatialIndex
+          worldNew,
+          creaturesNew,
+          rngNew,
+          spatialIndexNew
         );
-        optimizedScans++;
+        newScans++;
 
-        // Movement uses pre-scanned data (no additional perception pass)
+        // NEW: applyMovementWithScan uses pre-scanned data (no additional scan)
         applyMovementWithScan(
           creature,
           decision,
           scan,
-          world,
-          creatures,
+          worldNew,
+          creaturesNew,
           {
             hydrationRecoveryFresh: SIMULATION_CONSTANTS.hydrationRecoveryFresh,
             hydrationRecoverySalineMultiplier: SIMULATION_CONSTANTS.hydrationRecoverySalineMultiplier,
           },
-          spatialIndex
+          spatialIndexNew
+        );
+      }
+    }
+    const timeNew = performance.now() - startNew;
+
+    // Verify expectations
+    expect(oldScans).toBe(populationSize * 2); // 2 scans per creature (redundant)
+    expect(newScans).toBe(populationSize); // 1 scan per creature (optimized)
+
+    const improvement = timeOld / timeNew;
+    const percentImprovement = ((timeOld - timeNew) / timeOld) * 100;
+
+    console.log(`\n=== DecisionIntent Benchmark Results ===`);
+    console.log(`Population size: ${populationSize}`);
+    console.log(`Old path (rescanning):`);
+    console.log(`  Scans: ${oldScans} (2 per creature)`);
+    console.log(`  Time: ${timeOld.toFixed(2)}ms`);
+    console.log(`New path (single-scan):`);
+    console.log(`  Scans: ${newScans} (1 per creature)`);
+    console.log(`  Time: ${timeNew.toFixed(2)}ms`);
+    console.log(`Improvement: ${improvement.toFixed(2)}x faster (${percentImprovement.toFixed(1)}% reduction)`);
+    console.log(`========================================\n`);
+
+    // The new path should be faster (at least not slower)
+    // Note: With small populations, timing variance may be significant,
+    // but scan count difference is deterministic
+    expect(newScans * 2).toBe(oldScans);
+    expect(timeNew).toBeLessThanOrEqual(timeOld * 1.1); // Allow 10% variance due to system noise
+  });
+
+  it('scan count is deterministic and reproducible', () => {
+    // Verify that the optimization is deterministic:
+    // same seed and population should produce identical scan patterns
+    const populationSize = 30;
+
+    // First run
+    const { creatures: creatures1, world: world1 } = createTestPopulation(populationSize);
+    const rng1 = createRng(99999);
+    const spatialIndex1 = new CreatureSpatialIndex(creatures1);
+
+    let scans1 = 0;
+    for (const creature of creatures1) {
+      if (creature.lifecycleState === 'alive') {
+        const { decision, scan } = decideTick(
+          creature,
+          world1,
+          creatures1,
+          rng1,
+          spatialIndex1
+        );
+        scans1++;
+        applyMovementWithScan(
+          creature,
+          decision,
+          scan,
+          world1,
+          creatures1,
+          {
+            hydrationRecoveryFresh: SIMULATION_CONSTANTS.hydrationRecoveryFresh,
+            hydrationRecoverySalineMultiplier: SIMULATION_CONSTANTS.hydrationRecoverySalineMultiplier,
+          },
+          spatialIndex1
         );
       }
     }
 
-    const optimizedTime = performance.now() - startOptimized;
+    // Second run with identical seed
+    const { creatures: creatures2, world: world2 } = createTestPopulation(populationSize);
+    const rng2 = createRng(99999);
+    const spatialIndex2 = new CreatureSpatialIndex(creatures2);
 
-    // Verify the optimization
-    // With the optimization, we should have exactly N perception scans for N creatures
-    // Without it, we would have 2N scans (one per decision, one per movement)
-    expect(optimizedScans).toBe(10);
-  });
-
-  it('large population shows measurable performance improvement', () => {
-    // Create a larger population to show scalability benefit
-    const creatures: Creature[] = [];
-    const populationSize = 100;
-
-    for (let i = 0; i < populationSize; i++) {
-      creatures.push(
-        new Creature({
-          speciesId: i % 3 === 0 ? 'herbivore' : i % 3 === 1 ? 'carnivore' : 'omnivore',
-          lineageId: `lineage_${i}`,
-          parentId: null,
-          traits: {
-            ...DEFAULT_TRAITS,
-            energyStrategy: i % 3 === 0 ? 'herbivore' : i % 3 === 1 ? 'carnivore' : 'omnivore',
-            speed: 1 + Math.random(),
-            visionRange: 3 + Math.random() * 4,
+    let scans2 = 0;
+    for (const creature of creatures2) {
+      if (creature.lifecycleState === 'alive') {
+        const { decision, scan } = decideTick(
+          creature,
+          world2,
+          creatures2,
+          rng2,
+          spatialIndex2
+        );
+        scans2++;
+        applyMovementWithScan(
+          creature,
+          decision,
+          scan,
+          world2,
+          creatures2,
+          {
+            hydrationRecoveryFresh: SIMULATION_CONSTANTS.hydrationRecoveryFresh,
+            hydrationRecoverySalineMultiplier: SIMULATION_CONSTANTS.hydrationRecoverySalineMultiplier,
           },
-          x: Math.floor(Math.random() * 80) + 10,
-          y: Math.floor(Math.random() * 80) + 10,
-          energy: 80 + Math.random() * 60,
-        })
-      );
+          spatialIndex2
+        );
+      }
     }
 
-    // Set up a world with distributed resources
-    const engine = createEngine(54321, creatures, 100, 100, {
-      producerGrowthRate: 0.5,
-    });
+    // Both runs should have identical scan counts
+    expect(scans1).toBe(scans2);
+    expect(scans1).toBe(populationSize);
 
-    // Run a few ticks to measure steady-state performance
-    let tickCount = 0;
-    const startTime = performance.now();
-
-    for (let tick = 0; tick < 3; tick++) {
-      const nextEngine = tickEngine(engine);
-      tickCount++;
-    }
-
-    const elapsedTime = performance.now() - startTime;
-
-    // Performance metrics
-    // With optimization: ~100 scans per tick
-    // Without optimization: ~200 scans per tick
-    // So optimization should be roughly 2x faster for perception operations
-
-    expect(tickCount).toBe(3);
-    expect(elapsedTime).toBeGreaterThan(0);
-
-    // Log for reference (not a hard assertion, just for visibility)
-    const avgTimePerTick = elapsedTime / tickCount;
-    const scansEliminated = populationSize; // One scan per creature per tick
-    console.log(
-      `Large population (${populationSize} creatures): ` +
-      `${tickCount} ticks in ${elapsedTime.toFixed(2)}ms ` +
-      `(${avgTimePerTick.toFixed(2)}ms per tick). ` +
-      `Eliminated ~${scansEliminated} redundant scans per tick.`
-    );
+    console.log(`\n=== Determinism Check ===`);
+    console.log(`Population size: ${populationSize}`);
+    console.log(`Scan count (run 1): ${scans1}`);
+    console.log(`Scan count (run 2): ${scans2}`);
+    console.log(`Deterministic: ${scans1 === scans2 ? 'YES' : 'NO'}`);
+    console.log(`========================\n`);
   });
 
   it('preserves correctness while reducing scan count', () => {

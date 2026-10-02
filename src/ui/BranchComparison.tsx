@@ -18,6 +18,7 @@ import {
 } from '../simulation/worldBranch';
 import { useStore } from '../state/store';
 import type { EcosystemMetrics } from '../simulation/worldBranch';
+import styles from './BranchComparison.module.css';
 
 export interface BranchComparisonProps {
   branchA?: WorldBranch;
@@ -37,7 +38,7 @@ function MetricsCard({
 }): React.ReactElement {
   if (!metrics) {
     return (
-      <div className="branch-metrics-card empty">
+      <div className={`${styles.branchMetricsCard} ${styles.empty}`}>
         <h4>{label}</h4>
         <p>No data available</p>
       </div>
@@ -45,7 +46,7 @@ function MetricsCard({
   }
 
   return (
-    <div className="branch-metrics-card">
+    <div className={styles.branchMetricsCard}>
       <h4>{label}</h4>
       <dl>
         <dt>Tick:</dt>
@@ -79,16 +80,16 @@ function DivergenceAnalysis({
   divergence: BranchDivergence;
 }): React.ReactElement {
   return (
-    <div className="branch-divergence">
+    <div className={styles.branchDivergence}>
       {divergence.divergenceTick && (
-        <div className="divergence-point">
+        <div className={styles.divergencePoint}>
           <h4>First Divergence</h4>
           <p>Major differences first appear at tick {divergence.divergenceTick}</p>
         </div>
       )}
 
       {divergence.extinctionDifferences.length > 0 && (
-        <div className="extinction-differences">
+        <div className={styles.extinctionDifferences}>
           <h4>Extinctions That Differ</h4>
           <ul>
             {divergence.extinctionDifferences.slice(0, 5).map((diff, idx) => (
@@ -99,7 +100,7 @@ function DivergenceAnalysis({
             ))}
           </ul>
           {divergence.extinctionDifferences.length > 5 && (
-            <p className="more-items">
+            <p className={styles.moreItems}>
               +{divergence.extinctionDifferences.length - 5} more differences
             </p>
           )}
@@ -107,20 +108,20 @@ function DivergenceAnalysis({
       )}
 
       {divergence.metricsSamples.length > 0 && (
-        <div className="metrics-timeline">
+        <div className={styles.metricsTimeline}>
           <h4>Ecosystem Metrics Over Time</h4>
-          <div className="timeline-comparison">
+          <div className={styles.timelineComparison}>
             {divergence.metricsSamples.slice(0, 5).map((sample, idx) => (
-              <div key={idx} className="timeline-checkpoint">
-                <span className="checkpoint-tick">Tick {sample.tick}</span>
-                <div className="checkpoint-metrics">
+              <div key={idx} className={styles.timelineCheckpoint}>
+                <span className={styles.checkpointTick}>Tick {sample.tick}</span>
+                <div className={styles.checkpointMetrics}>
                   {sample.metrics_a && (
-                    <span className="pop-a" title={`Pop: ${sample.metrics_a.population}`}>
+                    <span className={styles.popA} title={`Pop: ${sample.metrics_a.population}`}>
                       A: {sample.metrics_a.population}
                     </span>
                   )}
                   {sample.metrics_b && (
-                    <span className="pop-b" title={`Pop: ${sample.metrics_b.population}`}>
+                    <span className={styles.popB} title={`Pop: ${sample.metrics_b.population}`}>
                       B: {sample.metrics_b.population}
                     </span>
                   )}
@@ -157,7 +158,7 @@ function BranchSelector({
   }, [branchCollection]);
 
   return (
-    <div className="branch-selector">
+    <div className={styles.branchSelector}>
       <label>{label}</label>
       <select
         value={branchId || 'main'}
@@ -216,20 +217,20 @@ export function BranchComparisonView({
 
   if (!displayBranchA) {
     return (
-      <div className="branch-comparison empty">
+      <div className={`${styles.branchComparison} ${styles.empty}`}>
         <p>No branches available. Create a branch from a checkpoint to begin.</p>
       </div>
     );
   }
 
   return (
-    <div className="branch-comparison-container">
-      <div className="branch-comparison-header">
+    <div className={styles.branchComparisonContainer}>
+      <div className={styles.branchComparisonHeader}>
         <h2>Counterfactual World Comparison</h2>
         <p>Compare how different interventions affect ecosystem evolution</p>
       </div>
 
-      <div className="branch-selectors">
+      <div className={styles.branchSelectors}>
         {branchCollection && (
           <>
             <BranchSelector
@@ -248,11 +249,11 @@ export function BranchComparisonView({
         )}
       </div>
 
-      <div className="branch-metadata">
-        <div className="branch-info">
+      <div className={styles.branchMetadata}>
+        <div className={styles.branchInfo}>
           <h3>{displayBranchA?.name}</h3>
           {displayBranchA?.changedIntervention && (
-            <p className="intervention">
+            <p className={styles.intervention}>
               <strong>Changed:</strong> {displayBranchA.changedIntervention.label}
               <br />
               <strong>At tick:</strong> {displayBranchA.changedIntervention.tick}
@@ -260,10 +261,10 @@ export function BranchComparisonView({
           )}
         </div>
         {displayBranchB && (
-          <div className="branch-info">
+          <div className={styles.branchInfo}>
             <h3>{displayBranchB?.name}</h3>
             {displayBranchB?.changedIntervention && (
-              <p className="intervention">
+              <p className={styles.intervention}>
                 <strong>Changed:</strong> {displayBranchB.changedIntervention.label}
                 <br />
                 <strong>At tick:</strong> {displayBranchB.changedIntervention.tick}
@@ -273,266 +274,12 @@ export function BranchComparisonView({
         )}
       </div>
 
-      <div className="comparison-grid">
+      <div className={styles.comparisonGrid}>
         <MetricsCard label="Branch A - Current State" metrics={metricsA} />
         {displayBranchB && <MetricsCard label="Branch B - Current State" metrics={metricsB} />}
       </div>
 
       {divergence && displayBranchB && <DivergenceAnalysis divergence={divergence} />}
-
-      <style>{`
-        .branch-comparison-container {
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-          padding: 1rem;
-          background: #f5f5f5;
-          border-radius: 4px;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
-
-        .branch-comparison-header {
-          text-align: center;
-        }
-
-        .branch-comparison-header h2 {
-          margin: 0 0 0.5rem 0;
-          font-size: 1.5rem;
-        }
-
-        .branch-comparison-header p {
-          margin: 0;
-          color: #666;
-        }
-
-        .branch-selectors {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 1rem;
-        }
-
-        .branch-selector {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .branch-selector label {
-          font-weight: 500;
-          color: #333;
-        }
-
-        .branch-selector select {
-          padding: 0.5rem;
-          border: 1px solid #ccc;
-          border-radius: 3px;
-          font-size: 0.95rem;
-        }
-
-        .branch-metadata {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-          gap: 1rem;
-        }
-
-        .branch-info {
-          padding: 1rem;
-          background: white;
-          border-radius: 4px;
-          border-left: 4px solid #4285f4;
-        }
-
-        .branch-info h3 {
-          margin: 0 0 0.5rem 0;
-          font-size: 1.1rem;
-        }
-
-        .branch-info .intervention {
-          margin: 0;
-          font-size: 0.9rem;
-          color: #555;
-          line-height: 1.5;
-        }
-
-        .comparison-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-          gap: 1rem;
-        }
-
-        .branch-metrics-card {
-          padding: 1rem;
-          background: white;
-          border-radius: 4px;
-          border: 1px solid #ddd;
-        }
-
-        .branch-metrics-card.empty {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 200px;
-          color: #999;
-        }
-
-        .branch-metrics-card h4 {
-          margin: 0 0 1rem 0;
-          font-size: 1rem;
-          border-bottom: 2px solid #4285f4;
-          padding-bottom: 0.5rem;
-        }
-
-        .branch-metrics-card dl {
-          margin: 0;
-          display: grid;
-          grid-template-columns: auto 1fr;
-          gap: 0.5rem 1rem;
-          font-size: 0.9rem;
-        }
-
-        .branch-metrics-card dt {
-          font-weight: 600;
-          color: #333;
-        }
-
-        .branch-metrics-card dd {
-          margin: 0;
-          color: #666;
-        }
-
-        .branch-divergence {
-          padding: 1rem;
-          background: white;
-          border-radius: 4px;
-          border-left: 4px solid #ea4335;
-        }
-
-        .divergence-point {
-          margin-bottom: 1.5rem;
-          padding-bottom: 1rem;
-          border-bottom: 1px solid #eee;
-        }
-
-        .divergence-point h4 {
-          margin: 0 0 0.5rem 0;
-          color: #ea4335;
-        }
-
-        .divergence-point p {
-          margin: 0;
-          color: #666;
-        }
-
-        .extinction-differences {
-          margin-bottom: 1.5rem;
-        }
-
-        .extinction-differences h4 {
-          margin: 0 0 0.5rem 0;
-          color: #d32f2f;
-          font-size: 0.95rem;
-        }
-
-        .extinction-differences ul {
-          margin: 0;
-          padding-left: 1.5rem;
-          list-style: disc;
-        }
-
-        .extinction-differences li {
-          margin: 0.3rem 0;
-          font-size: 0.9rem;
-          color: #555;
-        }
-
-        .extinction-differences .more-items {
-          margin: 0.5rem 0 0 0;
-          font-size: 0.85rem;
-          color: #999;
-          font-style: italic;
-        }
-
-        .metrics-timeline {
-          margin-top: 1rem;
-        }
-
-        .metrics-timeline h4 {
-          margin: 0 0 0.5rem 0;
-          font-size: 0.95rem;
-          color: #333;
-        }
-
-        .timeline-comparison {
-          display: flex;
-          gap: 0.5rem;
-          overflow-x: auto;
-          padding: 0.5rem;
-          background: #fafafa;
-          border-radius: 3px;
-        }
-
-        .timeline-checkpoint {
-          flex-shrink: 0;
-          padding: 0.5rem;
-          background: white;
-          border: 1px solid #ddd;
-          border-radius: 2px;
-          min-width: 120px;
-        }
-
-        .checkpoint-tick {
-          display: block;
-          font-size: 0.8rem;
-          font-weight: 600;
-          color: #333;
-          margin-bottom: 0.3rem;
-        }
-
-        .checkpoint-metrics {
-          display: flex;
-          gap: 0.5rem;
-          font-size: 0.8rem;
-        }
-
-        .checkpoint-metrics span {
-          flex: 1;
-          padding: 0.3rem;
-          border-radius: 2px;
-          text-align: center;
-        }
-
-        .checkpoint-metrics .pop-a {
-          background: #e3f2fd;
-          color: #1976d2;
-        }
-
-        .checkpoint-metrics .pop-b {
-          background: #f3e5f5;
-          color: #7b1fa2;
-        }
-
-        .branch-comparison.empty {
-          padding: 2rem;
-          text-align: center;
-          color: #999;
-          background: white;
-          border-radius: 4px;
-        }
-
-        @media (max-width: 768px) {
-          .comparison-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .branch-metadata {
-            grid-template-columns: 1fr;
-          }
-
-          .branch-selectors {
-            grid-template-columns: 1fr;
-          }
-        }
-      `}</style>
     </div>
   );
 }

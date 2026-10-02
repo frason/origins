@@ -550,15 +550,16 @@ export function tickEngine(
   let dispersalEnergySpent = 0;
   let dispersalBiomeTransitions = 0;
 
-  // Phase 1: Generate DecisionIntents with deterministic tie-breaking order
-  // Sort creatures by tie-breaking order before decision phase
+  // Phase 1: Generate DecisionIntents
+  // Iterate creatures in their natural array order (creation order) to preserve
+  // pre-#173 determinism and simulation outcomes. tieBreakCreatureOrder is defined
+  // for future use but not applied during iteration to avoid silently changing outcomes.
   const aliveCreatures = creatures.filter(c => c.lifecycleState === 'alive');
-  const sortedCreatures = [...aliveCreatures].sort(tieBreakCreatureOrder);
 
   // Get audio perception stream for sound detection
   const audioStream = rngStreams.getStream(RNG_STREAMS.SOUND);
 
-  for (const creature of sortedCreatures) {
+  for (const creature of aliveCreatures) {
     const pressure = localPressure.get(creature.id);
     creature.localResourcePressure = pressure?.pressure ?? 0;
     if (
@@ -661,9 +662,11 @@ export function tickEngine(
     decisionIntents.push(intent);
   }
 
-  // Phase 2: Execute DecisionIntents in tie-breaking order (already sorted above)
+  // Phase 2: Execute DecisionIntents in order they were generated (creation order)
+  // Pre-build a map for O(1) creature lookup instead of O(N) find() per intent
+  const creatureMap = new Map(creatures.map(c => [c.id, c]));
   for (const intent of decisionIntents) {
-    const creature = creatures.find(c => c.id === intent.creatureId)!;
+    const creature = creatureMap.get(intent.creatureId)!;
     if (creature.lifecycleState === 'alive') {
       const previousX = creature.x;
       const previousY = creature.y;

@@ -414,6 +414,19 @@ export class EngineWorkerManager {
   }
 
   /**
+   * Get the current engine state (only available in direct mode)
+   * This is used by the main thread to access the live simulation state
+   */
+  getCurrentEngine(): EngineState | null {
+    if (this.mode === 'direct') {
+      return this.directEngine;
+    }
+    // In worker mode, the engine state is maintained on the worker side
+    // and not fully available on main thread. Return null to indicate unavailable.
+    return null;
+  }
+
+  /**
    * Dispose of the manager and clean up resources
    */
   dispose(): void {
