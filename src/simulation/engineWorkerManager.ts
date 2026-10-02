@@ -63,6 +63,8 @@ export class EngineWorkerManager {
   private commandTimeoutMs: number;
   private initialized = false;
   private disposed = false;
+  private isPaused = false;
+  private isRunning = false;
 
   constructor(config: EngineWorkerManagerConfig) {
     this.mode = config.mode;
@@ -263,10 +265,14 @@ export class EngineWorkerManager {
       }
 
       case 'pause': {
+        this.isPaused = true;
+        this.isRunning = false;
         return this.createSnapshotDirect();
       }
 
       case 'resume': {
+        this.isPaused = false;
+        this.isRunning = true;
         return this.createSnapshotDirect();
       }
 
@@ -320,8 +326,8 @@ export class EngineWorkerManager {
       tick: this.directEngine.tick,
       seed: this.directEngine.seed,
       worldSnapshot: snapshotEngine(this.directEngine),
-      isRunning: false,
-      isPaused: false,
+      isRunning: this.isRunning,
+      isPaused: this.isPaused,
       constants: this.directEngine.constants,
       events: this.directEngine.events,
       lastAdaptationObservations: this.directEngine.lastAdaptationObservations,
