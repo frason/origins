@@ -502,3 +502,36 @@ export function validateBranchCompatibility(branch: WorldBranch): boolean {
 export function checkpointCanReplay(checkpoint: WorldBranch['checkpoints'][number]): boolean {
   return typeof checkpoint.replayCheckpointTick === 'number' && checkpoint.replayCheckpointTick >= 0;
 }
+
+/**
+ * Capture a checkpoint on an active branch when the engine is checkpointed.
+ * This wires branch checkpoints to real engine checkpoints, enabling deterministic replay.
+ *
+ * @param branch - the branch to capture onto
+ * @param worldState - the current world state snapshot
+ * @param engineCheckpointTick - the tick of the engine checkpoint being captured
+ * @param interval - only capture at tick % interval === 0
+ * @param limit - maximum number of checkpoints to keep
+ * @returns updated branch with checkpoint, or original branch if no capture needed
+ */
+export function captureCheckpointOnBranchForEngineCheckpoint(
+  branch: WorldBranch,
+  worldState: WorldSnapshot,
+  engineCheckpointTick: number,
+  interval: number = 10,
+  limit: number = 30
+): WorldBranch {
+  // Only capture if the world state tick matches the engine checkpoint tick
+  if (worldState.tick !== engineCheckpointTick) {
+    return branch;
+  }
+
+  // Delegate to the replay-aware capture function
+  return captureCheckpointOnBranchWithReplay(
+    branch,
+    worldState,
+    engineCheckpointTick, // Reference the real engine checkpoint
+    interval,
+    limit
+  );
+}

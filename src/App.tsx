@@ -74,7 +74,10 @@ import ChallengePanel from './ui/ChallengePanel';
 import { buildWorldRecipe } from './ui/worldRecipe';
 import { buildSessionSummary } from './ui/sessionSummary';
 import BranchComparisonView from './ui/BranchComparison';
-import { createBranch as createBranchFromSnapshot } from './simulation/worldBranch';
+import {
+  createBranch as createBranchFromSnapshot,
+  captureCheckpointOnBranchForEngineCheckpoint,
+} from './simulation/worldBranch';
 
 function browserStorage(): Storage | null {
   return typeof window === 'undefined' ? null : window.localStorage;
@@ -228,6 +231,25 @@ export default function App() {
     if (next === checkpointsRef.current) return;
     checkpointsRef.current = next;
     setCheckpointTicks(next.map((checkpoint) => checkpoint.tick));
+
+    // Wire engine checkpoints to active branch checkpoints for deterministic replay
+    const store = useStore.getState();
+    if (store.branchCollection && store.activeBranchId !== null) {
+      const activeBranch = store.branchCollection.alternatives.find((b) => b.id === store.activeBranchId);
+      if (activeBranch) {
+        // Capture the checkpoint on the active branch with a reference to the engine checkpoint
+        const worldSnapshot = snapshotEngine(engine);
+        const updatedBranch = captureCheckpointOnBranchForEngineCheckpoint(
+          activeBranch,
+          worldSnapshot,
+          engine.tick
+        );
+        // Update the branch in the store if it changed
+        if (updatedBranch !== activeBranch) {
+          store.updateBranch(store.activeBranchId, updatedBranch);
+        }
+      }
+    }
   }, []);
 
   const reset = useCallback(() => {
@@ -251,7 +273,7 @@ export default function App() {
     if (engineWorkerManagerRef.current) {
       engineWorkerManagerRef.current.dispose();
     }
-    const manager = new EngineWorkerManager({ mode: 'direct' });
+    const manager = new EngineWorkerManager({ mode: 'worker' });
     engineWorkerManagerRef.current = manager;
     manager.init(engine).catch((err) => console.error('Failed to initialize engine worker manager:', err));
     // Load journal from storage if available, otherwise create new
@@ -284,7 +306,7 @@ export default function App() {
     if (engineWorkerManagerRef.current) {
       engineWorkerManagerRef.current.dispose();
     }
-    const manager = new EngineWorkerManager({ mode: 'direct' });
+    const manager = new EngineWorkerManager({ mode: 'worker' });
     engineWorkerManagerRef.current = manager;
     manager.init(engine).catch((err) => console.error('Failed to initialize engine worker manager:', err));
     // Load journal from storage if available, otherwise create new
@@ -340,7 +362,7 @@ export default function App() {
       if (engineWorkerManagerRef.current) {
         engineWorkerManagerRef.current.dispose();
       }
-      const manager = new EngineWorkerManager({ mode: 'direct' });
+      const manager = new EngineWorkerManager({ mode: 'worker' });
       engineWorkerManagerRef.current = manager;
       await manager.init(engine);
       // Load field journal from storage if available, otherwise create new
@@ -382,7 +404,7 @@ export default function App() {
     if (engineWorkerManagerRef.current) {
       engineWorkerManagerRef.current.dispose();
     }
-    const manager = new EngineWorkerManager({ mode: 'direct' });
+    const manager = new EngineWorkerManager({ mode: 'worker' });
     engineWorkerManagerRef.current = manager;
     await manager.init(engine);
     // Load field journal from storage if available, otherwise create new
@@ -457,7 +479,7 @@ export default function App() {
     if (engineWorkerManagerRef.current) {
       engineWorkerManagerRef.current.dispose();
     }
-    const manager = new EngineWorkerManager({ mode: 'direct' });
+    const manager = new EngineWorkerManager({ mode: 'worker' });
     engineWorkerManagerRef.current = manager;
     manager.init(restored.state).catch((err) => console.error('Failed to initialize engine worker manager:', err));
     publish(restored.state);
@@ -540,7 +562,7 @@ export default function App() {
       if (engineWorkerManagerRef.current) {
         engineWorkerManagerRef.current.dispose();
       }
-      const manager = new EngineWorkerManager({ mode: 'direct' });
+      const manager = new EngineWorkerManager({ mode: 'worker' });
       engineWorkerManagerRef.current = manager;
       manager.init(session.state).catch((err) => console.error('Failed to initialize engine worker manager:', err));
       // Load field journal from storage if available, otherwise create new
@@ -614,7 +636,7 @@ export default function App() {
       if (engineWorkerManagerRef.current) {
         engineWorkerManagerRef.current.dispose();
       }
-      const manager = new EngineWorkerManager({ mode: 'direct' });
+      const manager = new EngineWorkerManager({ mode: 'worker' });
       engineWorkerManagerRef.current = manager;
       manager.init(engine).catch((err) => console.error('Failed to initialize engine worker manager:', err));
       // Load observatory state from storage (first-run objectives progress)
@@ -655,75 +677,85 @@ export default function App() {
       // Don't start a new tick if one is already in progress
       if (tickInProgress) return;
 
-      // Process one tick (or recipe replay step) per interval callback
-      if (acc >= tickMs) {
-        const prev = engineRef.current;
-        if (prev) {
-          const replay = recipeReplayRef.current;
-          if (replay) {
-            // Recipe replay is synchronous, run it directly
+      // Handle recipe replay: process ticks synchronously in a loop
+      const replay = recipeReplayRef.current;
+      if (replay) {
+        // Recipe replay is synchronous, run it in a loop to catch up
+        while (acc >= tickMs) {
+          try {
+            const advanced = advanceRecipeReplay(replay);
+            engineRef.current = advanced.state;
+            useStore.getState().updateConstants(advanced.constants);
+            recipeReplayRef.current = advanced.complete ? null : advanced;
+            if (advanced.complete) {
+              setReplayActive(false);
+              setReplayStatus(`Replay complete at tick ${advanced.state.tick.toLocaleString()}`);
+              useStore.getState().setRunning(false);
+              break;
+            } else {
+              setReplayStatus(
+                `Replaying tick ${advanced.state.tick.toLocaleString()} of ${advanced.recipe.throughTick.toLocaleString()}`
+              );
+            }
+            if (engineRef.current) {
+              recordCheckpoint(engineRef.current);
+              publish(engineRef.current);
+            }
+            acc -= tickMs;
+          } catch (error) {
+            recipeReplayRef.current = null;
+            setReplayActive(false);
+            setReplayStatus(error instanceof Error ? error.message : 'Recipe replay diverged');
+            useStore.getState().setRunning(false);
+            break;
+          }
+        }
+      } else {
+        // Normal simulation: batch multiple ticks into a single async command
+        if (acc >= tickMs) {
+          const tickCount = Math.floor(acc / tickMs);
+          tickInProgress = true;
+          (async () => {
             try {
-              const advanced = advanceRecipeReplay(replay);
-              engineRef.current = advanced.state;
-              useStore.getState().updateConstants(advanced.constants);
-              recipeReplayRef.current = advanced.complete ? null : advanced;
-              if (advanced.complete) {
-                setReplayActive(false);
-                setReplayStatus(`Replay complete at tick ${advanced.state.tick.toLocaleString()}`);
-                useStore.getState().setRunning(false);
+              const manager = engineWorkerManagerRef.current;
+              if (manager) {
+                // Use manager to execute batched ticks
+                await manager.sendCommand({
+                  type: 'tick',
+                  count: tickCount,
+                  constantOverrides: useStore.getState().constants,
+                });
+                // Retrieve updated engine state from manager
+                const updated = manager.getCurrentEngine();
+                if (updated) {
+                  engineRef.current = updated;
+                }
               } else {
-                setReplayStatus(
-                  `Replaying tick ${advanced.state.tick.toLocaleString()} of ${advanced.recipe.throughTick.toLocaleString()}`
-                );
+                // Fallback if manager not initialized yet
+                const prev = engineRef.current;
+                if (prev) {
+                  let currentEngine = prev;
+                  for (let i = 0; i < tickCount; i++) {
+                    currentEngine = tickEngine(currentEngine, useStore.getState().constants);
+                  }
+                  engineRef.current = currentEngine;
+                }
               }
               if (engineRef.current) {
                 recordCheckpoint(engineRef.current);
                 publish(engineRef.current);
               }
             } catch (error) {
-              recipeReplayRef.current = null;
-              setReplayActive(false);
-              setReplayStatus(error instanceof Error ? error.message : 'Recipe replay diverged');
+              console.error('Engine tick failed:', error);
               useStore.getState().setRunning(false);
+            } finally {
+              tickInProgress = false;
             }
-          } else {
-            // Normal simulation tick: use EngineWorkerManager (with direct fallback)
-            tickInProgress = true;
-            (async () => {
-              try {
-                const manager = engineWorkerManagerRef.current;
-                if (manager) {
-                  // Use manager to execute tick
-                  await manager.sendCommand({
-                    type: 'tick',
-                    count: 1,
-                    constantOverrides: useStore.getState().constants,
-                  });
-                  // Retrieve updated engine state from manager
-                  const updated = manager.getCurrentEngine();
-                  if (updated) {
-                    engineRef.current = updated;
-                  }
-                } else {
-                  // Fallback if manager not initialized yet
-                  engineRef.current = tickEngine(prev, useStore.getState().constants);
-                }
-                if (engineRef.current) {
-                  recordCheckpoint(engineRef.current);
-                  publish(engineRef.current);
-                }
-              } catch (error) {
-                console.error('Engine tick failed:', error);
-                useStore.getState().setRunning(false);
-              } finally {
-                tickInProgress = false;
-              }
-            })();
-          }
-          acc -= tickMs;
+          })();
+          acc -= tickMs * tickCount;
         }
-        if (!useStore.getState().isRunning) return;
       }
+      if (!useStore.getState().isRunning) return;
     }, getUiFrameInterval(speed));
 
     return () => clearInterval(interval);

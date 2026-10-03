@@ -625,33 +625,69 @@ describe('world branching and counterfactual analysis', () => {
       const restoreResult = restoreCheckpoint(engineCheckpoints, 10);
       expect(restoreResult).not.toBeNull();
 
-      // Run 5 more ticks from the restored state
-      let restored = restoreResult!.state;
-      let restoredFinal: EngineState | null = null;
+      // Get the original state at tick 10 before we continue
+      const originalAt10 = checkpoint10!.state;
+
+      // Run 5 more ticks from the original checkpoint to tick 15
+      let originalContinued = originalAt10;
       for (let i = 0; i < 5; i++) {
-        restored = tickEngine(restored, constants);
-        if (restored.tick === 15) restoredFinal = restored;
+        originalContinued = tickEngine(originalContinued, constants);
+      }
+      const originalAt15 = originalContinued;
+
+      // Now restore from the checkpoint and continue to tick 15
+      let restoredState = restoreResult!.state;
+      for (let i = 0; i < 5; i++) {
+        restoredState = tickEngine(restoredState, constants);
+      }
+      const restoredAt15 = restoredState;
+
+      // Verify both reached tick 15
+      expect(originalAt15.tick).toBe(15);
+      expect(restoredAt15.tick).toBe(15);
+
+      // Verify creature counts match (necessary but not sufficient for identical results)
+      expect(restoredAt15.creatures.length).toBe(originalAt15.creatures.length);
+
+      // Verify full creature state matches for deterministic replay (if creatures exist)
+      if (restoredAt15.creatures.length > 0) {
+        for (let i = 0; i < Math.min(originalAt15.creatures.length, restoredAt15.creatures.length); i++) {
+          const origC = originalAt15.creatures[i];
+          const restC = restoredAt15.creatures[i];
+
+          // Compare creature identity and state
+          expect(restC.id).toBe(origC.id);
+          expect(restC.speciesId).toBe(origC.speciesId);
+          expect(restC.x).toBe(origC.x);
+          expect(restC.y).toBe(origC.y);
+          expect(restC.energy).toBeCloseTo(origC.energy, 0);
+          expect(restC.age).toBe(origC.age);
+          expect(restC.lifecycleState).toBe(origC.lifecycleState);
+
+          // Compare traits (should be identical)
+          expect(restC.traits.size).toBe(origC.traits.size);
+          expect(restC.traits.speed).toBe(origC.traits.speed);
+          expect(restC.traits.visionRange).toBe(origC.traits.visionRange);
+          expect(restC.traits.metabolism).toBe(origC.traits.metabolism);
+        }
       }
 
-      expect(restoredFinal).not.toBeNull();
-      expect(restoredFinal!.tick).toBe(15);
+      // Verify world grid cells match (energy, nutrients, etc.)
+      for (let i = 0; i < originalAt15.width * originalAt15.height; i++) {
+        const origCell = originalAt15.cells[i];
+        const restCell = restoredAt15.cells[i];
+        expect(restCell.energy).toBeCloseTo(origCell.energy, 1);
+        expect(restCell.nutrients).toBeCloseTo(origCell.nutrients, 1);
+        expect(restCell.producerBiomass).toBeCloseTo(origCell.producerBiomass, 1);
+      }
 
-      // The restored state at tick 15 should match what we got by continuing
-      // forward from the original run to tick 15
-      const originalAt15 = engineCheckpoints.find(cp => cp.tick === 10)
-        ? (() => {
-            let temp = checkpoint10!.state;
-            for (let i = 0; i < 5; i++) {
-              temp = tickEngine(temp, constants);
-            }
-            return temp;
-          })()
-        : null;
+      // Verify RNG state is identical by checking that both produce identical results
+      // if we continue one more tick from tick 15
+      const origNext = tickEngine(originalAt15, constants);
+      const restNext = tickEngine(restoredAt15, constants);
 
-      expect(originalAt15).not.toBeNull();
-      expect(restoredFinal!.tick).toBe(originalAt15!.tick);
-      // Verify creature counts match (proof of deterministic replay)
-      expect(restoredFinal!.creatures.length).toBe(originalAt15!.creatures.length);
+      expect(origNext.creatures.length).toBe(restNext.creatures.length);
+      expect(origNext.tick).toBe(restNext.tick);
     });
   });
 });
