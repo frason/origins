@@ -100,9 +100,9 @@ export interface EvidenceThresholds {
 export const DEFAULT_EVIDENCE_THRESHOLDS: EvidenceThresholds = {
   survivalCorrelationThreshold: 0.1, // 10% difference in survival suggests selection
   reproductionCorrelationThreshold: 0.15, // 15% difference in reproduction suggests selection
-  divergenceThresholdForNeutralShift: 0.02, // 2% trait divergence = measurable change without fitness
+  divergenceThresholdForNeutralShift: 0.5, // 50% trait divergence = measurable change without fitness (drift vs neutral-shift)
   divergenceThresholdForClassification: 0.001, // 0.1% minimum divergence to classify (vs unknown)
-  divergenceThresholdForSpeciation: 0.05, // 5% trait divergence + isolation signal indicates speciation
+  divergenceThresholdForSpeciation: 0.3, // 30% trait divergence + isolation signal indicates speciation
   reproductiveIsolationThreshold: 0.5, // 50% shift in energyStrategy indicates reproductive isolation
 };
 
@@ -275,8 +275,29 @@ export function classifyChange(
 
   if (!currentDist || !previousDist) return 'unknown';
 
-  // Measure trait divergence to determine if change is detectable
-  const divergence = measureTraitDivergence(current, previous);
+  // Measure trait divergence for the specific trait being classified
+  // (not averaged across all traits, which would dilute the signal)
+  let divergence = 0;
+  if (currentDist.frequency && previousDist.frequency) {
+    // Discrete trait: measure maximum frequency shift for any value
+    let maxShift = 0;
+    for (const value of new Set([
+      ...Object.keys(currentDist.frequency),
+      ...Object.keys(previousDist.frequency),
+    ])) {
+      const shift = Math.abs(
+        (currentDist.frequency[value] ?? 0) - (previousDist.frequency[value] ?? 0)
+      );
+      maxShift = Math.max(maxShift, shift);
+    }
+    divergence = maxShift;
+  } else if (!currentDist.frequency && !previousDist.frequency) {
+    // Continuous trait: measure relative change in mean
+    // Use the range to normalize
+    const range = Math.max(0.1, currentDist.max - currentDist.min, previousDist.max - previousDist.min);
+    const meanDiff = Math.abs(currentDist.mean - previousDist.mean);
+    divergence = Math.min(1, meanDiff / range);
+  }
 
   // If change is too small to measure reliably, insufficient evidence
   if (divergence < thresholds.divergenceThresholdForClassification) {
