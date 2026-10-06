@@ -18,7 +18,7 @@
 # Each tick does AT MOST ONE thing (priority order):
 #   1. LEAD pass  — at lead_windows minutes, or when untriaged issues exist, or --force-lead
 #   2. KAREN pass — oldest agent-review issue (always before new work)
-#   3. WORKER run — oldest agent-todo issue (skips untriaged issues)
+#   3. WORKER run — round-robin agent-todo issue (skips untriaged, prevents low-numbered issues from starving higher ones)
 #
 # Manual override flags (bypass active_hours + budgets; still respect paused):
 #   dispatcher.sh --force-lead                  run the lead agent right now
@@ -874,21 +874,22 @@ if [ -n "$force_issue" ] && [ "$force_issue" != "next" ]; then
     log "--force-worker: issue #$force_issue does not have the agent-todo label"; exit 1
   fi
 else
-  # Fairness: cooldown with round-robin selection prevents single low-numbered issues
-  # from monopolizing the queue.
+  # Fairness: round-robin selection prevents single low-numbered issues from starving higher ones.
+  # Optional cooldown on crash adds a brief grace period before retry.
   #
   # Design:
-  # - cooldown.json: {issue_number: remaining_passes} for issues currently cooling
+  # - Round-robin: pick next issue after last_picked, wrapping around. Guarantees every
+  #   ready issue gets a turn before any issue repeats (core starvation prevention).
+  # - cooldown.json: {issue_number: remaining_passes} for issues skipped due to crash
   # - last_picked.json: last issue number picked (for round-robin ordering)
-  # - On crash: issue gets cooldown = 1 pass (or escalated if already cooling)
+  # - On crash: issue gets cooldown = 1 pass (brief grace period before reselection)
   # - At start of WORK: pre-existing cooldowns are decremented by 1
   # - Stale keys (value <= 0) are cleaned immediately after decrement
-  # - Selection: round-robin from last_picked, skip issues with active cooldown
+  # - Selection: round-robin from last_picked, skip issues with active cooldown (value > 0)
   # - Fallback: if all in cooldown, pick the one with lowest cooldown value (soonest to expire)
 
   cooldown_file="$STATE/cooldown.json"
   last_picked_file="$STATE/last_picked.json"
-  predecrement_file="$STATE/cooldown_predecrement.json"
 
   [ -f "$cooldown_file" ] || echo '{}' > "$cooldown_file"
   [ -f "$last_picked_file" ] || echo 'null' > "$last_picked_file"
@@ -897,11 +898,6 @@ else
   # If the file is an array (legacy), convert to empty object; otherwise use as-is.
   cooldown_map=$(cat "$cooldown_file" 2>/dev/null | jq -c 'if type=="array" then {} else . end' 2>/dev/null || echo '{}')
   last_picked=$(cat "$last_picked_file" 2>/dev/null || echo 'null')
-
-  # Save the pre-decrement cooldown state for crash-handling code to use when incrementing.
-  # This ensures escalation: if an issue was already in cooldown when we picked it and crashes,
-  # its cooldown increments (up to a cap).
-  pre_decrement_state=$(printf '%s' "$cooldown_map" | jq -c .)
 
   # Get the set of pre-existing entries before any modifications
   pre_existing=$(printf '%s' "$cooldown_map" | jq -c 'keys')
@@ -976,9 +972,6 @@ else
 
   # Persist updated (decremented and cleaned) cooldown
   printf '%s' "$updated_cooldown" > "$cooldown_file"
-
-  # Save the pre-decrement state for crash-handling code to use when incrementing
-  printf '%s' "$pre_decrement_state" > "$predecrement_file"
 
   # If we found an issue, save its number as last_picked for next round-robin iteration
   if [ -n "${todo_json:-}" ]; then
@@ -1096,28 +1089,18 @@ if ! run_agent worker "$effective_worker_model" "$tmp"; then
     --body "⚠️ **Worker run failed** (claude exited non-zero). Cycling back to \`agent-todo\` — check \`logs/dispatcher.log\` for the error." \
     >/dev/null 2>&1 || true
   set_issue_label "$iss_num" "agent-doing" "agent-todo" || true
-  # Fairness cooldown: escalating penalty for crashed workers.
-  # Increment its cooldown count (or set to 1 if not already cooling).
-  # To properly escalate on repeated crashes, use the pre-decrement state to check if
-  # this issue was already in cooldown before this pass's decrement operation.
+  # Fairness cooldown: brief grace period before reselecting crashed issues.
+  # Set issue to cooldown for 1 pass (gives time for error to stabilize/be investigated).
+  # Round-robin selection ensures even with cooldown, all other ready issues get fair turns.
   cooldown_file="$STATE/cooldown.json"
-  predecrement_file="$STATE/cooldown_predecrement.json"
   # Defensive read: handle both legacy array format and current object format.
   cd_now=$(cat "$cooldown_file" 2>/dev/null | jq -c 'if type=="array" then {} else . end' 2>/dev/null || echo '{}')
-  predecrement_state=$(cat "$predecrement_file" 2>/dev/null || echo '{}')
 
-  # Check if issue was in cooldown before decrement (pre-decrement state)
-  # If so, increment from that value; otherwise start from 1
-  previous_value=$(printf '%s' "$predecrement_state" | jq -r ".[$iss_num|tostring] // 0" 2>/dev/null || echo "0")
-  next_value=$(( previous_value + 1 ))
-  if [ "$next_value" -gt 5 ]; then next_value=5; fi
-
-  # Increment the cooldown counter for this issue (or set to 1 if not present)
-  # Cap at 5 to prevent unbounded growth
-  updated_cooldown=$(printf '%s' "$cd_now" | jq --argjson n "$iss_num" --argjson v "$next_value" \
-    '.[$n|tostring] = $v')
+  # Set cooldown to 1 pass for this issue
+  updated_cooldown=$(printf '%s' "$cd_now" | jq --argjson n "$iss_num" \
+    '.[$n|tostring] = 1')
   printf '%s' "$updated_cooldown" > "$cooldown_file" 2>/dev/null || echo "{\"$iss_num\": 1}" > "$cooldown_file"
-  log "  issue #$iss_num crashed — added to worker-selection cooldown for $next_value pass(es)"
+  log "  issue #$iss_num crashed — added to worker-selection cooldown for 1 pass"
   exit 0
 fi
 record_global_spend
