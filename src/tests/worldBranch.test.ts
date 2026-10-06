@@ -215,6 +215,48 @@ describe('world branching and counterfactual analysis', () => {
       expect(metrics.tick).toBe(10);
     });
 
+    it('populates traitFrequencies with per-species trait data', () => {
+      const world = createTestWorld(10, 10);
+      // Vary traits across creatures
+      world.creatures?.forEach((c, i) => {
+        c.traits.size = 1 + (i % 3); // Sizes: 1, 2, 3, 1, 2, 3, ...
+        c.traits.speed = 2 + (i % 2); // Speeds: 2, 3, 2, 3, ...
+      });
+
+      const metrics = sampleMetrics(world);
+
+      expect(metrics.traitFrequencies).toBeDefined();
+      expect(Object.keys(metrics.traitFrequencies!).length).toBeGreaterThan(0);
+
+      // Check that species_1 has trait values recorded
+      const species1Traits = metrics.traitFrequencies!['species_1'];
+      expect(species1Traits).toBeDefined();
+      expect(Array.isArray(species1Traits)).toBe(true);
+      expect(species1Traits!.length).toBeGreaterThan(0);
+
+      // Traits should be numeric
+      species1Traits!.forEach((traitValue) => {
+        expect(typeof traitValue).toBe('number');
+      });
+    });
+
+    it('computes median trait values for each species', () => {
+      const world = createTestWorld(10, 5);
+      world.creatures!.forEach((c) => {
+        c.speciesId = 'species_test';
+        c.traits.size = 5; // All creatures have size 5
+      });
+
+      const metrics = sampleMetrics(world);
+
+      expect(metrics.traitFrequencies).toBeDefined();
+      expect(metrics.traitFrequencies!['species_test']).toBeDefined();
+
+      // First trait should be size, which should be ~5
+      const firstTraitValue = metrics.traitFrequencies!['species_test']![0];
+      expect(firstTraitValue).toBe(5);
+    });
+
     it('sums living energy', () => {
       const world = createTestWorld(10, 5);
       world.creatures?.forEach((c) => {

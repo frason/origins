@@ -557,11 +557,10 @@ export function BranchComparisonView({
         </div>
       </div>
 
-      {/* Map Region Focus Synchronization - Placeholder for future implementation */}
-      {/*
+      {/* Map Region Focus Synchronization */}
       <div className={styles.mapSyncSection}>
-        <h3>Map Region Focus Synchronization (Coming Soon)</h3>
-        <p>Map visualization with region synchronization will be available in future versions.</p>
+        <h3>Map Region Focus Synchronization</h3>
+        <p>Click a region on one branch to synchronize the map focus across both branches.</p>
         <div className={styles.mapGrid}>
           <BranchMapRegionSelector
             branch={displayBranchA}
@@ -579,21 +578,30 @@ export function BranchComparisonView({
           )}
         </div>
       </div>
-      */}
 
       {/* Trait Frequency Comparison */}
       {metricsA && <TraitFrequencyComparison metricsA={metricsA} metricsB={metricsB} />}
 
-      {/* Timeline Focus Synchronization Status */}
-      {syncedTick !== null && (
+      {/* Synchronization Status */}
+      {(syncedTick !== null || syncedMapRegion !== null) && (
         <div className={styles.syncInfo}>
-          <h4>Timeline Synchronization Active</h4>
-          <p>
-            Both branches synced to <strong>tick {syncedTick}</strong>
-            <button onClick={() => setSyncedTick(null)} className={styles.clearSyncBtn}>
-              Clear Sync
-            </button>
-          </p>
+          <h4>Synchronization Active</h4>
+          {syncedTick !== null && (
+            <p>
+              Both branches synced to <strong>tick {syncedTick}</strong>
+              <button onClick={() => setSyncedTick(null)} className={styles.clearSyncBtn}>
+                Clear
+              </button>
+            </p>
+          )}
+          {syncedMapRegion !== null && (
+            <p>
+              Both branches synced to region <strong>({syncedMapRegion.x}, {syncedMapRegion.y})</strong>
+              <button onClick={() => setSyncedMapRegion(null)} className={styles.clearSyncBtn}>
+                Clear
+              </button>
+            </p>
+          )}
         </div>
       )}
 
