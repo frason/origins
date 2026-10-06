@@ -89,6 +89,8 @@ export interface WorldBranch {
     creatureIdCounter?: number;
     /** Reference to a real engine checkpoint tick for deterministic replay */
     replayCheckpointTick?: number;
+    /** Snapshot of world state at this checkpoint for comparison */
+    worldSnapshot?: WorldSnapshot;
   }>;
   /** The seed used for the parent timeline */
   seed: number;
@@ -159,6 +161,7 @@ export function captureCheckpointOnBranch(
   const newCheckpoint = {
     tick: worldState.tick!,
     creatureIdCounter: undefined, // Can be populated if needed
+    worldSnapshot: { ...worldState }, // Store snapshot for comparison views
   };
 
   // Replace any existing checkpoint at the same tick
@@ -197,6 +200,7 @@ export function captureCheckpointOnBranchWithReplay(
     tick: worldState.tick!,
     creatureIdCounter: undefined,
     replayCheckpointTick, // Reference to real engine checkpoint for deterministic replay
+    worldSnapshot: { ...worldState }, // Store snapshot for comparison views
   };
 
   // Replace any existing checkpoint at the same tick
@@ -420,6 +424,34 @@ export function compareBranches(
 export function findCommonHistoryTick(branchA: WorldBranch, branchB: WorldBranch): number {
   // The common history is up to the earlier branch point
   return Math.min(branchA.branchFromTick, branchB.branchFromTick);
+}
+
+/**
+ * Get the world state at or nearest to a specific tick for a branch
+ * Searches checkpoints first (for stored snapshots), then falls back to current worldState
+ */
+export function getWorldStateAtTick(branch: WorldBranch, targetTick: number): WorldSnapshot | null {
+  // First, try to find an exact checkpoint match
+  const exactCheckpoint = branch.checkpoints.find((cp) => cp.tick === targetTick);
+  if (exactCheckpoint?.worldSnapshot) {
+    return exactCheckpoint.worldSnapshot;
+  }
+
+  // If no exact match, find the nearest checkpoint before or at the target tick
+  const beforeCheckpoints = branch.checkpoints.filter((cp) => cp.tick <= targetTick);
+  if (beforeCheckpoints.length > 0) {
+    const nearest = beforeCheckpoints.sort((a, b) => b.tick - a.tick)[0];
+    if (nearest.worldSnapshot) {
+      return nearest.worldSnapshot;
+    }
+  }
+
+  // Fall back to current world state if it's at or after the target tick
+  if (branch.worldState && branch.worldState.tick! >= targetTick) {
+    return branch.worldState;
+  }
+
+  return null;
 }
 
 /**

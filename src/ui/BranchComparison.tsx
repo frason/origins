@@ -13,6 +13,7 @@ import {
   compareBranches,
   findCommonHistoryTick,
   sampleMetrics,
+  getWorldStateAtTick,
   type WorldBranch,
   type BranchDivergence,
 } from '../simulation/worldBranch';
@@ -214,7 +215,10 @@ function BranchTimeline({
 }
 
 /**
- * Simple map region selector for a branch
+ * Map region selector for a branch (placeholder for future map view rendering)
+ *
+ * Currently displays a grid of region labels. In future versions, clicking a region
+ * will be wired to actual map/canvas visualization showing creature distributions.
  */
 function BranchMapRegionSelector({
   branch,
@@ -238,7 +242,10 @@ function BranchMapRegionSelector({
 
   return (
     <div className={styles.branchMapRegion}>
-      <h5>{label} Map Focus</h5>
+      <h5>{label} Map Focus (Placeholder)</h5>
+      <p className={styles.placeholderNote}>
+        Map visualization coming in future versions. Currently shows region grid layout only.
+      </p>
       <div className={styles.regionGrid}>
         {Array.from({ length: gridSize * gridSize }).map((_, idx) => {
           const row = Math.floor(idx / gridSize);
@@ -253,7 +260,7 @@ function BranchMapRegionSelector({
               key={idx}
               className={`${styles.mapRegionCell} ${isSynced ? styles.synced : ''}`}
               onClick={() => onSyncMapRegion({ x, y })}
-              title={`Focus on region (${x}, ${y}) and sync with other branch`}
+              title={`Region (${x}, ${y})`}
               aria-label={`Region ${col + 1}-${row + 1}`}
             >
               ({col}, {row})
@@ -261,11 +268,6 @@ function BranchMapRegionSelector({
           );
         })}
       </div>
-      {syncedMapRegion !== null && (
-        <p className={styles.syncStatus}>
-          Synced region: <strong>({syncedMapRegion.x}, {syncedMapRegion.y})</strong>
-        </p>
-      )}
     </div>
   );
 }
@@ -409,15 +411,36 @@ export function BranchComparisonView({
     return compareBranches(displayBranchA, displayBranchB, commonTick);
   }, [displayBranchA, displayBranchB]);
 
-  const metricsA = useMemo(
-    () => (displayBranchA?.worldState ? sampleMetrics(displayBranchA.worldState) : undefined),
-    [displayBranchA]
-  );
+  // Compute metrics: use synced tick if available, otherwise use current state
+  const metricsA = useMemo(() => {
+    if (!displayBranchA) return undefined;
 
-  const metricsB = useMemo(
-    () => (displayBranchB?.worldState ? sampleMetrics(displayBranchB.worldState) : undefined),
-    [displayBranchB]
-  );
+    // If a synced tick is set, try to get world state at that tick
+    if (syncedTick !== null) {
+      const syncedWorldState = getWorldStateAtTick(displayBranchA, syncedTick);
+      if (syncedWorldState) {
+        return sampleMetrics(syncedWorldState);
+      }
+    }
+
+    // Fall back to current world state
+    return displayBranchA.worldState ? sampleMetrics(displayBranchA.worldState) : undefined;
+  }, [displayBranchA, syncedTick]);
+
+  const metricsB = useMemo(() => {
+    if (!displayBranchB) return undefined;
+
+    // If a synced tick is set, try to get world state at that tick
+    if (syncedTick !== null) {
+      const syncedWorldState = getWorldStateAtTick(displayBranchB, syncedTick);
+      if (syncedWorldState) {
+        return sampleMetrics(syncedWorldState);
+      }
+    }
+
+    // Fall back to current world state
+    return displayBranchB.worldState ? sampleMetrics(displayBranchB.worldState) : undefined;
+  }, [displayBranchB, syncedTick]);
 
   // Get checkpoints for timeline synchronization
   const checkpointsA = displayBranchA?.checkpoints ?? [];
@@ -499,8 +522,16 @@ export function BranchComparisonView({
       </div>
 
       <div className={styles.comparisonGrid}>
-        <MetricsCard label="Branch A - Current State" metrics={metricsA} />
-        {displayBranchB && <MetricsCard label="Branch B - Current State" metrics={metricsB} />}
+        <MetricsCard
+          label={syncedTick !== null ? `Branch A - Tick ${syncedTick}` : 'Branch A - Current State'}
+          metrics={metricsA}
+        />
+        {displayBranchB && (
+          <MetricsCard
+            label={syncedTick !== null ? `Branch B - Tick ${syncedTick}` : 'Branch B - Current State'}
+            metrics={metricsB}
+          />
+        )}
       </div>
 
       {/* Timeline Synchronization */}
@@ -526,9 +557,11 @@ export function BranchComparisonView({
         </div>
       </div>
 
-      {/* Map Region Focus Synchronization */}
+      {/* Map Region Focus Synchronization - Placeholder for future implementation */}
+      {/*
       <div className={styles.mapSyncSection}>
-        <h3>Map Region Focus Synchronization</h3>
+        <h3>Map Region Focus Synchronization (Coming Soon)</h3>
+        <p>Map visualization with region synchronization will be available in future versions.</p>
         <div className={styles.mapGrid}>
           <BranchMapRegionSelector
             branch={displayBranchA}
@@ -546,30 +579,21 @@ export function BranchComparisonView({
           )}
         </div>
       </div>
+      */}
 
       {/* Trait Frequency Comparison */}
       {metricsA && <TraitFrequencyComparison metricsA={metricsA} metricsB={metricsB} />}
 
-      {/* Timeline/Map Focus Synchronization Status */}
-      {(syncedTick !== null || syncedMapRegion !== null) && (
+      {/* Timeline Focus Synchronization Status */}
+      {syncedTick !== null && (
         <div className={styles.syncInfo}>
-          <h4>Synchronized Focus</h4>
-          {syncedTick !== null && (
-            <p>
-              Both branches viewing <strong>tick {syncedTick}</strong>
-              <button onClick={() => setSyncedTick(null)} className={styles.clearSyncBtn}>
-                Clear
-              </button>
-            </p>
-          )}
-          {syncedMapRegion !== null && (
-            <p>
-              Both branches viewing region <strong>({syncedMapRegion.x}, {syncedMapRegion.y})</strong>
-              <button onClick={() => setSyncedMapRegion(null)} className={styles.clearSyncBtn}>
-                Clear
-              </button>
-            </p>
-          )}
+          <h4>Timeline Synchronization Active</h4>
+          <p>
+            Both branches synced to <strong>tick {syncedTick}</strong>
+            <button onClick={() => setSyncedTick(null)} className={styles.clearSyncBtn}>
+              Clear Sync
+            </button>
+          </p>
         </div>
       )}
 

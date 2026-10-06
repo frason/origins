@@ -7,6 +7,7 @@ import {
   sampleMetrics,
   compareBranches,
   findCommonHistoryTick,
+  getWorldStateAtTick,
   estimateBranchSize,
   boundBranchStorage,
   validateBranchCompatibility,
@@ -353,6 +354,58 @@ describe('world branching and counterfactual analysis', () => {
       const common = findCommonHistoryTick(branch1, branch2);
 
       expect(common).toBe(20);
+    });
+  });
+
+  describe('getWorldStateAtTick', () => {
+    it('returns snapshot from exact checkpoint match', () => {
+      let branch = createBranch(createTestWorld(0), 0, { tick: 0, kind: 'settings-change', label: 'test' }, 'Test');
+
+      const world10 = createTestWorld(10, 5);
+      const world20 = createTestWorld(20, 8);
+
+      branch = captureCheckpointOnBranch(branch, world10, 10, 10);
+      branch = captureCheckpointOnBranch(branch, world20, 10, 10);
+
+      const state = getWorldStateAtTick(branch, 20);
+
+      expect(state).not.toBeNull();
+      expect(state?.tick).toBe(20);
+      expect(state?.creatures).toHaveLength(8);
+    });
+
+    it('returns nearest checkpoint before target tick', () => {
+      let branch = createBranch(createTestWorld(0), 0, { tick: 0, kind: 'settings-change', label: 'test' }, 'Test');
+
+      const world10 = createTestWorld(10, 3);
+      branch = captureCheckpointOnBranch(branch, world10, 10, 10);
+
+      // Request state at tick 25 (no exact checkpoint)
+      const state = getWorldStateAtTick(branch, 25);
+
+      expect(state).not.toBeNull();
+      expect(state?.tick).toBe(10); // Should return the nearest checkpoint at 10
+    });
+
+    it('falls back to current world state if at or after target tick', () => {
+      const currentWorld = createTestWorld(50, 12);
+      let branch = createBranch(currentWorld, 0, { tick: 0, kind: 'settings-change', label: 'test' }, 'Test');
+      branch.worldState = currentWorld;
+
+      const state = getWorldStateAtTick(branch, 40);
+
+      expect(state).not.toBeNull();
+      expect(state?.tick).toBe(50);
+      expect(state?.creatures).toHaveLength(12);
+    });
+
+    it('returns null if no suitable state found', () => {
+      const branch = createBranch(createTestWorld(0), 0, { tick: 0, kind: 'settings-change', label: 'test' }, 'Test');
+      branch.worldState = null;
+
+      const state = getWorldStateAtTick(branch, 10);
+
+      expect(state).toBeNull();
     });
   });
 
