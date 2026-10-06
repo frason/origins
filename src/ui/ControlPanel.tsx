@@ -19,6 +19,7 @@ import {
 } from '../simulation/speciesNames';
 import { describeFounderSuitability } from './habitatSuitability';
 import type { DisasterCommand } from '../simulation/disasterCommand';
+import DisasterPanel from './DisasterPanel';
 
 const TOTAL_GOD_MODE_CONTROL_COUNT = GOD_MODE_GROUPS.reduce(
   (total, group) => total + group.controls.length,
@@ -211,6 +212,8 @@ export default function ControlPanel({
   const [diagnosticMessage, setDiagnosticMessage] = useState<string | null>(null);
   const [cloudMessage, setCloudMessage] = useState<string | null>(null);
   const [cloudBusy, setCloudBusy] = useState(false);
+  const [disasterPanelOpen, setDisasterPanelOpen] = useState(false);
+  const [disasterMessage, setDisasterMessage] = useState<string | null>(null);
   const godModeLocked = isGodModeLocked(tick, replayActive);
 
   const recommendations = showGodMode
@@ -635,6 +638,40 @@ export default function ControlPanel({
                 <div className={`control-panel__status ${introductionMessage.includes('introduced') ? 'sim-status--positive' : 'sim-status--danger'}`} role="status">
                   {introductionMessage}
                 </div>
+              )}
+            </section>
+          )}
+
+          {onIntroduceDisaster && (
+            <section className="control-panel__section" aria-labelledby="trigger-disaster-title">
+              <h4 className="control-panel__section-title" id="trigger-disaster-title">Trigger natural disaster</h4>
+              <p className="control-panel__help">Introduce environmental pressures to test ecosystem resilience.</p>
+              <button
+                className="sim-button control-panel__wide-button"
+                type="button"
+                disabled={replayActive}
+                onClick={() => setDisasterPanelOpen(true)}
+              >
+                Open Disaster Trigger
+              </button>
+              {disasterMessage && (
+                <div className={`control-panel__status ${disasterMessage.includes('disaster') ? 'sim-status--positive' : 'sim-status--danger'}`} role="status">
+                  {disasterMessage}
+                </div>
+              )}
+              {disasterPanelOpen && (
+                <DisasterPanel
+                  onClose={() => setDisasterPanelOpen(false)}
+                  onApply={() => setDisasterMessage('Disaster triggered')}
+                  onIntroduceDisaster={(command) => {
+                    const error = onIntroduceDisaster(command);
+                    setDisasterMessage(error ?? 'Disaster triggered successfully');
+                    if (!error) {
+                      setDisasterPanelOpen(false);
+                    }
+                    return error;
+                  }}
+                />
               )}
             </section>
           )}

@@ -162,31 +162,37 @@ describe('biomass ecology baseline', () => {
 
     expect(run()).toEqual(first);
     expect(new Set(first.map((baseline) => JSON.stringify(baseline))).size).toBe(3);
+    // Re-pinned post-#173 baseline: the decide/execute phase split + per-entity RNG streams
+    // changed ecosystem outcomes from pre-#173. Bit-identical restore would require reverting
+    // both the phase split AND RNG isolation, which would break decisionIntent and rngStreamIsolation
+    // tests (#280, #302) that now depend on them. This implements option (b) of #285: accept
+    // the phase-split baseline (without canonical sort) and re-pin snapshots accordingly.
+    // Guarded properties (replay-identical per seed, distinct per seed) remain and are asserted.
     expect(first).toMatchInlineSnapshot(`
       [
         {
-          "averageOccupiedTileBiomass": 10.586,
+          "averageOccupiedTileBiomass": 12.915,
           "depletedOccupiedTileShare": 0.762,
           "occupiedTileCount": 21,
           "population": 22,
           "seed": 12345,
-          "totalBiomass": 325926,
+          "totalBiomass": 309561,
         },
         {
-          "averageOccupiedTileBiomass": 9.56,
-          "depletedOccupiedTileShare": 0.864,
-          "occupiedTileCount": 22,
-          "population": 25,
+          "averageOccupiedTileBiomass": 10.745,
+          "depletedOccupiedTileShare": 0.857,
+          "occupiedTileCount": 21,
+          "population": 23,
           "seed": 54321,
-          "totalBiomass": 336843,
+          "totalBiomass": 321477,
         },
         {
-          "averageOccupiedTileBiomass": 9.72,
-          "depletedOccupiedTileShare": 0.833,
-          "occupiedTileCount": 24,
-          "population": 30,
+          "averageOccupiedTileBiomass": 6.793,
+          "depletedOccupiedTileShare": 0.905,
+          "occupiedTileCount": 21,
+          "population": 22,
           "seed": 99999,
-          "totalBiomass": 348653,
+          "totalBiomass": 319760,
         },
       ]
     `);

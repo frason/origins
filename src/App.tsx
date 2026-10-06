@@ -13,6 +13,7 @@ import { introduceSpecies, tickEngine, EngineState } from './simulation/engine';
 import { EngineWorkerManager } from './simulation/engineWorkerManager';
 import type { EnergyStrategy } from './utils/traits';
 import type { FounderTraitOverrides } from './simulation/founderTraits';
+import type { DisasterCommand } from './simulation/disasterCommand';
 import { buildDemoEngine } from './simulation/demoWorld';
 import { createFreshWorldSeed, DEFAULT_WORLD_SEED } from './ui/worldSeed';
 import EventTimeline from './ui/EventTimeline';
@@ -76,7 +77,7 @@ import { buildSessionSummary } from './ui/sessionSummary';
 import BranchComparisonView from './ui/BranchComparison';
 import {
   createBranch as createBranchFromSnapshot,
-  captureCheckpointOnBranchForEngineCheckpoint,
+  captureCheckpointOnBranch,
 } from './simulation/worldBranch';
 
 function browserStorage(): Storage | null {
@@ -232,17 +233,16 @@ export default function App() {
     checkpointsRef.current = next;
     setCheckpointTicks(next.map((checkpoint) => checkpoint.tick));
 
-    // Wire engine checkpoints to active branch checkpoints for deterministic replay
+    // Capture checkpoints on active branch
     const store = useStore.getState();
     if (store.branchCollection && store.activeBranchId !== null) {
       const activeBranch = store.branchCollection.alternatives.find((b) => b.id === store.activeBranchId);
       if (activeBranch) {
-        // Capture the checkpoint on the active branch with a reference to the engine checkpoint
+        // Capture the checkpoint on the active branch
         const worldSnapshot = snapshotEngine(engine);
-        const updatedBranch = captureCheckpointOnBranchForEngineCheckpoint(
+        const updatedBranch = captureCheckpointOnBranch(
           activeBranch,
-          worldSnapshot,
-          engine.tick
+          worldSnapshot
         );
         // Update the branch in the store if it changed
         if (updatedBranch !== activeBranch) {
@@ -453,6 +453,23 @@ export default function App() {
       return null;
     } catch (error) {
       return error instanceof Error ? error.message : 'Could not introduce this species';
+    }
+  }, [publish, recordCheckpoint]);
+
+  const addDisaster = useCallback((command: DisasterCommand): string | null => {
+    if (recipeReplayRef.current) return 'Manual interventions are disabled during recipe replay';
+    const engine = engineRef.current;
+    if (!engine) return 'Engine not initialized';
+    try {
+      const store = useStore.getState();
+      const newState = store.triggerDisaster(command, engine);
+      if (!newState) return 'Failed to apply disaster';
+      engineRef.current = newState;
+      recordCheckpoint(newState);
+      publish(newState);
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : 'Could not apply disaster';
     }
   }, [publish, recordCheckpoint]);
 
@@ -876,6 +893,7 @@ export default function App() {
                   worldSeed={worldSeed}
                   worldName={worldName}
                   onIntroduceSpecies={addSpecies}
+                  onIntroduceDisaster={addDisaster}
                   replayActive={replayActive}
                   checkpointTicks={checkpointTicks}
                   onRestoreCheckpoint={restoreToTick}

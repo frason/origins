@@ -170,6 +170,107 @@ function MetricsCard({
 }
 
 /**
+ * Timeline scrubber for a branch with clickable checkpoints
+ */
+function BranchTimeline({
+  branch,
+  checkpoints,
+  syncedTick,
+  onSyncTick,
+  label,
+}: {
+  branch: WorldBranch | undefined;
+  checkpoints: Array<{ tick: number }>;
+  syncedTick: number | null;
+  onSyncTick: (tick: number) => void;
+  label: string;
+}): React.ReactElement {
+  if (!branch || checkpoints.length === 0) {
+    return <p>{label}: No checkpoints available</p>;
+  }
+
+  return (
+    <div className={styles.branchTimeline}>
+      <h5>{label} Timeline</h5>
+      <div className={styles.timelineBar}>
+        {checkpoints.map((cp) => (
+          <button
+            key={cp.tick}
+            className={`${styles.timelineCheckpoint} ${syncedTick === cp.tick ? styles.synced : ''}`}
+            onClick={() => onSyncTick(cp.tick)}
+            title={`Jump to tick ${cp.tick} and sync with other branch`}
+          >
+            {cp.tick}
+          </button>
+        ))}
+      </div>
+      {syncedTick !== null && (
+        <p className={styles.syncStatus}>
+          Synced to tick <strong>{syncedTick}</strong>
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Simple map region selector for a branch
+ */
+function BranchMapRegionSelector({
+  branch,
+  syncedMapRegion,
+  onSyncMapRegion,
+  label,
+}: {
+  branch: WorldBranch | undefined;
+  syncedMapRegion: { x: number; y: number } | null;
+  onSyncMapRegion: (region: { x: number; y: number }) => void;
+  label: string;
+}): React.ReactElement {
+  if (!branch?.worldState) {
+    return <p>{label}: No world state available</p>;
+  }
+
+  // Create a simple grid of clickable regions (4x4 grid)
+  const gridSize = 4;
+  const cellWidth = Math.ceil((branch.worldState.width ?? 100) / gridSize);
+  const cellHeight = Math.ceil((branch.worldState.height ?? 100) / gridSize);
+
+  return (
+    <div className={styles.branchMapRegion}>
+      <h5>{label} Map Focus</h5>
+      <div className={styles.regionGrid}>
+        {Array.from({ length: gridSize * gridSize }).map((_, idx) => {
+          const row = Math.floor(idx / gridSize);
+          const col = idx % gridSize;
+          const x = col * cellWidth;
+          const y = row * cellHeight;
+          const isSynced =
+            syncedMapRegion && syncedMapRegion.x === x && syncedMapRegion.y === y;
+
+          return (
+            <button
+              key={idx}
+              className={`${styles.mapRegionCell} ${isSynced ? styles.synced : ''}`}
+              onClick={() => onSyncMapRegion({ x, y })}
+              title={`Focus on region (${x}, ${y}) and sync with other branch`}
+              aria-label={`Region ${col + 1}-${row + 1}`}
+            >
+              ({col}, {row})
+            </button>
+          );
+        })}
+      </div>
+      {syncedMapRegion !== null && (
+        <p className={styles.syncStatus}>
+          Synced region: <strong>({syncedMapRegion.x}, {syncedMapRegion.y})</strong>
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
  * Display divergence points between branches
  */
 function DivergenceAnalysis({
@@ -318,6 +419,10 @@ export function BranchComparisonView({
     [displayBranchB]
   );
 
+  // Get checkpoints for timeline synchronization
+  const checkpointsA = displayBranchA?.checkpoints ?? [];
+  const checkpointsB = displayBranchB?.checkpoints ?? [];
+
   /**
    * Sync timeline position: when one branch's timeline is clicked,
    * update the synced tick for both branches
@@ -398,10 +503,54 @@ export function BranchComparisonView({
         {displayBranchB && <MetricsCard label="Branch B - Current State" metrics={metricsB} />}
       </div>
 
+      {/* Timeline Synchronization */}
+      <div className={styles.timelineSyncSection}>
+        <h3>Timeline Focus Synchronization</h3>
+        <div className={styles.timelineGrid}>
+          <BranchTimeline
+            branch={displayBranchA}
+            checkpoints={checkpointsA}
+            syncedTick={syncedTick}
+            onSyncTick={handleTimelineSync}
+            label="Branch A"
+          />
+          {displayBranchB && (
+            <BranchTimeline
+              branch={displayBranchB}
+              checkpoints={checkpointsB}
+              syncedTick={syncedTick}
+              onSyncTick={handleTimelineSync}
+              label="Branch B"
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Map Region Focus Synchronization */}
+      <div className={styles.mapSyncSection}>
+        <h3>Map Region Focus Synchronization</h3>
+        <div className={styles.mapGrid}>
+          <BranchMapRegionSelector
+            branch={displayBranchA}
+            syncedMapRegion={syncedMapRegion}
+            onSyncMapRegion={handleMapSync}
+            label="Branch A"
+          />
+          {displayBranchB && (
+            <BranchMapRegionSelector
+              branch={displayBranchB}
+              syncedMapRegion={syncedMapRegion}
+              onSyncMapRegion={handleMapSync}
+              label="Branch B"
+            />
+          )}
+        </div>
+      </div>
+
       {/* Trait Frequency Comparison */}
       {metricsA && <TraitFrequencyComparison metricsA={metricsA} metricsB={metricsB} />}
 
-      {/* Timeline/Map Focus Synchronization Info */}
+      {/* Timeline/Map Focus Synchronization Status */}
       {(syncedTick !== null || syncedMapRegion !== null) && (
         <div className={styles.syncInfo}>
           <h4>Synchronized Focus</h4>

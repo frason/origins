@@ -838,7 +838,8 @@ ${verdict_text}
     # this issue was already in cooldown before this pass's decrement operation.
     cooldown_file="$STATE/cooldown.json"
     predecrement_file="$STATE/cooldown_predecrement.json"
-    cd_now=$(cat "$cooldown_file" 2>/dev/null || echo '{}')
+    # Defensive read: handle both legacy array format and current object format.
+    cd_now=$(cat "$cooldown_file" 2>/dev/null | jq -c 'if type=="array" then {} else . end' 2>/dev/null || echo '{}')
     predecrement_state=$(cat "$predecrement_file" 2>/dev/null || echo '{}')
 
     # Check if issue was in cooldown before decrement (pre-decrement state)
@@ -873,22 +874,36 @@ if [ -n "$force_issue" ] && [ "$force_issue" != "next" ]; then
     log "--force-worker: issue #$force_issue does not have the agent-todo label"; exit 1
   fi
 else
-  # Fairness: escalating cooldown for issues that repeatedly fail.
-  # cooldown.json now holds {issue_number: remaining_passes} instead of a simple array.
-  # When an issue fails, its cooldown is set to 1 pass (or incremented if already cooling).
-  # At the start of each WORK pass, ONLY pre-existing cooldowns are decremented by 1.
-  # New entries added on crash are NOT decremented this pass (only on subsequent passes).
-  # This ensures a single issue that keeps crashing cannot monopolize every worker pass.
-  cooldown_file="$STATE/cooldown.json"
-  [ -f "$cooldown_file" ] || echo '{}' > "$cooldown_file"
-  cooldown_map=$(cat "$cooldown_file" 2>/dev/null || echo '{}')
+  # Fairness: cooldown with round-robin selection prevents single low-numbered issues
+  # from monopolizing the queue.
+  #
+  # Design:
+  # - cooldown.json: {issue_number: remaining_passes} for issues currently cooling
+  # - last_picked.json: last issue number picked (for round-robin ordering)
+  # - On crash: issue gets cooldown = 1 pass (or escalated if already cooling)
+  # - At start of WORK: pre-existing cooldowns are decremented by 1
+  # - Stale keys (value <= 0) are cleaned immediately after decrement
+  # - Selection: round-robin from last_picked, skip issues with active cooldown
+  # - Fallback: if all in cooldown, pick the one with lowest cooldown value (soonest to expire)
 
-  # Save the pre-decrement cooldown state for crash-handling code to read during increment.
-  # This prevents cooldown from resetting to 1 on repeated crashes of the same issue.
-  # We'll use this to ensure escalation: if an issue was already in cooldown, increment from that value.
+  cooldown_file="$STATE/cooldown.json"
+  last_picked_file="$STATE/last_picked.json"
+  predecrement_file="$STATE/cooldown_predecrement.json"
+
+  [ -f "$cooldown_file" ] || echo '{}' > "$cooldown_file"
+  [ -f "$last_picked_file" ] || echo 'null' > "$last_picked_file"
+
+  # Defensive read: handle both legacy array format and current object format.
+  # If the file is an array (legacy), convert to empty object; otherwise use as-is.
+  cooldown_map=$(cat "$cooldown_file" 2>/dev/null | jq -c 'if type=="array" then {} else . end' 2>/dev/null || echo '{}')
+  last_picked=$(cat "$last_picked_file" 2>/dev/null || echo 'null')
+
+  # Save the pre-decrement cooldown state for crash-handling code to use when incrementing.
+  # This ensures escalation: if an issue was already in cooldown when we picked it and crashes,
+  # its cooldown increments (up to a cap).
   pre_decrement_state=$(printf '%s' "$cooldown_map" | jq -c .)
 
-  # Save the set of pre-existing entries before any modifications
+  # Get the set of pre-existing entries before any modifications
   pre_existing=$(printf '%s' "$cooldown_map" | jq -c 'keys')
 
   todo_all=$(gh issue list --repo "$REPO" --label "agent-todo" --state open \
@@ -896,9 +911,9 @@ else
     --jq '[.[] | select(.body | (. != null and contains("<!-- agent-planned -->")))] | sort_by(.number)' \
     2>/dev/null || echo '[]')
 
-  # Decrement only pre-existing cooldown counters (keep zero values for escalation tracking).
+  # Decrement only pre-existing cooldown counters, then immediately clean up stale entries.
   # New entries (added on crash this pass) are NOT decremented yet; they stay at their set value.
-  # Do NOT filter out values <= 0; we need to track history for proper escalation.
+  # Stale entries (value <= 0) are removed to allow issues to regain eligibility.
   updated_cooldown=$(printf '%s' "$cooldown_map" | jq --argjson pre "$pre_existing" \
     'with_entries(
       if (.key as $k | $pre | index($k) != null) then
@@ -906,21 +921,72 @@ else
       else
         .value
       end
-    )')
+    ) | map_values(select(. > 0))')
 
-  # Pick the oldest candidate not currently in cooldown using the PRE-DECREMENT map.
-  # An issue is "in cooldown" if it appears as a KEY in the pre-decrement cooldown map.
-  # This ensures cooldown checks happen against the original state, not the decremented one.
-  # If every candidate is in cooldown (shouldn't normally happen), fall back to the oldest
-  # overall so the queue never stalls completely.
-  todo_json=$(printf '%s' "$todo_all" | jq --argjson cd "$cooldown_map" \
-    '(map(select(.number as $n | ($cd | has($n|tostring)) | not)) | first) // (first) // empty')
+  # Round-robin selection: pick the next issue after last_picked, wrapping around.
+  # Skip issues with active cooldown (value > 0 in updated_cooldown).
+  # If all issues are in cooldown, pick the one with smallest cooldown value (soonest to expire).
 
-  # Persist updated (decremented) cooldown
+  # Extract all issue numbers
+  issue_array=()
+  while IFS= read -r num; do
+    [ -z "$num" ] && continue
+    issue_array+=("$num")
+  done < <(printf '%s' "$todo_all" | jq -r '.[].number')
+
+  # Try to find a healthy issue (not in cooldown) starting from next after last_picked
+  todo_json=""
+  if [ ${#issue_array[@]} -gt 0 ]; then
+    # Find starting position
+    start_pos=0
+    if [ "$last_picked" != "null" ] && [ -n "$last_picked" ]; then
+      for i in "${!issue_array[@]}"; do
+        if [ "${issue_array[$i]}" = "$last_picked" ]; then
+          start_pos=$(( (i + 1) % ${#issue_array[@]} ))
+          break
+        fi
+      done
+    fi
+
+    # Try round-robin from start_pos
+    found_idx=-1
+    for ((offset = 0; offset < ${#issue_array[@]}; offset++)); do
+      idx=$(( (start_pos + offset) % ${#issue_array[@]} ))
+      num="${issue_array[$idx]}"
+      cd_val=$(printf '%s' "$updated_cooldown" | jq -r ".\"$num\" // 0" 2>/dev/null || echo "0")
+      if [ "$cd_val" = "0" ] || [ "$cd_val" = "null" ]; then
+        found_idx="$idx"
+        break
+      fi
+    done
+
+    # Get the selected number (or fall back to minimum cooldown if all in cooldown)
+    if [ "$found_idx" -ge 0 ]; then
+      selected_num="${issue_array[$found_idx]}"
+    else
+      # All in cooldown, pick the one with smallest cooldown value
+      selected_num=$(printf '%s' "$updated_cooldown" | jq -r 'to_entries | min_by(.value) | .key')
+    fi
+
+    # Get the full todo item
+    if [ -n "$selected_num" ]; then
+      todo_json=$(printf '%s' "$todo_all" | jq --arg n "$selected_num" '.[] | select(.number == ($n | tonumber))')
+    fi
+  fi
+
+  # Persist updated (decremented and cleaned) cooldown
   printf '%s' "$updated_cooldown" > "$cooldown_file"
 
-  # Also save pre-decrement state for crash-handling code to use when incrementing
-  printf '%s' "$pre_decrement_state" > "$STATE/cooldown_predecrement.json"
+  # Save the pre-decrement state for crash-handling code to use when incrementing
+  printf '%s' "$pre_decrement_state" > "$predecrement_file"
+
+  # If we found an issue, save its number as last_picked for next round-robin iteration
+  if [ -n "${todo_json:-}" ]; then
+    todo_num=$(echo "$todo_json" | jq -r '.number' 2>/dev/null || echo '')
+    if [ -n "$todo_num" ]; then
+      echo "$todo_num" > "$last_picked_file"
+    fi
+  fi
 fi
 
 if [ -z "${todo_json:-}" ]; then
@@ -1036,7 +1102,8 @@ if ! run_agent worker "$effective_worker_model" "$tmp"; then
   # this issue was already in cooldown before this pass's decrement operation.
   cooldown_file="$STATE/cooldown.json"
   predecrement_file="$STATE/cooldown_predecrement.json"
-  cd_now=$(cat "$cooldown_file" 2>/dev/null || echo '{}')
+  # Defensive read: handle both legacy array format and current object format.
+  cd_now=$(cat "$cooldown_file" 2>/dev/null | jq -c 'if type=="array" then {} else . end' 2>/dev/null || echo '{}')
   predecrement_state=$(cat "$predecrement_file" 2>/dev/null || echo '{}')
 
   # Check if issue was in cooldown before decrement (pre-decrement state)
