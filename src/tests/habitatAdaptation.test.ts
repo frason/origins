@@ -59,7 +59,9 @@ describe('heritable habitat adaptations', () => {
 
   it('includes habitat traits in deterministic mutation targets', () => {
     // Target speed, whose linked adaptation is aquatic affinity.
-    const draws = [0, 0.1, 0.9];
+    // With aquaticAdaptation in numericTraits, speed is at index 1 in the 20-element mutation targets array.
+    // Math.floor(0.05 * 20) = 1, selecting speed for mutation (0.1 would select visionRange at index 2).
+    const draws = [0, 0.05, 0.9];
     let index = 0;
     const mutated = mutateTraits(DEFAULT_TRAITS, () => draws[index++] ?? 0.9, 0.2, 1);
     expect(mutated.aquaticAffinity).toBeGreaterThan(DEFAULT_TRAITS.aquaticAffinity);
