@@ -77,7 +77,7 @@ import { buildSessionSummary } from './ui/sessionSummary';
 import BranchComparisonView from './ui/BranchComparison';
 import {
   createBranch as createBranchFromSnapshot,
-  captureCheckpointOnBranch,
+  captureCheckpointOnBranchForEngineCheckpoint,
 } from './simulation/worldBranch';
 
 function browserStorage(): Storage | null {
@@ -233,16 +233,17 @@ export default function App() {
     checkpointsRef.current = next;
     setCheckpointTicks(next.map((checkpoint) => checkpoint.tick));
 
-    // Capture checkpoints on active branch
+    // Capture checkpoints on active branch with reference to the real engine checkpoint
     const store = useStore.getState();
     if (store.branchCollection && store.activeBranchId !== null) {
       const activeBranch = store.branchCollection.alternatives.find((b) => b.id === store.activeBranchId);
       if (activeBranch) {
-        // Capture the checkpoint on the active branch
+        // Capture the checkpoint on the active branch, passing the engine checkpoint tick for deterministic replay
         const worldSnapshot = snapshotEngine(engine);
-        const updatedBranch = captureCheckpointOnBranch(
+        const updatedBranch = captureCheckpointOnBranchForEngineCheckpoint(
           activeBranch,
-          worldSnapshot
+          worldSnapshot,
+          engine.tick
         );
         // Update the branch in the store if it changed
         if (updatedBranch !== activeBranch) {

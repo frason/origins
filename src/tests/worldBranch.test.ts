@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   createBranch,
   captureCheckpointOnBranch,
+  captureCheckpointOnBranchForEngineCheckpoint,
+  checkpointCanReplay,
   sampleMetrics,
   compareBranches,
   findCommonHistoryTick,
@@ -13,6 +15,11 @@ import {
 } from '../simulation/worldBranch';
 import type { WorldSnapshot } from '../state/store';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
+import { createEngine, tickEngine, type EngineState } from '../simulation/engine';
+import { captureCheckpoint, restoreCheckpoint, type SimulationCheckpoint } from '../simulation/checkpointTimeline';
+import { snapshotEngine } from '../state/snapshot';
+import { Creature } from '../simulation/creature';
+import { DEFAULT_TRAITS } from '../utils/traits';
 
 function createTestWorld(tick: number, population: number = 10): WorldSnapshot {
   return {
@@ -509,6 +516,161 @@ describe('world branching and counterfactual analysis', () => {
       expect(divergence.extinctionDifferences.length).toBeGreaterThan(0);
       // s1 extinct in branch1, not in branch2
       expect(divergence.extinctionDifferences.some(d => d.speciesId === 's1' && d.extinctIn === 'branch_a')).toBe(true);
+    });
+  });
+
+  describe('replays branch checkpoints deterministically against the real engine', () => {
+    it('stores engine checkpoint references and uses them for deterministic replay', () => {
+      // Reset creature ID counter for deterministic test
+      Creature.resetIdCounter();
+
+      // Create a real engine with a deterministic seed
+      const seed = 42;
+      const initialCreature = new Creature({
+        speciesId: 'test_species',
+        lineageId: 'test_lineage',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS },
+        x: 50,
+        y: 50,
+        energy: 100,
+      });
+
+      // Create the main engine
+      let engine = createEngine(seed, [initialCreature]);
+      const engineCheckpoints: SimulationCheckpoint<EngineState>[] = [];
+
+      // Run to tick 10 and capture checkpoint
+      while (engine.tick < 10) {
+        engine = tickEngine(engine);
+      }
+      const checkpoints1 = captureCheckpoint(engineCheckpoints, engine);
+      expect(checkpoints1).toHaveLength(1);
+      expect(checkpoints1[0].tick).toBe(10);
+      const checkpoint10Tick = engine.tick;
+
+      // Create a branch at tick 10
+      const worldSnapshot = snapshotEngine(engine);
+      const branch = createBranch(
+        worldSnapshot,
+        10,
+        { tick: 10, kind: 'settings-change', label: 'test intervention' },
+        'Test Branch'
+      );
+      expect(branch.tick).toBe(10);
+
+      // Continue the engine to tick 20, capturing branch checkpoints with engine reference
+      let branchToUpdate = branch;
+      while (engine.tick < 20) {
+        engine = tickEngine(engine);
+      }
+
+      // Capture checkpoint at tick 20
+      const checkpoints2 = captureCheckpoint(checkpoints1, engine);
+      expect(checkpoints2).toHaveLength(2);
+      expect(checkpoints2[1].tick).toBe(20);
+      const checkpoint20Tick = engine.tick;
+
+      // Capture the checkpoint on the branch with engine checkpoint reference
+      const worldSnapshot20 = snapshotEngine(engine);
+      branchToUpdate = captureCheckpointOnBranchForEngineCheckpoint(
+        branchToUpdate,
+        worldSnapshot20,
+        checkpoint20Tick
+      );
+
+      // Verify the branch checkpoint was captured
+      expect(branchToUpdate.checkpoints).toHaveLength(1);
+      expect(branchToUpdate.checkpoints[0].tick).toBe(20);
+
+      // Verify the checkpoint has a valid replay reference
+      const branchCheckpoint = branchToUpdate.checkpoints[0];
+      expect(checkpointCanReplay(branchCheckpoint)).toBe(true);
+      expect(branchCheckpoint.replayCheckpointTick).toBe(20);
+
+      // Now use the stored replayCheckpointTick to restore the engine
+      const replayTick = branchCheckpoint.replayCheckpointTick!;
+      const restored = restoreCheckpoint(checkpoints2, replayTick);
+
+      // Verify restoration worked
+      expect(restored).not.toBeNull();
+      if (restored) {
+        expect(restored.state.tick).toBe(20);
+        // Verify creature data matches
+        expect(restored.state.creatures.length).toBeGreaterThan(0);
+        const originalCreature = engine.creatures[0];
+        const restoredCreature = restored.state.creatures[0];
+        expect(restoredCreature.id).toBe(originalCreature.id);
+        expect(restoredCreature.x).toBe(originalCreature.x);
+        expect(restoredCreature.y).toBe(originalCreature.y);
+        expect(restoredCreature.energy).toBe(originalCreature.energy);
+        expect(restoredCreature.age).toBe(originalCreature.age);
+        expect(restoredCreature.lifecycleState).toBe(originalCreature.lifecycleState);
+      }
+    });
+
+    it('branch checkpoint stores replayCheckpointTick and round-trips through persistence', () => {
+      // Reset creature ID counter for deterministic test
+      Creature.resetIdCounter();
+
+      // Create a real engine
+      const seed = 123;
+      const initialCreature = new Creature({
+        speciesId: 'test_species',
+        lineageId: 'test_lineage',
+        parentId: null,
+        traits: { ...DEFAULT_TRAITS },
+        x: 50,
+        y: 50,
+        energy: 100,
+      });
+
+      let engine = createEngine(seed, [initialCreature]);
+      const engineCheckpoints: SimulationCheckpoint<EngineState>[] = [];
+
+      // Run to tick 10
+      while (engine.tick < 10) {
+        engine = tickEngine(engine);
+      }
+      const checkpoints = captureCheckpoint(engineCheckpoints, engine);
+
+      // Create branch
+      const worldSnapshot = snapshotEngine(engine);
+      let branch = createBranch(
+        worldSnapshot,
+        10,
+        { tick: 10, kind: 'species-introduction', label: 'introduced species' },
+        'Alternative Branch'
+      );
+
+      // Run to tick 20
+      while (engine.tick < 20) {
+        engine = tickEngine(engine);
+      }
+      const checkpoints2 = captureCheckpoint(checkpoints, engine);
+
+      // Capture with engine checkpoint reference
+      const worldSnapshot20 = snapshotEngine(engine);
+      branch = captureCheckpointOnBranchForEngineCheckpoint(
+        branch,
+        worldSnapshot20,
+        engine.tick
+      );
+
+      // Verify the checkpoint has the correct tick stored
+      expect(branch.checkpoints).toHaveLength(1);
+      const checkpoint = branch.checkpoints[0];
+      expect(checkpoint.tick).toBe(20);
+      expect(checkpoint.replayCheckpointTick).toBe(20);
+
+      // Simulate persistence and reload (round-trip through JSON)
+      const serialized = JSON.stringify(branch);
+      const deserialized = JSON.parse(serialized) as WorldBranch;
+
+      // Verify the replayCheckpointTick survived round-trip
+      expect(deserialized.checkpoints).toHaveLength(1);
+      expect(deserialized.checkpoints[0].replayCheckpointTick).toBe(20);
+      expect(checkpointCanReplay(deserialized.checkpoints[0])).toBe(true);
     });
   });
 });
