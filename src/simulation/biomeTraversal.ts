@@ -213,11 +213,17 @@ export function moveAcrossTerrain(
         y = alternative.y;
         budget -= alternative.cost;
       } else {
-        // No alternative found: slow terrain remains crossable for speed-1 creatures,
-        // but only on a deterministic cadence based on age rather than a new random draw.
+        // No alternative found: slow terrain remains crossable at a reduced rate.
+        // Allow crossing only on deterministic cadence based on age.
         const excessCost = Math.max(0.01, next.cost - creature.traits.speed);
         const delayPeriod = Math.max(2, Math.round(1 / excessCost));
-        if (creature.age % delayPeriod === 0) break;
+        if (creature.age % delayPeriod === 0) {
+          break; // On favorable tick, stop without moving
+        }
+        // On unfavorable tick, move (accepting negative budget)
+        x = next.x;
+        y = next.y;
+        budget -= next.cost;
       }
     } else {
       x = next.x;
