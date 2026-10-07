@@ -770,6 +770,14 @@ export function tickEngine(
           deathCauses.set(creature.id, 'dispersal-exhaustion');
         }
       }
+
+      // Handle drink decision: restore hydration from adjacent water
+      if (intent.decision === 'drink') {
+        drinkWater(creature, newWorld, {
+          hydrationRecoveryFresh: constants.hydrationRecoveryFresh,
+          hydrationRecoverySalineMultiplier: constants.hydrationRecoverySalineMultiplier,
+        });
+      }
     }
   }
 
