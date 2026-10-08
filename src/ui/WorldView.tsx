@@ -82,30 +82,6 @@ interface RenderGrid {
   cellAt: (x: number, y: number) => RenderCell;
 }
 
-function extractGrid(worldState: any): RenderGrid | null {
-  if (!worldState) return null;
-
-  // Handle serialized World format (cells as 1D array)
-  if (worldState.cells && Array.isArray(worldState.cells) && worldState.width && worldState.height) {
-    return {
-      width: worldState.width,
-      height: worldState.height,
-      cellAt: (x, y) => worldState.cells[y * worldState.width + x],
-    };
-  }
-
-  // Handle 2D grid format
-  if (Array.isArray(worldState.grid) && worldState.grid.length > 0) {
-    return {
-      width: worldState.grid[0]?.length ?? 0,
-      height: worldState.grid.length,
-      cellAt: (x, y) => worldState.grid[y][x],
-    };
-  }
-
-  return null;
-}
-
 /**
  * Extract creatures from world state.
  *
@@ -162,8 +138,8 @@ function extractGridFromSnapshot(snapshot: RenderSnapshot): RenderGrid {
         toxicity: snapshot.layers.toxicity.values[idx],
         biome: BIOME_ENUM[snapshot.layers.terrain.biomes[idx]],
         producerArchetype: 'photic-algae' as ProducerArchetype, // Default for now
-        waterDepth: (snapshot as any).layers?.hydration?.waterDepth?.[idx] ?? 0,
-        substrate: (snapshot as any).layers?.hydration?.substrate?.[idx] ?? 'loam',
+        waterDepth: snapshot.layers.hydration.waterDepth[idx],
+        substrate: snapshot.layers.hydration.substrate[idx],
       };
     },
   };

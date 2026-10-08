@@ -36,7 +36,8 @@ export type RenderLayerKey =
   | 'corpses'
   | 'mutation-pressure'
   | 'lineage'
-  | 'selection';
+  | 'selection'
+  | 'hydration';
 
 /**
  * Terrain layer: biome classification per cell
@@ -135,6 +136,15 @@ export interface SelectionLayer {
 }
 
 /**
+ * Hydration layer: water depth and substrate type per cell
+ */
+export interface HydrationLayer {
+  type: 'hydration';
+  waterDepth: Float32Array; // Water depth [0, 1] per cell
+  substrate: string[]; // Substrate type per cell
+}
+
+/**
  * Recent simulation event for UI feedback
  */
 export interface RenderEvent {
@@ -166,6 +176,7 @@ export interface RenderSnapshot {
     mutationPressure: MutationPressureLayer;
     lineage: LineageLayer;
     selection: SelectionLayer;
+    hydration: HydrationLayer;
   };
   events: RenderEvent[];
   metadata: {
@@ -404,6 +415,26 @@ function buildMutationPressureLayer(
 }
 
 /**
+ * Build hydration layer: water depth and substrate type per cell
+ */
+function buildHydrationLayer(state: EngineState): HydrationLayer {
+  const { width, height } = state.world;
+  const waterDepth = new Float32Array(width * height);
+  const substrate: string[] = new Array(width * height);
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      const cell = state.world.getCell(x, y);
+      waterDepth[idx] = cell.waterDepth;
+      substrate[idx] = cell.substrate;
+    }
+  }
+
+  return { type: 'hydration', waterDepth, substrate };
+}
+
+/**
  * Extract recent events for UI feedback
  */
 function extractRecentEvents(state: EngineState): RenderEvent[] {
@@ -442,6 +473,7 @@ export function toRenderSnapshot(state: EngineState): RenderSnapshot {
       mutationPressure: buildMutationPressureLayer(state, width, height),
       lineage: buildLineageLayer(state),
       selection: buildSelectionLayer(),
+      hydration: buildHydrationLayer(state),
     },
     events: extractRecentEvents(state),
     metadata: {
@@ -534,6 +566,22 @@ export function validateRenderSnapshot(snapshot: RenderSnapshot): void {
   for (let i = 0; i < cellCount; i++) {
     if (!Number.isFinite(snapshot.layers.mutationPressure.values[i])) {
       throw new Error(`Invalid mutation pressure value at index ${i}`);
+    }
+  }
+
+  // Validate hydration layer
+  if (snapshot.layers.hydration.waterDepth.length !== cellCount) {
+    throw new Error('Hydration water depth array size mismatch');
+  }
+  if (snapshot.layers.hydration.substrate.length !== cellCount) {
+    throw new Error('Hydration substrate array size mismatch');
+  }
+  for (let i = 0; i < cellCount; i++) {
+    if (!Number.isFinite(snapshot.layers.hydration.waterDepth[i])) {
+      throw new Error(`Invalid water depth value at index ${i}`);
+    }
+    if (typeof snapshot.layers.hydration.substrate[i] !== 'string') {
+      throw new Error(`Invalid substrate type at index ${i}`);
     }
   }
 
@@ -744,6 +792,20 @@ export function toRenderSnapshotFromWorldSnapshot(
     followedLineages: new Map(),
   };
 
+  // Build hydration layer from cell data
+  const hydrationWaterDepth = new Float32Array(cellCount);
+  const hydrationSubstrate: string[] = new Array(cellCount);
+  for (let i = 0; i < cellCount; i++) {
+    const cell = worldSnapshot.cells[i];
+    hydrationWaterDepth[i] = (cell as any).waterDepth ?? 0;
+    hydrationSubstrate[i] = (cell as any).substrate ?? 'loam';
+  }
+  const hydrationLayer: HydrationLayer = {
+    type: 'hydration',
+    waterDepth: hydrationWaterDepth,
+    substrate: hydrationSubstrate,
+  };
+
   // Extract recent events
   const events: RenderEvent[] = (worldSnapshot.events ?? [])
     .slice(-MAX_RENDER_EVENTS)
@@ -773,6 +835,7 @@ export function toRenderSnapshotFromWorldSnapshot(
       mutationPressure: mutationPressureLayer,
       lineage: lineageLayer,
       selection: selectionLayer,
+      hydration: hydrationLayer,
     },
     events,
     metadata: {
@@ -830,6 +893,11 @@ export function serializeRenderSnapshot(snapshot: RenderSnapshot): string {
         selectedLineageIds: Array.from(snapshot.layers.selection.selectedLineageIds),
         followedLineages: Array.from(snapshot.layers.selection.followedLineages.entries()).map(([k, v]) => [k, Array.from(v)]),
       },
+      hydration: {
+        type: snapshot.layers.hydration.type,
+        waterDepth: Array.from(snapshot.layers.hydration.waterDepth),
+        substrate: snapshot.layers.hydration.substrate,
+      },
     },
     events: snapshot.events,
     metadata: snapshot.metadata,
@@ -882,6 +950,11 @@ export function deserializeRenderSnapshot(json: string): RenderSnapshot {
         selectedCreatureIds: new Set(data.layers.selection.selectedCreatureIds),
         selectedLineageIds: new Set(data.layers.selection.selectedLineageIds),
         followedLineages: new Map(data.layers.selection.followedLineages.map((entry: [string, string[]]) => [entry[0], new Set(entry[1])])),
+      },
+      hydration: {
+        type: 'hydration',
+        waterDepth: new Float32Array(data.layers.hydration.waterDepth),
+        substrate: data.layers.hydration.substrate,
       },
     },
     events: data.events,
