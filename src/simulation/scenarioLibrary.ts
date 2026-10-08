@@ -440,12 +440,158 @@ const ADAPTATION_SCENARIO: Scenario = {
 };
 
 /**
+ * SCENARIO 4: "Mixed Water and Land Ecosystems"
+ *
+ * Setup: A world with diverse substrate types and mixed water/land terrain.
+ * Players observe how substrate and water depth affect producer growth and
+ * creature adaptation in a heterogeneous environment.
+ *
+ * Learning Goals:
+ * - Understand how water depth and substrate affect producer growth
+ * - Observe species adaptation to varied hydrology
+ * - Learn about niche specialization in mixed-terrain environments
+ *
+ * Objectives:
+ * - Observe land-dwelling herbivores vs. aquatic species in same world
+ * - Monitor producer growth differences on loam vs. sandy substrates
+ * - Achieve population stability across diverse terrain types
+ */
+const MIXED_WATER_LAND_SCENARIO: Scenario = {
+  id: 'mixed-water-land-v1',
+  version: 1,
+  title: 'Mixed Water and Land Ecosystems',
+  description:
+    'Explore a world with diverse substrate types and water features. ' +
+    'Observe how different terrains support different producers and creatures, ' +
+    'and how ecosystems adapt to mixed hydrology.',
+  difficulty: 'moderate',
+
+  recipe: {
+    version: 1,
+    seed: 99887, // Mixed terrain seed
+    throughTick: 250,
+    initialSettings: {
+      ...SIMULATION_CONSTANTS,
+      worldWidth: 60,
+      worldHeight: 60,
+      producerGrowthRate: 0.28,
+      baseMetabolism: 1.1,
+    },
+    actions: [
+      {
+        type: 'introduce-species',
+        tick: 0,
+        strategy: 'herbivore',
+        origin: { x: 30, y: 20 },
+        speciesId: 'land_herbivores',
+        founderCount: 4,
+      },
+      {
+        type: 'introduce-species',
+        tick: 5,
+        strategy: 'omnivore',
+        origin: { x: 30, y: 40 },
+        speciesId: 'wetland_omnivores',
+        founderCount: 3,
+      },
+    ],
+  },
+
+  constraints: {
+    lockedDimensions: true,
+    modifiableConstants: ['producerGrowthRate', 'baseMetabolism'],
+    allowSpeciesIntroduction: true,
+    allowCreatureManipulation: false,
+    allowResourceInjection: true,
+    allowSpeciesRemoval: false,
+  },
+
+  objectives: [
+    {
+      id: 'observe-land-species',
+      title: 'Observe Land Species',
+      description: 'Monitor herbivore behavior on sandy and loamy uplands (ticks 0-50).',
+      type: 'observation',
+      targetMetrics: {
+        speciesId: 'land_herbivores',
+        metric: 'population',
+        within: 50,
+      },
+    },
+    {
+      id: 'observe-water-species',
+      title: 'Observe Water Species',
+      description: 'Monitor omnivore adaptation to wetland and shallow water regions.',
+      type: 'observation',
+      targetMetrics: {
+        speciesId: 'wetland_omnivores',
+        metric: 'population',
+        within: 100,
+      },
+    },
+    {
+      id: 'mixed-stability',
+      title: 'Achieve Mixed-Terrain Stability',
+      description: 'By tick 200, both land and water species should sustain viable populations.',
+      type: 'resilience',
+      targetMetrics: {
+        metric: 'stability',
+        threshold: 2,
+        within: 200,
+      },
+    },
+  ] as ScenarioObjective[],
+
+  completionCondition: {
+    maxTicks: 250,
+    trigger: {
+      type: 'all_objectives_met',
+    },
+    failCondition: {
+      type: 'extinction',
+      description: 'Failure if all creatures go extinct',
+    },
+  },
+
+  scoring: {
+    primaryMetric: {
+      type: 'biodiversity',
+      weight: 1.0,
+      target: 2,
+    },
+    evidenceMetrics: [
+      {
+        name: 'Terrain Utilization',
+        type: 'population_change',
+        weight: 0.5,
+      },
+      {
+        name: 'Producer Diversity',
+        type: 'niche_specialization',
+        weight: 0.3,
+      },
+      {
+        name: 'Ecosystem Stability',
+        type: 'extinction_recovery',
+        weight: 0.2,
+      },
+    ],
+  },
+
+  author: 'System',
+  createdAt: Date.now(),
+  tags: ['water', 'substrate', 'terrain', 'intermediate'],
+  validated: true,
+};
+
+/**
  * Complete library of built-in scenarios.
  */
 export const SCENARIO_LIBRARY: Record<string, Scenario> = {
   [RECOVERY_SCENARIO.id]: RECOVERY_SCENARIO,
   [FORECASTING_SCENARIO.id]: FORECASTING_SCENARIO,
   [ADAPTATION_SCENARIO.id]: ADAPTATION_SCENARIO,
+  [MIXED_WATER_LAND_SCENARIO.id]: MIXED_WATER_LAND_SCENARIO,
 };
 
 /**

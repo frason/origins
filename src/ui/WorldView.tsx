@@ -47,6 +47,18 @@ const PRODUCER_COLORS: Record<ProducerArchetype, [number, number, number]> = {
 };
 
 /**
+ * Substrate type colors for visual distinction
+ */
+const SUBSTRATE_COLORS: Record<string, [number, number, number]> = {
+  sand: [194, 178, 128],
+  loam: [139, 101, 62],
+  clay: [165, 111, 76],
+  peat: [74, 54, 34],
+  rock: [128, 128, 128],
+  sediment: [180, 140, 100],
+};
+
+/**
  * Extract grid cells from world state.
  * Handles World-like objects with cells array and width/height.
  *
@@ -60,6 +72,8 @@ interface RenderCell {
     toxicity: number;
     biome: Biome;
     producerArchetype: ProducerArchetype;
+    waterDepth?: number;
+    substrate?: string;
 }
 
 interface RenderGrid {
@@ -148,6 +162,8 @@ function extractGridFromSnapshot(snapshot: RenderSnapshot): RenderGrid {
         toxicity: snapshot.layers.toxicity.values[idx],
         biome: BIOME_ENUM[snapshot.layers.terrain.biomes[idx]],
         producerArchetype: 'photic-algae' as ProducerArchetype, // Default for now
+        waterDepth: (snapshot as any).layers?.hydration?.waterDepth?.[idx] ?? 0,
+        substrate: (snapshot as any).layers?.hydration?.substrate?.[idx] ?? 'loam',
       };
     },
   };
@@ -387,6 +403,24 @@ const WorldView: React.FC = () => {
           const toxicityOpacity = getToxicityHazard(cell.toxicity).overlayOpacity;
           if (toxicityOpacity > 0) {
             ctx.fillStyle = `rgba(105, 45, 120, ${toxicityOpacity})`;
+            ctx.fillRect(pixelX, pixelY, layout.cellWidth, layout.cellHeight);
+          }
+
+          // Water depth overlay: blue scaling with depth
+          const waterDepth = cell.waterDepth ?? 0;
+          if (waterDepth > 0.01) {
+            const waterOpacity = Math.min(0.7, waterDepth * 0.5);
+            ctx.fillStyle = `rgba(70, 130, 180, ${waterOpacity})`;
+            ctx.fillRect(pixelX, pixelY, layout.cellWidth, layout.cellHeight);
+          }
+
+          // Substrate type tinting (subtle, under water/biomass)
+          const substrate = cell.substrate ?? 'loam';
+          const substrateColor = SUBSTRATE_COLORS[substrate];
+          if (substrateColor) {
+            const substrateOpacity = waterDepth > 0.5 ? 0.15 : 0.25;
+            const [sr, sg, sb] = substrateColor;
+            ctx.fillStyle = `rgba(${sr}, ${sg}, ${sb}, ${substrateOpacity})`;
             ctx.fillRect(pixelX, pixelY, layout.cellWidth, layout.cellHeight);
           }
 

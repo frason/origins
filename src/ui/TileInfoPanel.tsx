@@ -5,6 +5,7 @@ import { buildTileLineageSummaries, buildTileMutationContext } from './tileInspe
 import { buildTileBiomassContext, buildTileDecompositionContext } from './biomassObservability';
 import { getCorpseDecayStage, getToxicityHazard } from '../simulation/toxicity';
 import { creatureColor, rgbToCss } from './creatureColor';
+import { buildSubstrateTileExplanation } from './substrateTileExplanation';
 
 interface TileInfoPanelProps {
   onOpenLineages?: () => void;
@@ -54,6 +55,7 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
     constants,
     cell.toxicity
   );
+  const substrate = buildSubstrateTileExplanation(cell);
 
   return (
     <aside
@@ -104,6 +106,10 @@ export default function TileInfoPanel({ onOpenLineages }: TileInfoPanelProps) {
             <div><dt>Dissolved nutrients</dt><dd>{cell.dissolvedNutrients.toFixed(2)}</dd></div>
             <div><dt>Salinity</dt><dd>{cell.salinity.toFixed(2)}</dd></div>
           </dl>
+          <p className="tile-inspector__mechanics-note">
+            <strong>{substrate.substrateLabel}.</strong> {substrate.waterExplanation}.
+            <strong> Producer growth outlook:</strong> {substrate.producerSuitability}
+          </p>
         </section>
 
         <section className="tile-inspector__section tile-inspector__section--details sim-panel" aria-labelledby="tile-resources-title">
