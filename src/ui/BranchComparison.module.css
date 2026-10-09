@@ -1,0 +1,555 @@
+.branchComparisonContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1rem;
+  background: #f5f5f5;
+  border-radius: 4px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.branchComparisonHeader {
+  text-align: center;
+}
+
+.branchComparisonHeader h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+}
+
+.branchComparisonHeader p {
+  margin: 0;
+  color: #666;
+}
+
+.branchSelectors {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.branchSelector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.branchSelector label {
+  font-weight: 500;
+  color: #333;
+}
+
+.branchSelector select {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  font-size: 0.95rem;
+}
+
+.branchMetadata {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.branchInfo {
+  padding: 1rem;
+  background: white;
+  border-radius: 4px;
+  border-left: 4px solid #4285f4;
+}
+
+.branchInfo h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.branchInfo .intervention {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #555;
+  line-height: 1.5;
+}
+
+.comparisonGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.branchMetricsCard {
+  padding: 1rem;
+  background: white;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.branchMetricsCard.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: #999;
+}
+
+.branchMetricsCard h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  border-bottom: 2px solid #4285f4;
+  padding-bottom: 0.5rem;
+}
+
+.branchMetricsCard dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
+
+.branchMetricsCard dt {
+  font-weight: 600;
+  color: #333;
+}
+
+.branchMetricsCard dd {
+  margin: 0;
+  color: #666;
+}
+
+.branchDivergence {
+  padding: 1rem;
+  background: white;
+  border-radius: 4px;
+  border-left: 4px solid #ea4335;
+}
+
+.divergencePoint {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #eee;
+}
+
+.divergencePoint h4 {
+  margin: 0 0 0.5rem 0;
+  color: #ea4335;
+}
+
+.divergencePoint p {
+  margin: 0;
+  color: #666;
+}
+
+.extinctionDifferences {
+  margin-bottom: 1.5rem;
+}
+
+.extinctionDifferences h4 {
+  margin: 0 0 0.5rem 0;
+  color: #d32f2f;
+  font-size: 0.95rem;
+}
+
+.extinctionDifferences ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  list-style: disc;
+}
+
+.extinctionDifferences li {
+  margin: 0.3rem 0;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.extinctionDifferences .moreItems {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.85rem;
+  color: #999;
+  font-style: italic;
+}
+
+.metricsTimeline {
+  margin-top: 1rem;
+}
+
+.metricsTimeline h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.timelineComparison {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.5rem;
+  background: #fafafa;
+  border-radius: 3px;
+}
+
+.timelineCheckpoint {
+  flex-shrink: 0;
+  padding: 0.5rem;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 2px;
+  min-width: 120px;
+}
+
+.checkpointTick {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.3rem;
+}
+
+.checkpointMetrics {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.checkpointMetrics span {
+  flex: 1;
+  padding: 0.3rem;
+  border-radius: 2px;
+  text-align: center;
+}
+
+.checkpointMetrics .popA {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.checkpointMetrics .popB {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.branchComparison.empty {
+  padding: 2rem;
+  text-align: center;
+  color: #999;
+  background: white;
+  border-radius: 4px;
+}
+
+/* Trait Frequency Comparison Section */
+.traitFrequencySection {
+  padding: 1rem;
+  background: white;
+  border-radius: 4px;
+  border-top: 4px solid #34a853;
+}
+
+.traitFrequencySection h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: #34a853;
+}
+
+.traitFrequencyGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.speciesTraits {
+  background: #f9f9f9;
+  padding: 1rem;
+  border-radius: 3px;
+  border: 1px solid #e8e8e8;
+}
+
+.speciesTraits h5 {
+  margin: 0 0 1rem 0;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.speciesTraitBlock {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: white;
+  border-radius: 2px;
+  border-left: 3px solid #34a853;
+}
+
+.speciesId {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+  font-family: monospace;
+}
+
+.traitList {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.3rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.traitRow {
+  display: contents;
+}
+
+.traitList dt {
+  font-weight: 500;
+  color: #444;
+  text-align: left;
+}
+
+.traitList dd {
+  margin: 0;
+  color: #666;
+  text-align: right;
+}
+
+.speciesTraits .moreItems {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.8rem;
+  color: #999;
+  font-style: italic;
+}
+
+/* Timeline/Map Focus Synchronization Info */
+.syncInfo {
+  padding: 1rem;
+  background: #fff3cd;
+  border-radius: 4px;
+  border-left: 4px solid #ffc107;
+  margin: 0;
+}
+
+.syncInfo h4 {
+  margin: 0 0 0.5rem 0;
+  color: #856404;
+  font-size: 0.95rem;
+}
+
+.syncInfo p {
+  margin: 0.5rem 0;
+  color: #856404;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
+
+.syncInfo strong {
+  font-weight: 600;
+}
+
+.clearSyncBtn {
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: #ffc107;
+  border: none;
+  border-radius: 2px;
+  color: #333;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.clearSyncBtn:hover {
+  background: #ffb300;
+}
+
+/* Timeline Synchronization Section */
+.timelineSyncSection {
+  padding: 1rem;
+  background: white;
+  border-radius: 4px;
+  border-top: 4px solid #1976d2;
+}
+
+.timelineSyncSection h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: #1976d2;
+}
+
+.timelineGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.branchTimeline {
+  padding: 1rem;
+  background: #f9f9f9;
+  border-radius: 3px;
+  border: 1px solid #e8e8e8;
+}
+
+.branchTimeline h5 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.timelineBar {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.5rem;
+  background: white;
+  border-radius: 2px;
+  border: 1px solid #ddd;
+  margin-bottom: 0.75rem;
+}
+
+.branchTimeline .timelineCheckpoint {
+  flex-shrink: 0;
+  padding: 0.5rem 0.75rem;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+  font-size: 0.85rem;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.branchTimeline .timelineCheckpoint:hover {
+  background: #e3f2fd;
+  border-color: #1976d2;
+  color: #1976d2;
+}
+
+.branchTimeline .timelineCheckpoint.synced {
+  background: #1976d2;
+  color: white;
+  border-color: #1565c0;
+}
+
+.branchTimeline .syncStatus {
+  margin: 0.75rem 0 0 0;
+  font-size: 0.9rem;
+  color: #1976d2;
+}
+
+.branchTimeline p {
+  margin: 0;
+}
+
+/* Map Region Focus Synchronization Section */
+.mapSyncSection {
+  padding: 1rem;
+  background: white;
+  border-radius: 4px;
+  border-top: 4px solid #ea4335;
+}
+
+.mapSyncSection h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: #ea4335;
+}
+
+.mapGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.branchMapRegion {
+  padding: 1rem;
+  background: #f9f9f9;
+  border-radius: 3px;
+  border: 1px solid #e8e8e8;
+}
+
+.branchMapRegion h5 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.regionGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: white;
+  border-radius: 2px;
+  border: 1px solid #ddd;
+  margin-bottom: 0.75rem;
+}
+
+.mapRegionCell {
+  padding: 0.75rem;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+  font-size: 0.75rem;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.mapRegionCell:hover {
+  background: #ffebee;
+  border-color: #ea4335;
+  color: #ea4335;
+}
+
+.mapRegionCell.synced {
+  background: #ea4335;
+  color: white;
+  border-color: #d32f2f;
+}
+
+.branchMapRegion .syncStatus {
+  margin: 0.75rem 0 0 0;
+  font-size: 0.9rem;
+  color: #ea4335;
+}
+
+.branchMapRegion p {
+  margin: 0;
+}
+
+.placeholderNote {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.85rem;
+  color: #999;
+  font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .comparisonGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .branchMetadata {
+    grid-template-columns: 1fr;
+  }
+
+  .branchSelectors {
+    grid-template-columns: 1fr;
+  }
+
+  .traitFrequencyGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .timelineGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .mapGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .regionGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
