@@ -711,9 +711,9 @@ describe('Movement and Decision Logic', () => {
       for (let y = 19; y <= 21; y++) {
         for (let x = 19; x <= 21; x++) world.setCell(x, y, { biome: 'ocean' });
       }
-      world.setCell(20, 20, { biome: 'grassland' });
-      world.setCell(21, 20, { biome: 'wetland' });
-      world.setCell(22, 20, { biome: 'grassland' });
+      world.setCell(20, 20, { biome: 'grassland', waterDepth: 0 });
+      world.setCell(21, 20, { biome: 'wetland', waterDepth: 0 });
+      world.setCell(22, 20, { biome: 'grassland', waterDepth: 0 });
       const delayed = makeCreature(5);
       const moving = makeCreature(1);
 
