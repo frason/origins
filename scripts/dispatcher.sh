@@ -1160,6 +1160,81 @@ fi
 record_global_spend
 rm -f "$tmp"
 
+# ---- Hallucination sanity check: verify claimed changes actually exist on disk ----
+# Worker must have written an output file with a 'Changed files:' manifest,
+# and at least one claimed file must show up in git status or git diff.
+if [ ! -f "$output_file" ]; then
+  # Output file missing entirely — treat as hallucination
+  log "  worker hallucination detected — issue #$iss_num produced no output file"
+  gh issue comment "$iss_num" --repo "$REPO" \
+    --body "⚠️ **Worker hallucination detected**: No output file written (\`state/worker_output_${iss_num}.txt\` missing). Cycling back to \`agent-todo\`." \
+    >/dev/null 2>&1 || true
+  set_issue_label "$iss_num" "agent-doing" "agent-todo" || true
+  # Apply crash cooldown
+  cooldown_file="$STATE/cooldown.json"
+  cd_now=$(cat "$cooldown_file" 2>/dev/null | jq -c 'if type=="array" then {} else . end' 2>/dev/null || echo '{}')
+  updated_cooldown=$(printf '%s' "$cd_now" | jq --argjson n "$iss_num" '.[$n|tostring] = 1')
+  printf '%s' "$updated_cooldown" > "$cooldown_file" 2>/dev/null || echo "{\"$iss_num\": 1}" > "$cooldown_file"
+  log "  issue #$iss_num hallucination — added to worker-selection cooldown for 1 pass"
+  exit 0
+fi
+
+# Output file exists, check for manifest line
+manifest=$(grep '^Changed files:' "$output_file" 2>/dev/null | tail -1 | sed 's/^Changed files:[[:space:]]*//')
+
+if [ -z "$manifest" ]; then
+  # No manifest line — treat as incomplete/hallucinated work
+  log "  worker hallucination detected — issue #$iss_num produced no 'Changed files:' manifest line"
+  gh issue comment "$iss_num" --repo "$REPO" \
+    --body "⚠️ **Worker hallucination detected**: No \`Changed files:\` manifest line found in output. Cycling back to \`agent-todo\`." \
+    >/dev/null 2>&1 || true
+  set_issue_label "$iss_num" "agent-doing" "agent-todo" || true
+  # Apply crash cooldown
+  cooldown_file="$STATE/cooldown.json"
+  cd_now=$(cat "$cooldown_file" 2>/dev/null | jq -c 'if type=="array" then {} else . end' 2>/dev/null || echo '{}')
+  updated_cooldown=$(printf '%s' "$cd_now" | jq --argjson n "$iss_num" '.[$n|tostring] = 1')
+  printf '%s' "$updated_cooldown" > "$cooldown_file" 2>/dev/null || echo "{\"$iss_num\": 1}" > "$cooldown_file"
+  log "  issue #$iss_num hallucination — added to worker-selection cooldown for 1 pass"
+  exit 0
+fi
+
+# Collect all changed files from git status and git diff
+git_changes=$(
+  git diff --name-only HEAD 2>/dev/null || true
+  git status --short 2>/dev/null | sed 's/^[A-Z? ][A-Z? ] //' || true
+)
+
+# Check if any claimed file appears in git changes
+paths=$(printf '%s' "$manifest" | tr ',' '\n')
+any_found=0
+
+while IFS= read -r path; do
+  path=$(printf '%s' "$path" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  [ -z "$path" ] && continue
+  if printf '%s' "$git_changes" | grep -qF "$path"; then
+    any_found=1
+    break
+  fi
+done <<EOF
+$paths
+EOF
+
+if [ "$any_found" -eq 0 ]; then
+  # No claimed files found in git changes — hallucination
+  log "  worker hallucination detected — issue #$iss_num claimed changes [$manifest] but made zero on-disk changes"
+  gh issue comment "$iss_num" --repo "$REPO" \
+    --body "⚠️ **Worker hallucination detected**: Claimed edits to [\`${manifest}\`] but \`git status\` shows no matching changes. Cycling back to \`agent-todo\`." \
+    >/dev/null 2>&1 || true
+  set_issue_label "$iss_num" "agent-doing" "agent-todo" || true
+  # Apply crash cooldown
+  cooldown_file="$STATE/cooldown.json"
+  cd_now=$(cat "$cooldown_file" 2>/dev/null | jq -c 'if type=="array" then {} else . end' 2>/dev/null || echo '{}')
+  updated_cooldown=$(printf '%s' "$cd_now" | jq --argjson n "$iss_num" '.[$n|tostring] = 1')
+  printf '%s' "$updated_cooldown" > "$cooldown_file" 2>/dev/null || echo "{\"$iss_num\": 1}" > "$cooldown_file"
+  log "  issue #$iss_num hallucination — added to worker-selection cooldown for 1 pass"
+  exit 0
+fi
+
 if [ -f "$output_file" ]; then
   summary=$(cat "$output_file")
 else
