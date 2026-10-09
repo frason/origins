@@ -181,7 +181,8 @@ push_with_retry() {
         while IFS= read -r line; do
           [ -z "$line" ] && continue
           # Use grep -F (literal string, no regex) and -x (whole line) to match exactly
-          if ! printf '%s\n' "$local_content" | grep -F -x "$line" >/dev/null 2>&1; then
+          # Trim the local content lines the same way the added lines were trimmed to handle indentation
+          if ! printf '%s\n' "$local_content" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -F -x "$line" >/dev/null 2>&1; then
             all_redundant=false
             break
           fi
