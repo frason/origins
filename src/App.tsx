@@ -58,7 +58,6 @@ import {
 } from './services/betaWorldBackupClient';
 import Phase0Harness from './prototype/Phase0Harness';
 import LLMSettingsPanel from './ui/LLMSettingsPanel';
-import AdaptationEvidence from './ui/AdaptationEvidence';
 import ObservatoryGuide from './ui/ObservatoryGuide';
 import { evaluateWatchesForTick } from './simulation/watchIntegration';
 import { loadWatches, saveWatches } from './state/watchPersistence';
@@ -872,7 +871,6 @@ export default function App() {
             {settingsTab === 'diagnose' && (
               <>
                 <EcosystemPressurePanel />
-                <AdaptationEvidence />
                 <EventTimeline
                   onReplayRecipe={startRecipeReplay}
                   replayStatus={replayStatus}

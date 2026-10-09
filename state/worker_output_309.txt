@@ -1,0 +1,18 @@
+## Summary
+Fixed the mutation-target regression in habitatAdaptation.test.ts by adjusting the RNG draw sequence to account for the new `aquaticAdaptation` trait added to `numericTraits` in commit 5a5d28b.
+
+## Root Cause
+Adding `aquaticAdaptation` to the `numericTraits` array grew the `mutationTargets` from 19 to 20 elements. This shifted the array index selected by `randChoice`: with the original draw of 0.1, `Math.floor(0.1 * 19) = 1` (speed) became `Math.floor(0.1 * 20) = 2` (visionRange). Since visionRange is not in the habitat adaptation co-evolution mapping, aquaticAffinity was never mutated, causing the test assertion to fail.
+
+## Fix Applied
+Changed the second RNG draw from 0.1 to 0.05. This ensures:
+- `Math.floor(0.05 * 20) = 1` → selects 'speed' at index 1
+- Speed mutation triggers aquaticAffinity co-evolution (per the adaptationFor mapping)
+- Test assertion `mutated.aquaticAffinity > DEFAULT_TRAITS.aquaticAffinity` now passes
+
+All 5 tests in habitatAdaptation.test.ts now pass.
+
+## Caveats / follow-up
+None — the fix is minimal, deterministic, and only affects the specific test case that was broken by the upstream #266 change. The test comment now explains the RNG draw rationale for future maintainers.
+
+Changed files: src/tests/habitatAdaptation.test.ts

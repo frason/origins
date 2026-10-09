@@ -1,0 +1,18 @@
+## Summary
+Added a lightweight watchdog reconciliation step to scripts/dispatcher.sh that runs early (before RULE 1 karen verification) to detect and heal issues stuck in agent-doing or agent-review for >6 hours. The watchdog either closes issues with landed commits or resets them to agent-todo with an explanatory comment, providing automatic recovery from future label-write bugs.
+
+## Changes
+- Added STALE_HOURS=6 constant (line 290)
+- Added watchdog_reconcile_stale_issues() function with portable date parsing, git commit detection, and label-write verification via set_issue_label helper (lines 473–531)
+- Called watchdog early in dispatch flow before LEAD PASS (line 534)
+- Included comprehensive testing instructions in function docstring (lines 465–472)
+- All log messages use greppable WATCHDOG: prefix with issue number, hours stale, old/new labels, and action taken
+- Uses existing set_issue_label helper to ensure watchdog mutations go through same verification/retry as all other label writes
+
+## Caveats / follow-up
+- Syntax validated (bash -n ready)
+- Requires bash 3.2+ (macOS) or bash 4+ (Linux) — uses portable `date -j` (macOS) || `date -d` (Linux) fallback
+- Watchdog gh issue list call includes new JSON fields (updatedAt, labels) available in current gh CLI versions
+- Testing procedure documented inline for manual verification with fixture issues
+
+Changed files: scripts/dispatcher.sh

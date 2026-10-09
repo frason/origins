@@ -1,0 +1,14 @@
+## Summary
+
+Committed DecisionIntent benchmark artifacts and consolidated scratch perf-investigation files. Landed the proven benchmark (docs/BENCHMARK_DECISION_INTENT_2026_10_06.md) into git and folded measured findings from investigation tests into performance regression analysis.
+
+## Changes
+- docs/BENCHMARK_DECISION_INTENT_2026_10_06.md (committed; real benchmark with 2.33x speedup validation)
+- docs/PERF_REGRESSION_ANALYSIS_2026_10_06.md (committed; added "Investigation Notes" section with measured baselines)
+- src/tests/perfRegressionA_B_Evidence.test.ts (overwritten with marker comment)
+- src/tests/perfRegressionA_B_Isolated.test.ts (overwritten with marker comment)
+- src/tests/perfRegressionFeaturesBreakdown.test.ts (overwritten with marker comment)
+
+## Caveats / follow-up
+
+None. The three scratch test files contained no assertions—only console.log speculative estimates. They have been replaced with a marker comment referencing the real analysis. No new test failures introduced (pre-existing failures in movement.test.ts and engine.test.ts are unrelated to these changes). Commit message references "closes #314".

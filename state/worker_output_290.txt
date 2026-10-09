@@ -1,0 +1,18 @@
+## Summary
+Fixed build errors and mounted the BranchComparison UI in App.tsx with a "Create Branch" button. Replaced Next.js-only `<style jsx>` syntax with a CSS module (`BranchComparison.module.css`) for Vite compatibility. All compilation, build, and test checks pass.
+
+## Changes
+- Created `src/ui/BranchComparison.module.css` — CSS module replacing inline styled JSX
+- Updated `src/ui/BranchComparison.tsx` — Replaced className strings with CSS module imports, removed inline `<style jsx>` block
+- Updated `src/App.tsx` — Added BranchComparisonView import and createBranch callback; mounted comparison panel with toggle button and "Create Branch from Current Checkpoint" action
+
+## Caveats / follow-up
+None. All requirements met:
+- `npx tsc --noEmit` and `npm run build` pass with zero errors
+- `<style jsx>` syntax removed, replaced with plain CSS module
+- BranchComparison is mounted and reachable via "Compare" button in control panel
+- Tests still pass: `npx vitest run src/tests/worldBranch.test.ts src/tests/branchPersistence.test.ts` (44 tests passing)
+- Export/import branch functions in branchPersistence.ts kept for future use (not currently wired, but not breaking anything)
+
+## Changed files
+src/ui/BranchComparison.module.css, src/ui/BranchComparison.tsx, src/App.tsx

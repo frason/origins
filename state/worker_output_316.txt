@@ -1,0 +1,25 @@
+## Summary
+Added hallucination detection in dispatcher.sh to catch worker runs that claim edits but make zero on-disk changes. The check validates that claimed files in the `Changed files:` manifest appear in git status or git diff before advancing to agent-review, saving wasted karen verification runs.
+
+## Changes
+- Added sanity check after worker run completes (lines 1163-1236)
+- Parses `Changed files:` manifest line from worker output
+- Validates claimed files against `git status --short` and `git diff --name-only HEAD`
+- If no manifest or no matching files found, cycles issue back to agent-todo with cooldown
+- Reuses existing crash cooldown logic (same as worker crash path)
+
+## Implementation Details
+- Checks output file exists; if missing, treats as hallucination
+- Extracts manifest using same sed pattern as commit_verified_issue()
+- Collects git changes from both `git diff --name-only HEAD` and `git status --short`
+- Iterates claimed paths, stripping whitespace and skipping empty entries
+- Uses grep -qF for efficient path matching
+- Posts descriptive comment noting claimed vs. actual files
+- Applies 1-pass cooldown before reselection (prevents starving other issues)
+
+## Caveats
+- Only runs after worker exit code 0 (successful completion); does not affect error handling path
+- Does not modify commit_verified_issue() or post-karen verification logic
+- Does not change issue lifecycle for valid worker outputs with actual changes
+
+Changed files: scripts/dispatcher.sh

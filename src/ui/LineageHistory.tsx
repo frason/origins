@@ -20,7 +20,8 @@ export default function LineageHistory() {
   const worldState = useStore((state) => state.worldState);
   const histories = buildLineageHistories(
     worldState?.creatures ?? [],
-    worldState?.events ?? []
+    worldState?.events ?? [],
+    worldState?.lastAdaptationObservations
   );
   const followedLineages = useStore((state) => state.followedLineages);
   const toggleFollowedLineage = useStore((state) => state.toggleFollowedLineage);
@@ -148,6 +149,28 @@ export default function LineageHistory() {
                   {formatTraitChange(change)}
                 </div>
               ))}
+              {lineage.adaptationObservations && lineage.adaptationObservations.length > 0 && (
+                <div style={{ marginTop: '0.3rem', paddingTop: '0.3rem', borderTop: '1px solid #3a4a53' }}>
+                  <div style={{ color: '#99aab5', fontSize: '0.65rem', fontWeight: 600, marginBottom: '0.2rem' }}>
+                    Trait Frequency Trends
+                  </div>
+                  {lineage.adaptationObservations.map((obs, idx) => {
+                    const traitLabel = obs.trait.replace(/([A-Z])/g, ' $1').toLowerCase().trim();
+                    const confidence = obs.evidence?.confidence ?? 0;
+                    const confidenceColor = confidence >= 0.8 ? '#7dd98f' : confidence >= 0.6 ? '#d5d945' : '#d9797d';
+                    return (
+                      <div key={idx} style={{ fontSize: '0.65rem', color: '#899ba2', marginTop: '0.15rem' }}>
+                        <span style={{ color: '#a8d5e8' }}>{traitLabel}</span>: {obs.changeType}
+                        {obs.evidence && (
+                          <span style={{ color: confidenceColor, marginLeft: '0.3rem' }}>
+                            ({Math.round(obs.evidence.confidence * 100)}%)
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </article>
           ))}
         </>

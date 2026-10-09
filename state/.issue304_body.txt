@@ -1,0 +1,1 @@
+dead: one-off scratch file used to pass #304's rewritten body via gh issue edit --body-file (2026-10-09 planning pass). Not read by anything else.

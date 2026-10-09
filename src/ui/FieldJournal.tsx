@@ -12,6 +12,7 @@ import type { FieldJournalEntry, FieldJournalEntryType, JournalSearchCriteria } 
 import { searchJournal, getLineageHistory, getAllLineagesInJournal } from '../simulation/fieldJournal';
 import { speciesDisplayName, lineageDisplayName } from '../simulation/speciesNames';
 import { formatTraitChange } from './lineageHistoryModel';
+import type { AdaptationObservation } from '../simulation/adaptationMetrics';
 
 const panelStyle: CSSProperties = {
   backgroundColor: 'var(--sim-color-screen)',
@@ -123,6 +124,61 @@ function FieldJournalEntryDisplay({ entry, isSelected, onSelect, onViewInTimelin
       <div style={{ fontSize: '0.68rem', color: '#899ba2', marginTop: '0.2rem', lineHeight: 1.3 }}>
         {entry.observed.description}
       </div>
+    </div>
+  );
+}
+
+interface AdaptationEvidenceSectionProps {
+  speciesId: string;
+  lineageId: string;
+}
+
+function AdaptationEvidenceSection({ speciesId, lineageId }: AdaptationEvidenceSectionProps) {
+  const worldState = useStore((state) => state.worldState);
+  const observations: AdaptationObservation[] = useMemo(() => {
+    if (!worldState?.lastAdaptationObservations) return [];
+    return worldState.lastAdaptationObservations.filter(
+      (obs) => obs.speciesId === speciesId && obs.lineageId === lineageId
+    );
+  }, [worldState?.lastAdaptationObservations, speciesId, lineageId]);
+
+  if (observations.length === 0) return null;
+
+  // Sort by tick descending (most recent first)
+  const sorted = [...observations].sort((a, b) => b.tick - a.tick);
+
+  return (
+    <div style={{ borderTop: '1px solid var(--sim-color-screen-border)', paddingTop: '0.75rem', marginBottom: '0.75rem' }}>
+      <div style={{ fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.85rem' }}>Trait Frequency Evidence</div>
+      <div style={{ fontSize: '0.75rem', color: '#899ba2', marginBottom: '0.4rem' }}>
+        Observed trait changes with confidence levels based on frequency tracking.
+      </div>
+      {sorted.map((obs, idx) => {
+        const traitLabel = obs.trait.replace(/([A-Z])/g, ' $1').toLowerCase().trim();
+        const confidence = obs.evidence?.confidence ?? 0;
+        const confidenceColor = confidence >= 0.8 ? '#7dd98f' : confidence >= 0.6 ? '#d5d945' : '#d9797d';
+        return (
+          <div key={idx} style={{ fontSize: '0.72rem', color: '#899ba2', marginTop: '0.3rem', padding: '0.3rem 0.4rem', background: '#161819', borderRadius: 3 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.15rem' }}>
+              <span style={{ color: '#a8d5e8', fontWeight: 600 }}>{traitLabel}</span>
+              <span style={{ color: '#666' }}>Tick {obs.tick}</span>
+            </div>
+            <div style={{ marginBottom: '0.15rem' }}>
+              {obs.changeType.replace('-', ' ')} · Population: {obs.populationSize}
+            </div>
+            {obs.evidence && (
+              <>
+                <div style={{ fontSize: '0.7rem', color: '#7f898d', marginBottom: '0.1rem' }}>
+                  Evidence: {obs.evidence.evidence.join(', ')}
+                </div>
+                <div style={{ fontSize: '0.7rem' }}>
+                  Confidence: <span style={{ color: confidenceColor, fontWeight: 600 }}>{Math.round(confidence * 100)}%</span>
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -352,6 +408,10 @@ function FieldJournalDetailView({ entry, onClose, onUpdateNotes, onNavigateToTic
               </div>
             )}
           </div>
+        )}
+
+        {entry.type === 'adaptation' && entry.lineageId && (
+          <AdaptationEvidenceSection speciesId={entry.speciesId} lineageId={entry.lineageId} />
         )}
 
         <div style={{ borderTop: '1px solid var(--sim-color-screen-border)', paddingTop: '0.75rem' }}>

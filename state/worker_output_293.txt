@@ -1,0 +1,18 @@
+## Summary
+Extended integration test suite for disaster UI to cover the ControlPanel mount point and real handler chain. All 6 tests (3 original + 3 new) pass; TypeScript clean.
+
+## Changes
+- `src/tests/disasterIntegration.test.tsx`: Added three new test cases
+  1. "ControlPanel mount point: 'Open Disaster Trigger' button → DisasterPanel → onIntroduceDisaster handler chain" — exercises full UI flow through God Mode → button → panel → handler
+  2. "ControlPanel closes DisasterPanel after successful disaster application" — verifies panel closes when handler returns null
+  3. "ControlPanel displays error message when disaster handler returns an error" — verifies panel stays open and error displays when handler returns error message
+
+## Verification
+- `npx vitest run src/tests/disasterIntegration.test.tsx` — 6 tests PASS ✓
+- `npx tsc --noEmit` — zero errors ✓
+
+## Notes on prior work
+The actual UI wiring (ControlPanel → App.tsx addDisaster → store.triggerDisaster) was already implemented and confirmed working by karen in the prior pass. This commit addresses item 8 requirement to extend the test suite to exercise the real mount point (not just isolated DisasterPanel component mount). The new tests mount ControlPanel, open God Mode, click "Open Disaster Trigger", drive DisasterPanel, and verify the onIntroduceDisaster handler is called with valid DisasterCommand objects and proper state management occurs.
+
+## Caveats / follow-up
+None — all gaps identified by karen have been addressed.

@@ -77,10 +77,6 @@ vi.mock('../ui/FieldJournal', () => ({
   default: () => <div>Journal</div>,
 }));
 
-vi.mock('../ui/AdaptationEvidence', () => ({
-  default: () => <div>Evidence</div>,
-}));
-
 vi.mock('../ui/ObservatoryGuide', () => ({
   default: () => <div>Guide</div>,
 }));

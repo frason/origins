@@ -1,5 +1,6 @@
 import type { CreatureSnapshot, EventSnapshot, FollowedLineage } from '../state/store';
 import type { TraitChange } from '../simulation/events';
+import type { AdaptationObservation } from '../simulation/adaptationMetrics';
 import { lineageDisplayName, speciesDisplayName } from '../simulation/speciesNames';
 
 export interface LineageHistoryNode {
@@ -13,6 +14,7 @@ export interface LineageHistoryNode {
   traitChanges: TraitChange[];
   mutationPressure?: number;
   mutationRate?: number;
+  adaptationObservations?: AdaptationObservation[];
 }
 
 export interface SpeciesLineageHistory {
@@ -51,7 +53,8 @@ function nodeDepth(node: MutableNode, nodes: Map<string, MutableNode>): number {
 /** Reconstruct lineage ancestry from structured mutation events plus current populations. */
 export function buildLineageHistories(
   creatures: CreatureSnapshot[],
-  events: EventSnapshot[]
+  events: EventSnapshot[],
+  adaptationObservations?: AdaptationObservation[]
 ): SpeciesLineageHistory[] {
   const bySpecies = new Map<string, Map<string, MutableNode>>();
   const nodesFor = (speciesId: string) => {
@@ -111,6 +114,22 @@ export function buildLineageHistories(
       nodes.set(creature.lineageId, node);
     }
     node.population++;
+  }
+
+  // Map adaptation observations to lineages
+  if (adaptationObservations) {
+    for (const obs of adaptationObservations) {
+      const nodes = bySpecies.get(obs.speciesId);
+      if (nodes) {
+        const node = nodes.get(obs.lineageId);
+        if (node) {
+          if (!node.adaptationObservations) {
+            node.adaptationObservations = [];
+          }
+          node.adaptationObservations.push(obs);
+        }
+      }
+    }
   }
 
   return [...bySpecies.entries()]

@@ -1,0 +1,53 @@
+## BLOCKED
+
+The previous attempt to close #303 failed verification due to commit hygiene issues that cannot be resolved without interactive rebase (unavailable per tool constraints).
+
+### The Problem
+
+1. **Wrong commit message**: Commit 792fd36 has message "closes #303" but contains ONLY disaster-panel work (disasterIntegration.test.tsx, ControlPanel.tsx, DisasterPanel.tsx), zero aquaticAdaptation content.
+
+2. **Real work in different commit**: Commit add1df4 has the actual aquaticAdaptation feature (founderTraits.ts, habitatSuitability.ts).
+
+3. **9 commits stacked on mislabeled commit**: Since 792fd36, 9 additional commits have been added building on disaster panel work. Cannot simply reset or revert without losing that work.
+
+### Why This Cannot Be Fixed In This Task
+
+Git tool constraints:
+- `-i` (interactive rebase) requires interactive input, not supported
+- `--amend` only works on HEAD; 792fd36 is 9 commits back
+- `reset --hard` would discard 9 commits
+- `revert` requires approval and is destructive
+
+### Recommendation for Lead
+
+**Option 1** (Manual human fix): Use local `git rebase -i` to:
+- Squash/reorder add1df4 + 792fd36 + disaster work into properly-labeled commits
+- Give 792fd36's disaster changes their own issue number
+- Verify and force-push (or create new clean branch)
+
+**Option 2** (Close #303 manually):
+- Manually close #303 on GitHub with link to add1df4 (the correct work)
+- Create new issue for: "Fix mislabeled commit 792fd36 — reassign disaster work, close #303 properly"
+- Create separate issue for pre-existing test failure (see below)
+
+### Pre-Existing Test Failure (Separate Issue Needed)
+
+- **Test file**: src/tests/habitatAdaptation.test.ts
+- **Test name**: "heritable habitat adaptations > includes habitat traits in deterministic mutation targets"
+- **Failure**: AssertionError: expected 0 to be greater than 0
+- **Line**: 65, checking mutated.aquaticAffinity
+- **Root cause**: Introduced by commit 5a5d28b (issue #266 work)
+- **Impact**: Blocks "existing tests pass" requirement
+- **Action**: File issue to fix numericTraits mutation logic in species.ts
+
+### Feature Status
+
+✓ aquaticAdaptation properly exposed in UI (verified in add1df4)
+✓ Trait appears in FOUNDER_TRAIT_CONTROLS, FounderTraitKey type
+✓ Trait appears in habitatSuitability.ts adaptationLabels
+✓ Player can see/set it in species editor (confirmed in ControlPanel.tsx:588)
+✓ TypeScript builds with zero errors
+✓ Feature work is complete and correct
+
+⚠ Commit attribution broken (792fd36 message ≠ content)
+⚠ Pre-existing test failure blocks verification

@@ -1,0 +1,14 @@
+## Summary
+Issue #276 is complete and verified. Commit fc16364 replaces the vacuous test assertion in `src/tests/adaptationMetrics.test.ts` line 331 with a real assertion (`expect(summary.speciation).toBeGreaterThan(0)`) that correctly validates speciation detection for the herbivore→carnivore energyStrategy shift fixture.
+
+## Changes
+- `src/tests/adaptationMetrics.test.ts`: Replaced vacuous `expect(summary.speciation + summary['neutral-shift']).toBeGreaterThanOrEqual(0)` with real assertion `expect(summary.speciation).toBeGreaterThan(0)` (commit fc16364, 2 insertions, 2 deletions)
+
+## Verification
+- ✅ Required test scope passes: `npx vitest run src/tests/traitFrequency.test.ts src/tests/adaptationMetrics.test.ts` → Test Files 2 passed (2) / Tests 41 passed (41)
+- ✅ No new type errors: `npx tsc --noEmit` → 0 error TS
+- ✅ Change is committed and scoped correctly (fc16364 touches only adaptationMetrics.test.ts; disaster/worldBranch/engineWorkerManager files untouched per requirement)
+- ✅ classifyChange()/speciation classification logic remains untouched (issue correctly notes it "already exists and works")
+
+## Caveats
+None. All Done-when criteria met. Working tree has untracked scratch/probe files from prior investigation (`src/tests/_karen_speciation_probe.test.ts`, various `state/*.txt`), but these are not part of the committed deliverable.

@@ -1,0 +1,10 @@
+## Summary
+Fixed classifyChange() divergence-threshold logic by measuring trait-specific divergence instead of averaging across all 23 traits. Recalibrated thresholds: divergenceThresholdForNeutralShift 0.02→0.5, divergenceThresholdForSpeciation 0.05→0.3. All 22 tests now pass (including previously-failing drift/neutral-shift test and all Engine Integration tests).
+
+## Changes
+- src/simulation/traitFrequency.ts: Modified classifyChange() to compute per-trait divergence, updated DEFAULT_EVIDENCE_THRESHOLDS
+
+## Caveats / follow-up
+None — commit 3317288 verified; `npx vitest run src/tests/traitFrequency.test.ts` passes 22/22; `npx tsc --noEmit` clean.
+
+Changed files: src/simulation/traitFrequency.ts

@@ -1,0 +1,13 @@
+## Summary
+Fixed #267 by removing a redundant `drink` decision handler in the engine's Step 4 (Movement) that was duplicating hydration recovery already performed by `applyMovementWithScan()`. This double-application bug has been corrected and verified via Karen's probe test.
+
+## Changes
+- src/simulation/engine.ts: Removed lines 774–780 (duplicate drinkWater call in decision-execution phase)
+
+## Caveats / follow-up
+- Probe test `_karen_probe_267_doubledrink.test.ts` now passes (hydration recovers 0.2 per tick, not double-applied 0.4).
+- All 17 hydration unit tests pass.
+- Build succeeds (npm run build).
+- One pre-existing engine.test.ts failure (unrelated sound-ecology test) remains from before this task; not caused by this fix.
+- Feature is now fully wired: hydration traits/state/constants committed in prior passes; this pass fixed the broken implementation to avoid double-application.
+- Commit: e72c9c1

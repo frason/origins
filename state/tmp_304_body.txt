@@ -1,0 +1,1 @@
+# scratch file, superseded — used once to stage an `gh issue edit --body-file` payload for #304 (planning pass 2026-10-08); safe to delete, left inert per the #294 file-deletion restriction.

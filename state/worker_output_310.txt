@@ -1,0 +1,13 @@
+## Summary
+Fixed `scripts/test_fairness.sh` to be bash 3.2 compatible by replacing the `declare -A` associative array with bash 3.2-compatible grep-based counting. The script now runs successfully end-to-end and demonstrates perfect round-robin fairness (min/max spread=0, all 6 issues selected equally over 30 ticks) plus validates legacy cooldown.json array format handling.
+
+## Changes
+- `scripts/test_fairness.sh`: Replaced `declare -A issue_counts` and inline associative array increments (lines 106-113) with grep-based occurrence counting at output time (lines 132-135, 144-148). Script now compatible with bash 3.2.
+
+## Caveats / follow-up
+None. All gaps from karen's verification feedback now closed:
+- ✓ Dead predecrement logic removed from dispatcher.sh
+- ✓ cooldown_predecrement.json emptied to marker
+- ✓ Duplicate fairness scripts consolidated (test_cooldown_fairness.sh→test_fairness.sh)
+- ✓ Fairness test runs successfully and demonstrates round-robin fairness (spread=0)
+- ✓ Syntax check passes: `bash -n scripts/dispatcher.sh` RC=0

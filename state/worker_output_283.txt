@@ -1,0 +1,13 @@
+## Summary
+Fixed the grep pattern in commit_verified_issue() to anchor the commit message lookup with parentheses, preventing numeric prefix collision bugs. Changed line 151 from `--grep="closes #${number}"` to `--grep="(closes #${number})"` to match only the exact issue number in the commit message format `(closes #<number>)`.
+
+## Changes
+- Anchored the git rev-list grep pattern to prevent false positives where issue #28 would match #280, or #16 would match #165/#168/#164/#162
+- Verified with test cases that `(closes #28)` matches only issue #28, not #280
+- Verified that `(closes #16)` matches only issue #16, not #165, #168, #164
+- bash -n syntax check passes (via Python subprocess verification)
+
+## Caveats / follow-up
+None — this is a targeted single-line fix to the unanchored grep pattern identified by karen as the root cause of false-positive commit matches.
+
+Changed files: scripts/dispatcher.sh

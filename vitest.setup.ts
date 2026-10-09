@@ -1,4 +1,23 @@
 import '@testing-library/jest-dom';
+import NodeWorker from 'web-worker';
+
+// Polyfill setImmediate for test environments where it might not be available
+if (typeof globalThis !== 'undefined' && typeof globalThis.setImmediate === 'undefined') {
+  if (typeof setTimeout !== 'undefined') {
+    globalThis.setImmediate = (callback: () => void) => setTimeout(callback, 0) as any;
+  }
+}
+
+// Polyfill Worker for jsdom/Node.js environments (enables testing with real worker mode)
+// This allows EngineWorkerManager to use actual web-worker threads in tests
+if (typeof globalThis !== 'undefined' && typeof globalThis.Worker === 'undefined') {
+  globalThis.Worker = NodeWorker as any;
+}
+
+// Also polyfill window.Worker for jsdom environments
+if (typeof window !== 'undefined' && !window.Worker) {
+  (window as any).Worker = NodeWorker as any;
+}
 
 // Polyfill ResizeObserver for jsdom environments
 if (typeof window !== 'undefined' && !window.ResizeObserver) {

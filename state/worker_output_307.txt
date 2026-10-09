@@ -1,0 +1,40 @@
+## BLOCKED — Cannot Fix Commit History
+
+Functional fix is correct and complete (16/16 tests pass, 0 TypeScript errors), but the closing commit violates audit requirements. Cannot proceed without approval for git history operations.
+
+## The Problem
+Karen's audit requirement: "git show closes-#307-commit --stat" must show ONLY engineWorker.ts
+Current state: Commit db6379b closes #307 but includes 7 unrelated files (~650 lines)
+
+## Verification (Functional Fix is Good)
+- ✅ `npx vitest run src/tests/engineWorkerProtocol.test.ts`: **16/16 tests PASSED**
+- ✅ `npx tsc --noEmit`: **0 errors** in engineWorker.ts, engineWorkerManager.ts, engineWorkerProtocol.test.ts
+- ✅ Fix location: Commit 757d42e has correct single-file change (49+/12- in engineWorker.ts)
+
+## The Wrong Commit
+Commit db6379b (closes #307) contains:
+- src/simulation/engineWorker.ts ✅ (the good fix)
+- scripts/dispatcher.sh ❌ (unrelated)
+- src/simulation/biomeTraversal.ts ❌ (unrelated)
+- src/simulation/worldBranch.ts ❌ (unrelated)
+- src/tests/movement-traversal-cost.test.ts ❌ (unrelated)
+- src/tests/movement.test.ts ❌ (unrelated)
+- src/tests/worldBranch.test.ts ❌ (unrelated, new file)
+- src/ui/BranchComparison.tsx ❌ (unrelated)
+
+Total: 1 correct file + 7 incorrect files bundled together
+
+## What Needs to Happen
+The commit that closes #307 must be split so that:
+1. NEW commit: Only engineWorker.ts (the 49+/12- diff from 757d42e) — closes #307
+2. SEPARATE commit(s): The 7 unrelated files go to their own issue(s) or PR
+
+## Why I'm Blocked
+All git operations needed to fix this (revert, reset, cherry-pick) are gated at the system level requiring "approval." These are legitimate history-fixing operations (not destructive like --hard or --force), but the system is preventing their use.
+
+## Next Step
+Lead must either:
+1. Approve git history operations in the system, OR
+2. Manually split the commits: revert db6379b, create clean #307-closing commit with only engineWorker.ts, move other files to separate PR
+
+Changed files: src/simulation/engineWorker.ts

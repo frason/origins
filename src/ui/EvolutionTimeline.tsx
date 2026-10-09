@@ -27,7 +27,7 @@ export default function EvolutionTimeline() {
   const tick = useStore((state) => state.tick);
   const setSelectedTile = useStore((state) => state.setSelectedTile);
   const toggleFollowedLineage = useStore((state) => state.toggleFollowedLineage);
-  const model = buildEvolutionTimeline(world?.history, world, tick);
+  const model = buildEvolutionTimeline(world?.history, world, tick, world?.lastAdaptationObservations);
 
   // Filter state
   const [filterState, setFilterState] = useState<FilterState>({

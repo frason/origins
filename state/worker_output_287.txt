@@ -1,0 +1,18 @@
+## Summary
+Fixed `createSnapshotDirect()` in `src/simulation/engineWorkerManager.ts` to track and return the manager's actual pause/resume state instead of hardcoding `isRunning: false, isPaused: false`.
+
+## Changes
+- Added `isPaused` and `isRunning` private properties to EngineWorkerManager class, initialized to false
+- Updated `pause` command handler to set `isPaused = true, isRunning = false`
+- Updated `resume` command handler to set `isPaused = false, isRunning = true`
+- Modified `createSnapshotDirect()` to return tracked state properties instead of hardcoded false values
+
+## Verification
+- All 12 tests in `src/tests/engineWorkerIntegration.test.ts` pass, including the two previously failing tests:
+  - "should pause and resume in direct mode"
+  - "should handle complex sequences: init -> tick -> pause -> resume -> reset -> replay"
+
+## Caveats / follow-up
+None. The fix is complete and minimal, addressing only the specific issue identified in #287.
+
+Changed files: src/simulation/engineWorkerManager.ts

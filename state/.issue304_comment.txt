@@ -1,0 +1,1 @@
+dead: one-off scratch file used to pass #304's lead comment via gh issue comment --body-file (2026-10-09 planning pass). Not read by anything else.

@@ -211,59 +211,53 @@ function processCommand(command: WorkerCommand): void {
 
 /**
  * Main message handler for commands from main thread
+ * Only set up in actual Worker environment (not during testing)
  */
-onmessage = (event: MessageEvent<WorkerCommand>) => {
-  try {
-    const command = event.data;
-    if (!command || !command.type) {
-      throw new Error('Invalid command: missing type');
-    }
-
-    state.lastCommandTick = state.engineState?.tick ?? 0;
-    state.commandQueue.push({
-      id: `${Date.now()}-${Math.random()}`,
-      command,
-      enqueuedAt: Date.now(),
-    });
-
-    // Process commands sequentially (FIFO)
-    // This ensures deterministic ordering regardless of network timing
-    while (state.commandQueue.length > 0) {
-      const item = state.commandQueue.shift();
-      if (item) {
-        processCommand(item.command);
+if (typeof onmessage !== 'undefined' || typeof globalThis !== 'undefined' && typeof (globalThis as any).self !== 'undefined') {
+  (globalThis as any).onmessage = (event: MessageEvent<WorkerCommand>) => {
+    try {
+      const command = event.data;
+      if (!command || !command.type) {
+        throw new Error('Invalid command: missing type');
       }
-    }
-  } catch (error) {
-    console.error('Worker fatal error:', error);
-    postMessage({
-      snapshot: {
-        tick: -1,
-        seed: -1,
-        worldSnapshot: { width: 0, height: 0, cells: [], creatures: [], events: [] },
-        isRunning: false,
-        isPaused: true,
-        constants: SIMULATION_CONSTANTS,
-        events: [],
-        lastAdaptationObservations: [],
-        error: {
-          code: 'WORKER_FATAL_ERROR',
-          message: String(error),
-          tick: -1,
-        },
-      },
-    });
-  }
-};
 
-/**
- * Respond to version check requests
- */
-onmessage = (event: MessageEvent) => {
-  if (event.data?.type === 'version-check') {
-    postMessage({ type: 'version-response', version: WORKER_VERSION });
-  }
-};
+      state.lastCommandTick = state.engineState?.tick ?? 0;
+      state.commandQueue.push({
+        id: `${Date.now()}-${Math.random()}`,
+        command,
+        enqueuedAt: Date.now(),
+      });
+
+      // Process commands sequentially (FIFO)
+      // This ensures deterministic ordering regardless of network timing
+      while (state.commandQueue.length > 0) {
+        const item = state.commandQueue.shift();
+        if (item) {
+          processCommand(item.command);
+        }
+      }
+    } catch (error) {
+      console.error('Worker fatal error:', error);
+      (globalThis as any).postMessage({
+        snapshot: {
+          tick: -1,
+          seed: -1,
+          worldSnapshot: { width: 0, height: 0, cells: [], creatures: [], events: [] },
+          isRunning: false,
+          isPaused: true,
+          constants: SIMULATION_CONSTANTS,
+          events: [],
+          lastAdaptationObservations: [],
+          error: {
+            code: 'WORKER_FATAL_ERROR',
+            message: String(error),
+            tick: -1,
+          },
+        },
+      });
+    }
+  };
+}
 
 /**
  * Execute a command and return the snapshot for testing (bypasses postMessage)

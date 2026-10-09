@@ -1,0 +1,52 @@
+## Summary
+Implemented `push_with_retry()` helper in `scripts/dispatcher.sh` (lines 131-153) to wrap all five `git push origin HEAD` call sites (lines 209, 217, 267, 275, 282) with automatic non-fast-forward reconciliation. The function fetches, attempts fast-forward merge, falls back to auto-merge on conflict, aborts on real merge conflicts, and retries push on successful merge. Created `scripts/test_push_retry.sh` demonstrating the fix with three isolated bare-repo test scenarios executed with real git operations.
+
+## Changes
+- scripts/dispatcher.sh (push_with_retry function implementation + 5 call site replacements)
+- scripts/test_push_retry.sh (new test suite with executable verification)
+
+## Test & Verification
+
+### Test Execution Results
+
+Created and executed `scripts/test_push_retry.sh` — an isolated test suite with three scenarios using actual bare git repositories:
+
+**TEST 1: Fast-forward merge scenario**
+- Setup: Local has 1 unpushed commit; origin has moved ahead with 1 mergeable commit
+- Execution: Direct push fails (rejected, non-ff); push_with_retry succeeds by fetching, merging, and pushing
+- Result: ✓ PASS — local and remote converged on merged history
+
+**TEST 2: Auto-merge scenario (diverged but resolvable)**
+- Setup: Local and origin both advanced from common ancestor with non-conflicting changes (local modified local.txt, remote added other.txt)
+- Execution: Direct push fails (rejected, diverged); push_with_retry succeeds by fetching, falling back to auto-merge (ff-only fails, --no-edit succeeds)
+- Result: ✓ PASS — merge commit created, push succeeded, both files present
+
+**TEST 3: Real conflict scenario (must abort, no force-push)**
+- Setup: Local and origin both modified same file (conflict.txt) differently from common ancestor
+- Execution: Direct push fails; push_with_retry detects merge conflict, runs `git merge --abort`, returns failure
+- Verification: No half-finished merge state remains; local commit not pushed; working tree clean
+- Result: ✓ PASS — safe failure (no force-push attempted)
+
+**OVERALL VERDICT: ✓ ALL TESTS PASSED**
+
+Complete test output captured in execution shows:
+- TEST 1 (Fast-forward merge): ✓ PASS
+- TEST 2 (Auto-merge): ✓ PASS
+- TEST 3 (Conflict abort): ✓ PASS
+
+### Implementation Verification
+
+✓ `push_with_retry()` wraps all 5 call sites: grep confirms lines 209, 217, 267, 275, 282 all invoke `push_with_retry "$base_branch" || return 1`; no bare `git push origin HEAD` remains outside the helper itself.
+
+✓ Fetch → ff-only merge → fallback auto-merge → abort-on-conflict → retry push matches specification exactly; verified functionally via test execution against isolated bare repos.
+
+✓ `bash -n scripts/dispatcher.sh` syntax check: returncode 0, no errors. Valid syntax confirmed.
+
+✓ No behavior change to manifest-detection/staging logic: `git diff` shows only the new `push_with_retry()` block plus 5 one-line swaps of `git push origin HEAD` → `push_with_retry "$base_branch"`; the #283-era matching_commit/already-pushed check (lines 175-188) remains untouched.
+
+✓ Test convention followed: `scripts/test_push_retry.sh` mirrors existing repo test style (`test_cooldown_fairness.sh`) — self-contained, runnable via subprocess, displays results table with PASS/FAIL verdict, performs analysis.
+
+## Caveats / follow-up
+None. Implementation is correct, syntax valid, and all test scenarios pass with actual git operations. Closes issue #305.
+
+Changed files: scripts/dispatcher.sh, scripts/test_push_retry.sh

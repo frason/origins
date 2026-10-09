@@ -104,13 +104,11 @@ ready_issues="100 200 300 400 500 600"
 cooldown_file="$TEST_DIR/cooldown.json"
 last_picked_file="$TEST_DIR/last_picked.json"
 declare -a selection_order
-declare -A issue_counts
 
 # Run 30 ticks
 for tick in {1..30}; do
   selected=$(simulate_tick "$ready_issues" "$cooldown_file" "$last_picked_file")
   selection_order+=("$selected")
-  issue_counts[$selected]=$(( ${issue_counts[$selected]:-0} + 1 ))
 
   # Simulate crashes: #100 crashes on odd ticks, #200 on even
   if [ $(( tick % 2 )) -eq 1 ] && [ "$selected" = "100" ]; then
@@ -131,7 +129,7 @@ echo "${selection_order[@]}"
 echo ""
 echo "Issue selection counts:"
 for issue in $ready_issues; do
-  count=${issue_counts[$issue]:-0}
+  count=$(printf '%s\n' "${selection_order[@]}" | grep -c "^${issue}$")
   echo "  #$issue: $count times"
 done
 echo ""
@@ -142,7 +140,7 @@ echo "Fairness check:"
 min_count=999
 max_count=0
 for issue in $ready_issues; do
-  count=${issue_counts[$issue]:-0}
+  count=$(printf '%s\n' "${selection_order[@]}" | grep -c "^${issue}$")
   if [ "$count" -lt "$min_count" ]; then min_count=$count; fi
   if [ "$count" -gt "$max_count" ]; then max_count=$count; fi
 done

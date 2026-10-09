@@ -1,0 +1,3 @@
+// REMOVED: This file is no longer written to after the escalating cooldown logic was removed (issue #310).
+// It was previously used to track pre-decrement state for escalating cooldown logic.
+// The fairness cooldown now uses a flat 1-pass delay for both crash and FAILED-verdict cases.

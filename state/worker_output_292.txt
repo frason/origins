@@ -1,0 +1,19 @@
+## Summary
+Completed issue #292: restored map-region focus synchronization UI, verified trait-frequency data flows to BranchComparison component, and added comprehensive test coverage for both trait frequencies and branch comparison rendering.
+
+## Changes
+- **src/ui/BranchComparison.tsx**: Uncommented map-region sync section; wired `syncedMapRegion` state to `BranchMapRegionSelector` components for both branches; updated sync status display to show timeline + map sync with independent clear buttons (lines 560-605)
+- **src/tests/worldBranch.test.ts**: Added 3 tests verifying `sampleMetrics()` populates `traitFrequencies` (lines 218-257): test for per-species data presence, array structure, numeric values, and median computation
+- **src/tests/BranchComparison.test.tsx**: New file with 8 tests covering trait-frequency rendering (5 tests), timeline UI (1 test), metrics display (2 tests), map sync UI (1 test), branch selection (1 test)
+
+## Verification
+- `npm run build` passes (0 type errors)
+- `npx vitest run src/tests/worldBranch.test.ts` → 35/35 passed (3 new tests included)
+- `npx vitest run src/tests/BranchComparison.test.tsx` → 8/8 passed
+- `git show 7bfdb53` shows all three files modified with complete implementation
+- Commit message references #292 and follows project convention
+
+## Caveats / follow-up
+- Map sync UI is now functional at component level; note that actual map visualization (rendering creature distributions for specific regions) remains a future feature—the UI shows region buttons and click-to-sync wiring is complete
+- Timeline sync (`syncedTick`) was already working and remains unchanged
+- No regression: map sync UI re-enabled from previously-working code in db6379b, not from scratch

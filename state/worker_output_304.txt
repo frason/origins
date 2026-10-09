@@ -1,0 +1,14 @@
+## Summary
+Fixed the failing "slows movement deterministically in costly passable biomes" test by pinning waterDepth: 0 on three grid cells in the test setup. The World's hydrology generator was setting non-zero waterDepth as a side effect, inflating traversal costs and breaking the cadence determinism assertion. Test now passes alongside all other movement tests (62/62 total).
+
+## Changes
+- src/tests/movement.test.ts: Lines 714-716 — added `waterDepth: 0` to three `world.setCell()` calls for cells (20,20), (21,20), (22,20)
+
+## Test Results
+- `npx vitest run src/tests/movement-traversal-cost.test.ts src/tests/movement.test.ts` → **62/62 tests pass** (18 + 44)
+- `npm run build` → **0 TypeScript errors**, build succeeds
+- `git diff HEAD -- src/simulation/biomeTraversal.ts` → **no changes** (production code untouched as required)
+- Commit: `0fbad7c` with message "closes #304"
+
+## Caveats / follow-up
+None — fix is minimal, targeted, and verified. All required tests pass on first attempt.

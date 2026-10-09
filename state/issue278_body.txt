@@ -1,0 +1,1 @@
+# scratch file, used once to stage `gh issue edit 278 --body-file`; content no longer needed.
