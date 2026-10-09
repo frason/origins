@@ -141,10 +141,74 @@ push_with_retry() {
   if ! git merge --ff-only "origin/${base_branch}" 2>/dev/null; then
     # ff-only failed; try auto-merge with merge commit as fallback
     if ! git merge --no-edit "origin/${base_branch}" 2>/dev/null; then
-      # Real merge conflict detected; abort and fail
-      git merge --abort 2>/dev/null || true
-      log "  merge conflict detected during non-ff reconciliation — cannot auto-merge, push failed"
-      return 1
+      # Real merge conflict detected; before aborting, check if origin's unique
+      # content is already present in local HEAD (redundant conflict from context drift)
+
+      local merge_base conflicted_files file origin_added_lines local_content line
+      local all_redundant=true tmp_added_file
+
+      merge_base=$(git merge-base HEAD MERGE_HEAD 2>/dev/null || echo "")
+      if [ -z "$merge_base" ]; then
+        # Cannot compute merge base — abort safely
+        git merge --abort 2>/dev/null || true
+        log "  merge conflict detected during non-ff reconciliation — cannot auto-merge, push failed"
+        return 1
+      fi
+
+      conflicted_files=$(git diff --name-only --diff-filter=U 2>/dev/null || true)
+      if [ -z "$conflicted_files" ]; then
+        # No conflicted files found (shouldn't happen if merge failed, but be safe)
+        git merge --abort 2>/dev/null || true
+        log "  merge conflict detected during non-ff reconciliation — cannot auto-merge, push failed"
+        return 1
+      fi
+
+      # Check each conflicted file for redundant content
+      while IFS= read -r file; do
+        [ -z "$file" ] && continue
+
+        # Extract lines that origin (MERGE_HEAD) added relative to merge-base
+        # (lines starting with '+', excluding the diff marker '+++')
+        tmp_added_file=$(mktemp)
+        git diff "$merge_base" MERGE_HEAD -- "$file" 2>/dev/null \
+          | grep '^+' | grep -v '^+++' | sed 's/^+//' \
+          | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' > "$tmp_added_file"
+
+        # Get local version of file (HEAD, before merge modified it)
+        local_content=$(git show "HEAD:$file" 2>/dev/null || echo "")
+
+        # Check if every added line appears verbatim in local content
+        while IFS= read -r line; do
+          [ -z "$line" ] && continue
+          # Use grep -F (literal string, no regex) and -x (whole line) to match exactly
+          if ! printf '%s\n' "$local_content" | grep -F -x "$line" >/dev/null 2>&1; then
+            all_redundant=false
+            break
+          fi
+        done < "$tmp_added_file"
+        rm -f "$tmp_added_file"
+
+        [ "$all_redundant" = false ] && break
+      done <<< "$conflicted_files"
+
+      # If all conflicted files have redundant content, auto-resolve by keeping local
+      if [ "$all_redundant" = true ]; then
+        while IFS= read -r file; do
+          [ -z "$file" ] && continue
+          git checkout --ours -- "$file" 2>/dev/null || true
+          git add "$file" 2>/dev/null || true
+        done <<< "$conflicted_files"
+        git commit --no-edit 2>/dev/null || {
+          git merge --abort 2>/dev/null || true
+          log "  merge conflict auto-resolved but commit failed — push failed"
+          return 1
+        }
+      else
+        # Origin has real content not present in local — abort safely
+        git merge --abort 2>/dev/null || true
+        log "  merge conflict detected during non-ff reconciliation — cannot auto-merge, push failed"
+        return 1
+      fi
     fi
   fi
 
@@ -832,28 +896,18 @@ ${verdict_text}
     log "  issue #$iss_num PASSED — labelled agent-done, closed"
   else
     set_issue_label "$iss_num" "agent-review" "agent-todo" || true
-    # Fairness cooldown: escalating penalty for FAILed issues.
-    # Increment its cooldown count (or set to 1 if not already cooling).
-    # To properly escalate on repeated failures, use the pre-decrement state to check if
-    # this issue was already in cooldown before this pass's decrement operation.
+    # Fairness cooldown: brief grace period before reselecting failed issues.
+    # Set issue to cooldown for 1 pass (consistent with crash path below).
+    # Round-robin selection ensures all other ready issues get fair turns.
     cooldown_file="$STATE/cooldown.json"
-    predecrement_file="$STATE/cooldown_predecrement.json"
     # Defensive read: handle both legacy array format and current object format.
     cd_now=$(cat "$cooldown_file" 2>/dev/null | jq -c 'if type=="array" then {} else . end' 2>/dev/null || echo '{}')
-    predecrement_state=$(cat "$predecrement_file" 2>/dev/null || echo '{}')
 
-    # Check if issue was in cooldown before decrement (pre-decrement state)
-    # If so, increment from that value; otherwise start from 1
-    previous_value=$(printf '%s' "$predecrement_state" | jq -r ".[$iss_num|tostring] // 0" 2>/dev/null || echo "0")
-    next_value=$(( previous_value + 1 ))
-    if [ "$next_value" -gt 5 ]; then next_value=5; fi
-
-    # Increment the cooldown counter for this issue (or set to 1 if not present)
-    # Cap at 5 to prevent unbounded growth
-    updated_cooldown=$(printf '%s' "$cd_now" | jq --argjson n "$iss_num" --argjson v "$next_value" \
-      '.[$n|tostring] = $v')
+    # Set cooldown to 1 pass for this issue
+    updated_cooldown=$(printf '%s' "$cd_now" | jq --argjson n "$iss_num" \
+      '.[$n|tostring] = 1')
     printf '%s' "$updated_cooldown" > "$cooldown_file" 2>/dev/null || echo "{\"$iss_num\": 1}" > "$cooldown_file"
-    log "  issue #$iss_num FAILED — labelled agent-todo for rework (escalating cooldown: $next_value pass(es))"
+    log "  issue #$iss_num FAILED — labelled agent-todo for rework (flat cooldown: 1 pass)"
   fi
   exit 0
 fi
