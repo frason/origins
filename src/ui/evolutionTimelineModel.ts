@@ -19,8 +19,9 @@ export interface EventPin {
   id: string;
   tick: number;
   x: number;
-  event: EventSnapshot;
-  type: 'birth' | 'death' | 'mutation' | 'speciation' | 'extinction' | 'intervention' | 'environmental-shock' | 'sound-detection' | 'sound-flee' | 'sound-investigate';
+  event?: EventSnapshot;
+  adaptationObservation?: any; // AdaptationObservation from #165/#276
+  type: 'birth' | 'death' | 'mutation' | 'speciation' | 'extinction' | 'intervention' | 'environmental-shock' | 'sound-detection' | 'sound-flee' | 'sound-investigate' | 'adaptation-evidence';
   speciesName: string;
   detail: string;
   // Navigation aids
@@ -246,7 +247,8 @@ function currentSample(
 export function buildEvolutionTimeline(
   history: EcosystemHistorySample[] | undefined,
   world: WorldSnapshot | null,
-  tick: number
+  tick: number,
+  adaptationObservations?: any[] // AdaptationObservation[] from #165
 ): EvolutionTimelineModel | null {
   if (!world) return null;
   const samples = new Map<number, EcosystemHistorySample>();
@@ -318,6 +320,28 @@ export function buildEvolutionTimeline(
     const x = (event.tick / lastTick) * 100;
     const pin = createEventPin(event, x, lastTick);
     if (pin) eventPins.push(pin);
+  }
+
+  // Add adaptation-evidence pins from lastAdaptationObservations (#165, #276)
+  if (adaptationObservations && adaptationObservations.length > 0) {
+    for (const obs of adaptationObservations) {
+      const x = (obs.tick / lastTick) * 100;
+      const traitLabel = (obs.trait as string).replace(/([A-Z])/g, ' $1').toLowerCase().trim();
+      const specieName = speciesDisplayName(obs.speciesId);
+      const lineageName = obs.lineageId ? `${specieName}/${obs.lineageId.substring(0, 8)}` : specieName;
+
+      const pin: EventPin = {
+        id: `adaptation-${obs.tick}-${obs.lineageId}-${obs.trait}`,
+        tick: obs.tick,
+        x,
+        type: 'adaptation-evidence',
+        adaptationObservation: obs,
+        speciesName: specieName,
+        detail: `${traitLabel}: ${obs.changeType}`,
+        lineageId: obs.lineageId,
+      };
+      eventPins.push(pin);
+    }
   }
 
   // Helper to get metrics at a specific tick

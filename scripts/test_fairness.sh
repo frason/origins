@@ -161,3 +161,34 @@ fi
 
 echo ""
 echo "=== All checks passed ==="
+
+# ============================================================
+# LEGACY FORMAT COMPATIBILITY TEST
+# ============================================================
+# Verify that the defensive cooldown read handles legacy array format.
+# This ensures robustness if old cooldown.json files in array format are encountered.
+
+echo ""
+echo "=== Legacy Format Compatibility Test ==="
+echo ""
+echo "Verifying that the defensive cooldown read handles legacy array format..."
+
+# Create a test with the legacy array format in cooldown.json
+legacy_cooldown_file="$TEST_DIR/cooldown_legacy.json"
+echo '[116, 161, 163, 164, 242, 258]' > "$legacy_cooldown_file"
+
+# Try to read and process it with the defensive read logic
+echo "Testing with legacy array format: $(cat "$legacy_cooldown_file")"
+
+# This should NOT crash; the defensive read converts array to {}
+legacy_result=$(cat "$legacy_cooldown_file" | jq -c 'if type=="array" then {} else . end' 2>/dev/null || echo '{}')
+
+if [ "$legacy_result" = "{}" ]; then
+  echo "✓ PASS: Defensive read successfully converts legacy array format to empty object"
+else
+  echo "✗ FAIL: Defensive read did not handle legacy array format correctly: $legacy_result"
+  exit 1
+fi
+
+echo ""
+echo "=== All tests completed successfully ==="

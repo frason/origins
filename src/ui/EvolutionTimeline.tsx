@@ -11,7 +11,7 @@ const CHART_WIDTH = 100 - CHART_PADDING.left - CHART_PADDING.right;
 const CHART_HEIGHT = 100 - CHART_PADDING.top - CHART_PADDING.bottom;
 
 type MetricType = 'population' | 'species' | 'lineages';
-type EventType = 'birth' | 'death' | 'extinction' | 'speciation' | 'intervention' | 'mutation' | 'environmental-shock' | 'sound-detection' | 'sound-flee' | 'sound-investigate';
+type EventType = 'birth' | 'death' | 'extinction' | 'speciation' | 'intervention' | 'mutation' | 'environmental-shock' | 'sound-detection' | 'sound-flee' | 'sound-investigate' | 'adaptation-evidence';
 type RegionType = 'NW' | 'NE' | 'SW' | 'SE' | 'center';
 
 interface FilterState {
@@ -32,7 +32,7 @@ export default function EvolutionTimeline() {
   // Filter state
   const [filterState, setFilterState] = useState<FilterState>({
     metrics: new Set(['population', 'species', 'lineages']),
-    eventTypes: new Set(['birth', 'extinction', 'speciation', 'intervention', 'environmental-shock', 'sound-detection', 'sound-flee', 'sound-investigate']),
+    eventTypes: new Set(['birth', 'extinction', 'speciation', 'intervention', 'environmental-shock', 'sound-detection', 'sound-flee', 'sound-investigate', 'adaptation-evidence']),
     speciesFilter: null,
     lineageFilter: null,
     regionFilter: null,
@@ -107,9 +107,10 @@ export default function EvolutionTimeline() {
 
   const filteredEventPins = model.eventPins.filter((pin) => {
     if (!filterState.eventTypes.has(pin.type)) return false;
-    if (filterState.speciesFilter && pin.event.speciesId && !filterState.speciesFilter.has(pin.event.speciesId)) return false;
+    const speciesId = pin.event?.speciesId || (pin.adaptationObservation?.speciesId as string);
+    if (filterState.speciesFilter && speciesId && !filterState.speciesFilter.has(speciesId)) return false;
     if (filterState.lineageFilter && pin.lineageId) {
-      const lineageId = `${pin.event.speciesId}:${pin.lineageId}`;
+      const lineageId = `${speciesId}:${pin.lineageId}`;
       if (!filterState.lineageFilter.has(lineageId)) return false;
     }
     if (filterState.regionFilter && pin.region && !filterState.regionFilter.has(pin.region)) return false;
@@ -143,9 +144,10 @@ export default function EvolutionTimeline() {
       setSelectedTile({ x: pin.tileX, y: pin.tileY });
     }
     // Add to followed lineages if available
-    if (pin.lineageId && pin.event.speciesId) {
+    const speciesId = pin.event?.speciesId || (pin.adaptationObservation?.speciesId as string);
+    if (pin.lineageId && speciesId) {
       toggleFollowedLineage({
-        speciesId: pin.event.speciesId,
+        speciesId,
         lineageId: pin.lineageId,
       });
     }
@@ -256,7 +258,7 @@ export default function EvolutionTimeline() {
             <div style={{ marginBottom: '0.3rem' }}>
               <strong>Events:</strong>
               <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
-                {(['birth', 'death', 'mutation', 'extinction', 'speciation', 'intervention', 'environmental-shock', 'sound-detection', 'sound-flee', 'sound-investigate'] as EventType[]).map((eventType) => (
+                {(['birth', 'death', 'mutation', 'extinction', 'speciation', 'intervention', 'environmental-shock', 'sound-detection', 'sound-flee', 'sound-investigate', 'adaptation-evidence'] as EventType[]).map((eventType) => (
                   <label
                     key={eventType}
                     style={{
@@ -536,6 +538,7 @@ export default function EvolutionTimeline() {
                 intervention: '#70c7d8',
                 death: '#ff6b6b',
                 'environmental-shock': '#ff9800',
+                'adaptation-evidence': '#a8d5e8',
               };
               const color = pinColors[pin.type] || '#9dc6d8';
 
@@ -577,6 +580,7 @@ export default function EvolutionTimeline() {
           <span style={{ color: '#ef7c7c' }}>• Extinction</span>
           <span style={{ color: '#70c7d8' }}>⚙ Intervention</span>
           <span style={{ color: '#ff9800' }}>⚡ Shock</span>
+          <span style={{ color: '#a8d5e8' }}>◆ Adaptation</span>
         </div>
 
         {/* Hovered Event Details */}
