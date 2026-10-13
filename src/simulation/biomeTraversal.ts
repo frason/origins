@@ -176,7 +176,12 @@ export function moveAcrossTerrain(
   const targetX = wrapCoordinate(target.x, world.width);
   const targetY = Math.max(0, Math.min(world.height - 1, target.y));
 
-  while (budget > 0) {
+  // Safeguard: limit iterations to prevent infinite loops in edge cases
+  let iterations = 0;
+  const MAX_ITERATIONS = world.width + world.height;
+
+  while (budget > 0 && iterations < MAX_ITERATIONS) {
+    iterations++;
     const currentDistance = distance(x, y, targetX, targetY, world.width);
     if (currentDistance === 0) break;
     const candidates = DIRECTIONS
@@ -213,18 +218,10 @@ export function moveAcrossTerrain(
         y = alternative.y;
         budget -= alternative.cost;
       } else {
-        // No alternative found: slow terrain remains crossable for speed-1 creatures,
-        // but only on a deterministic cadence based on age rather than a new random draw.
-        const excessCost = Math.max(0.01, next.cost - creature.traits.speed);
-        const delayPeriod = Math.max(2, Math.round(1 / excessCost));
-        if (creature.age % delayPeriod === 0) {
-          break; // On favorable tick, stop without moving
-        } else {
-          // On unfavorable tick, move (accepting negative budget)
-          x = next.x;
-          y = next.y;
-          budget -= next.cost;
-        }
+        // No alternative found: terrain is impassable for now.
+        // Creature must wait until next tick when it may try a different path or
+        // when age aligns with favorable cadence if implementing delayed crossing.
+        break;
       }
     } else {
       x = next.x;

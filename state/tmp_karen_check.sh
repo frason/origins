@@ -1,1 +1,1 @@
-# stale scratch file, neutralized per issue #275 cleanup
+# Superseded scratch file, see issue #321 -- content intentionally removed

@@ -1,1 +1,1 @@
-(scratch file, safe to ignore — used transiently by lead pass to stage an issue body edit)
+Superseded scratch file, see issue #321 -- content intentionally removed

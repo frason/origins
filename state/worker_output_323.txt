@@ -1,0 +1,14 @@
+## Summary
+Updated two perf-guard thresholds to match documented recommendations in PERF_REGRESSION_ANALYSIS_2026_10_06.md. Both test suites pass with the new thresholds.
+
+## Changes
+- src/tests/_karen_verify_168_perf.test.ts: Changed line 37 threshold from 800ms to 950ms per tick; updated stale comments to reference current analysis
+- src/tests/biomassCalibration.test.ts: Changed line 56 threshold from 500_000ms to 600_000ms
+
+## Test Results
+- `_karen_verify_168_perf.test.ts`: ✓ passed (639.4ms per tick, well below 950ms threshold)
+- `biomassCalibration.test.ts`: ✓ passed (3 tests, all pass under new 600s threshold)
+- Commit: #323 (refs issue #323)
+
+## Caveats / follow-up
+None. Task complete — both thresholds changed as specified, no other numbers modified, tests verify success, and changes committed.

@@ -36,3 +36,11 @@ state/verdict.txt
 state/tmp_body_*.md
 state/tmp_issue_*.md
 .codex/
+
+# Naming-convention guard against scratch files (issue #321)
+karen*.ts
+karen*.mjs
+tmp_*.md
+tmp_*.txt
+state/_karen*
+scripts/_tmp_*.sh

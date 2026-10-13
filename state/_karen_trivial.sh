@@ -1,2 +1,1 @@
-#!/usr/bin/env bash
-echo hi
+# Superseded scratch file, see issue #321 -- content intentionally removed

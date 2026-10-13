@@ -1,2 +1,1 @@
-#!/bin/bash
-echo "probe ok"
+# Superseded scratch file, see issue #321 -- content intentionally removed

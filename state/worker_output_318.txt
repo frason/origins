@@ -1,0 +1,8 @@
+## Summary
+Fixed typo in `src/tests/largeWorldBenchmark.test.ts` where `workerManager.isWorkerActive()` was incorrectly called instead of the correct method `workerManager.isWorkerMode()`. All 6 tests now pass (71s runtime) and `tsc --noEmit` is clean with zero errors.
+
+## Changes
+- src/tests/largeWorldBenchmark.test.ts (one-line fix + existing substantive changes to web-worker polyfill implementation)
+
+## Caveats / follow-up
+None. The fix is minimal and surgical—only changed the method name at the single call site. All test assertions pass and TypeScript compilation is clean. The broader test file refactoring (real Worker-thread testing via web-worker polyfill) was pre-existing uncommitted work; the commit includes both the fix and these existing changes as instructed.

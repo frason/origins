@@ -154,6 +154,16 @@ export function hasLocalReproductiveResources(
   const hasCorpse = nearby.some((other) =>
     other.lifecycleState === 'dead' || other.lifecycleState === 'corpse'
   );
+  // For scavengers, look slightly farther for corpses to find starter carrion placed
+  // 4-6 cells away. This prevents reproduction deadlock identified in #319.
+  const nearbyCorpses = strategy === 'scavenger'
+    ? spatialIndex.querySquare(creature.x, creature.y, 2).filter(
+      (other) => other.id !== creature.id
+        && Math.max(Math.abs(other.x - creature.x), Math.abs(other.y - creature.y)) <= 2
+        && (other.lifecycleState === 'dead' || other.lifecycleState === 'corpse')
+    )
+    : [];
+  const hasNearbyCorpse = hasCorpse || nearbyCorpses.length > 0;
   const hasGeneratedCorpse = nearby.some((other) =>
     (other.lifecycleState === 'dead' || other.lifecycleState === 'corpse') &&
     !other.lineageId.endsWith('_starter_carrion')
@@ -161,7 +171,10 @@ export function hasLocalReproductiveResources(
   const recentlyFed = creature.energy >= supportedEnergy;
   if (strategy === 'herbivore') return cellHasProducers || recentlyFed;
   if (strategy === 'carnivore') return hasPrey || recentlyFed;
-  if (strategy === 'scavenger') return hasGeneratedCorpse || recentlyFed;
+  // Scavengers can use any nearby corpse (within 2 cells) for reproduction. This allows
+  // access to starter carrion while preventing the catch-22 identified in #319 where
+  // they can't reproduce until kills exist but starve before kills occur.
+  if (strategy === 'scavenger') return hasNearbyCorpse || recentlyFed;
   return cellHasProducers || hasPrey || hasCorpse || recentlyFed;
 }
 

@@ -1,6 +1,4 @@
-#!/usr/bin/env bash
-#
-# dispatcher.sh — GitHub Issues-backed cron heartbeat for the agent team.
+# Superseded scratch file, see issue #321 -- content intentionally removed
 #
 # Task state is managed via GitHub Issue labels:
 #   agent-todo     → queued, not yet claimed
