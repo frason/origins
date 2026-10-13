@@ -56,7 +56,8 @@ simulate_tick() {
   # Find starting position for round-robin
   local start_pos=0
   if [ "$last_picked" != "null" ] && [ -n "$last_picked" ]; then
-    for i in "${!issue_array[@]}"; do
+    local i
+    for ((i = 0; i < ${#issue_array[@]}; i++)); do
       if [ "${issue_array[$i]}" = "$last_picked" ]; then
         start_pos=$(( (i + 1) % ${#issue_array[@]} ))
         break
