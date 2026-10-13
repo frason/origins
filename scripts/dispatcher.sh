@@ -569,8 +569,14 @@ watchdog_reconcile_stale_issues() {
   local base_branch matching_commit commit_hash hours_stale stale_cutoff
 
   # Fetch all open issues with agent-doing or agent-review labels
-  stale_json=$(gh issue list --repo "$REPO" --label "agent-doing,agent-review" \
+  # Note: --label with comma-separated values uses AND logic (requires all labels),
+  # so we must query each label separately and merge the results with OR logic.
+  local doing_json review_json
+  doing_json=$(gh issue list --repo "$REPO" --label "agent-doing" \
     --state open --json number,updatedAt,labels 2>/dev/null || echo "[]")
+  review_json=$(gh issue list --repo "$REPO" --label "agent-review" \
+    --state open --json number,updatedAt,labels 2>/dev/null || echo "[]")
+  stale_json=$(printf '%s\n%s' "$doing_json" "$review_json" | jq -s '(.[0] + .[1]) | unique_by(.number)' 2>/dev/null || echo "[]")
 
   # Exit early if no results
   [ -z "${stale_json:-}" ] || [ "$stale_json" = "[]" ] && return 0
