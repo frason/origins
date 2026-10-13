@@ -154,12 +154,18 @@ export function hasLocalReproductiveResources(
   const hasCorpse = nearby.some((other) =>
     other.lifecycleState === 'dead' || other.lifecycleState === 'corpse'
   );
-  // For scavengers, look slightly farther for corpses to find starter carrion placed
-  // 4-6 cells away. This prevents reproduction deadlock identified in #319.
+  // Detect first reproduction attempt via resourceThreshold === Infinity (set by firstBirthUrgency).
+  // On first attempt, scavengers look farther (6 cells) to reach starter carrion.
+  // On subsequent attempts, they look normally (2 cells) and require generated corpses.
+  const isFirstBirth = supportedEnergy === Infinity && creature.offspringCount === 0;
+  const scavengerRange = strategy === 'scavenger' && isFirstBirth ? 6 : 2;
+  // For scavengers, look for corpses at the appropriate range (6 on first birth, 2 otherwise).
+  // This prevents reproduction deadlock identified in #319 where founders can't reproduce
+  // until kills exist but starve before kills occur.
   const nearbyCorpses = strategy === 'scavenger'
-    ? spatialIndex.querySquare(creature.x, creature.y, 2).filter(
+    ? spatialIndex.querySquare(creature.x, creature.y, scavengerRange).filter(
       (other) => other.id !== creature.id
-        && Math.max(Math.abs(other.x - creature.x), Math.abs(other.y - creature.y)) <= 2
+        && Math.max(Math.abs(other.x - creature.x), Math.abs(other.y - creature.y)) <= scavengerRange
         && (other.lifecycleState === 'dead' || other.lifecycleState === 'corpse')
     )
     : [];
@@ -171,9 +177,9 @@ export function hasLocalReproductiveResources(
   const recentlyFed = creature.energy >= supportedEnergy;
   if (strategy === 'herbivore') return cellHasProducers || recentlyFed;
   if (strategy === 'carnivore') return hasPrey || recentlyFed;
-  // Scavengers can use any nearby corpse (within 2 cells) for reproduction. This allows
-  // access to starter carrion while preventing the catch-22 identified in #319 where
-  // they can't reproduce until kills exist but starve before kills occur.
+  // Scavengers can use any nearby corpse for reproduction, including starter carrion.
+  // This allows founders to reproduce from initial carrion and sustain themselves until
+  // generated corpses from hunting/kills become available. #319 fix.
   if (strategy === 'scavenger') return hasNearbyCorpse || recentlyFed;
   return cellHasProducers || hasPrey || hasCorpse || recentlyFed;
 }
@@ -982,7 +988,7 @@ export function tickEngine(
       birthPressure.isMonopoly &&
       birthPressure.dominantCount >= constants.monocultureReproductionLimit &&
       creature.speciesId === birthPressure.dominantSpecies;
-    const firstBirthUrgency = creature.offspringCount === 0 && timing.urgency > 0;
+    const firstBirthUrgency = creature.offspringCount === 0;
     const baseThreshold = getToxinAdjustedReproductionThreshold(
       timing.energyThreshold,
       creature.toxinExposure
