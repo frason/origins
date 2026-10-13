@@ -218,9 +218,8 @@ export function moveAcrossTerrain(
         y = alternative.y;
         budget -= alternative.cost;
       } else {
-        // No alternative found: terrain is impassable for now.
-        // Creature must wait until next tick when it may try a different path or
-        // when age aligns with favorable cadence if implementing delayed crossing.
+        // No alternative found: break immediately to prevent infinite loop.
+        // This ensures the creature exits rather than spinning on blocked/expensive terrain.
         break;
       }
     } else {
