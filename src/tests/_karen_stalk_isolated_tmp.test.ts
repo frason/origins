@@ -1,6 +1,3 @@
-import { describe } from 'vitest';
+import { it } from 'vitest';
 
-// debug scratch file, issue #275 cleanup
-describe.skip('debug tmp', () => {
-  // placeholder
-});
+it.skip('superseded scratch probe, see issue #322 -- content intentionally removed', () => {});
