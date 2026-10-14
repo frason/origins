@@ -1,1 +1,1 @@
-# Superseded scratch file, see issue #321 -- content intentionally removed
+# Neutralized scratch file
