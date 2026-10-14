@@ -988,7 +988,8 @@ export function tickEngine(
       birthPressure.isMonopoly &&
       birthPressure.dominantCount >= constants.monocultureReproductionLimit &&
       creature.speciesId === birthPressure.dominantSpecies;
-    const firstBirthUrgency = creature.offspringCount === 0;
+    const firstBirthUrgency = creature.offspringCount === 0 &&
+      (creature.traits.energyStrategy === 'scavenger' || timing.urgency > 0);
     const baseThreshold = getToxinAdjustedReproductionThreshold(
       timing.energyThreshold,
       creature.toxinExposure
