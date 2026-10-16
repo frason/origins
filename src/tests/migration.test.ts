@@ -4,6 +4,7 @@ import { World } from '../simulation/world';
 import { SIMULATION_CONSTANTS } from '../utils/constants';
 import { createEngine, runEngine } from '../simulation/engine';
 import { DEFAULT_TRAITS } from '../utils/traits';
+import { oldSaveSmall30x30, oldSaveMedium40x40 } from './fixtures/oldSaves';
 
 /**
  * Migration tests: verify that old saves (pre-#263, missing new hydrology fields)
@@ -16,29 +17,10 @@ describe('Old save migration (pre-#263 hydrology)', () => {
   });
 
   it('loads a pre-#263 save fixture through World.fromJSON() and applies defaults', () => {
-    // Simulate an old save format (pre-#263) that lacks hydrology fields
-    const oldSaveFixture = {
-      width: 30,
-      height: 30,
-      cells: Array.from({ length: 30 * 30 }, (_, idx) => ({
-        // Pre-#263 fields only
-        energy: 10 + (idx % 5) * 2,
-        nutrients: 0,
-        producerBiomass: 0,
-        toxicity: 0,
-        elevation: 0.5,
-        moisture: 0.4 + (idx % 7) * 0.05,
-        temperature: 0.5,
-        biome: 'grassland' as const,
-        producerArchetype: 'ground-cover' as const,
-        // Missing: substrate, waterDepth, waterTable, dissolvedNutrients, salinity
-      })),
-    };
-
     // Load the old save through the migration path
     let world: World | undefined;
     expect(() => {
-      world = World.fromJSON(oldSaveFixture);
+      world = World.fromJSON(oldSaveSmall30x30);
     }).not.toThrow();
 
     expect(world).toBeDefined();
@@ -68,26 +50,8 @@ describe('Old save migration (pre-#263 hydrology)', () => {
   });
 
   it('loads old save and runs simulation without crashing', () => {
-    // Pre-#263 save fixture
-    const oldSaveFixture = {
-      width: 40,
-      height: 40,
-      cells: Array.from({ length: 40 * 40 }, (_, idx) => ({
-        energy: 15,
-        nutrients: 0,
-        producerBiomass: 0,
-        toxicity: 0,
-        elevation: 0.5,
-        moisture: 0.5,
-        temperature: 0.5,
-        biome: 'grassland' as const,
-        producerArchetype: 'ground-cover' as const,
-        // Intentionally omitting hydrology fields
-      })),
-    };
-
     // Load the old save
-    const world = World.fromJSON(oldSaveFixture);
+    const world = World.fromJSON(oldSaveMedium40x40);
 
     // Create creatures as they would exist in the old save
     const creatures = [
