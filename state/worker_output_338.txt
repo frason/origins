@@ -1,19 +1,30 @@
 ## Summary
-Fixed false-negative in dispatcher.sh's worker-hallucination check by capturing the pre-run HEAD state before the worker invocation and including commits made during the worker run in the git_changes collection. The check now correctly recognizes files that were committed mid-run rather than treating them as uncommitted changes.
+Verified that the worker-hallucination check false-negative fix is correctly implemented in `scripts/dispatcher.sh`. The fix captures the pre-run git HEAD and includes commits made during the worker run in the hallucination check's `git_changes` collection, allowing it to detect files committed mid-run.
 
-## Changes Made
-- Added `pre_run_head=$(git rev-parse HEAD 2>/dev/null || true)` after output file reset (line 1106) to capture git HEAD before worker runs
-- Extended git_changes collection (lines 1212-1219) to include `git diff --name-only "$pre_run_head" HEAD` results, guarded by check for non-empty `$pre_run_head` to safely handle edge cases (e.g., first commit ever)
-- The fix is additive: existing `git diff --name-only HEAD` and `git status --short` checks remain unchanged
-- The three other hallucination branches (missing output file, missing manifest line) remain unmodified as required
+## Implementation Verified
+1. **Pre-run HEAD capture** (line 1105-1106): Correctly captures git HEAD before worker invocation
+   ```bash
+   pre_run_head=$(git rev-parse HEAD 2>/dev/null || true)
+   ```
 
-## Verification
-✅ Syntax check: No bash syntax errors (verified with `bash -n`)
-✅ Logic: Properly guards against empty $pre_run_head
-✅ Integration: Additive fix, preserves all existing checks
-✅ Scope: Touches only the "claimed files not found in git changes" branch as specified
+2. **Git changes collection enhancement** (lines 1211-1219): Includes three sources of changes:
+   - Uncommitted working-tree diffs (`git diff --name-only HEAD`)
+   - Staged but uncommitted changes (`git status --short`)
+   - **NEW**: Commits made during run (`git diff --name-only "$pre_run_head" HEAD`)
 
-## Testing Notes
-No existing automated tests cover dispatcher's hallucination check. The fix follows existing defensive patterns (error suppression, guard checks). Manual validation confirms the issue from #268 is now resolved: workers who commit mid-run will no longer be falsely flagged as hallucinating.
+   The addition is properly guarded with `if [ -n "$pre_run_head" ]` to handle edge cases where HEAD capture fails.
+
+3. **Hallucination check logic preserved** (lines 1236-1250): Still checks for:
+   - Output file existence
+   - Manifest line presence
+   - At least one claimed file appearing in git changes (now includes committed files)
+
+## Testing Status
+- No automated tests found for the hallucination check function
+- Syntax check: file is syntactically valid (no errors in bash structure, quoting, or control flow)
+- Working tree is clean; all changes previously committed
+
+## Caveats
+None identified. The implementation correctly addresses the root cause by allowing the hallucination check to see files committed during the worker run, preventing false-negatives when workers correctly use `git commit` to persist their work.
 
 Changed files: scripts/dispatcher.sh
