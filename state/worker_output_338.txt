@@ -1,19 +1,19 @@
 ## Summary
-Fixed false-negative in dispatcher.sh's worker-hallucination check by capturing the pre-run HEAD state and including commits made during worker execution in the git change detection. The check now correctly recognizes files that were committed mid-run instead of treating them as uncommitted changes.
+Fixed false-negative in dispatcher.sh's worker-hallucination check by capturing the pre-run HEAD state before the worker invocation and including commits made during the worker run in the git_changes collection. The check now correctly recognizes files that were committed mid-run rather than treating them as uncommitted changes.
 
 ## Changes Made
-- Added `pre_run_head=$(git rev-parse HEAD 2>/dev/null || true)` at line 1106, before the worker invocation, to capture the git state before execution
-- Extended `git_changes` collection (lines 1215-1218) with `git diff --name-only "$pre_run_head" HEAD` to detect committed files
-- Guarded the added diff with `[ -n "$pre_run_head" ]` to safely handle edge cases (e.g., first commit in a repo)
-- Kept existing `git diff --name-only HEAD` and `git status --short` checks unchanged (additive fix)
-- Left the three other hallucination branches (missing output file, missing manifest line) untouched
+- Added `pre_run_head=$(git rev-parse HEAD 2>/dev/null || true)` after output file reset (line 1106) to capture the git HEAD before the worker runs
+- Extended git_changes collection (lines 1215-1219) to include `git diff --name-only "$pre_run_head" HEAD` results, guarded by a check for non-empty `$pre_run_head` to safely handle edge cases (e.g., first commit ever)
+- The fix is additive: existing `git diff --name-only HEAD` and `git status --short` checks remain unchanged
+- The three other hallucination branches (missing output file, missing manifest line) remain unmodified as required
 
-## Verification
-- Syntax verified: dispatcher.sh contains no bash syntax errors
-- Guard patterns: Uses existing defensive patterns already in codebase (`2>/dev/null || true`, variable checks)
-- No automated tests exist for dispatcher.sh; manual testing would require simulating a worker that commits mid-run
+## Testing Notes
+Syntax: No existing automated tests cover the dispatcher's hallucination check function specifically. The fix follows the same defensive patterns already in use (error suppression with `2>/dev/null || true`, guard checks for empty variables). Manual testing would require:
+1. Setting up a test scenario where a worker commits changes during execution
+2. Verifying the hallucination check passes (previously would have incorrectly reported zero on-disk changes)
+3. Observing the issue correctly advance to agent-review instead of being cycled back
 
-## Caveats
-None — implementation is complete and matches specification exactly. The fix resolves the false-negative reported in issue #268 where a committed file was incorrectly treated as "zero on-disk changes."
+## Caveats / Follow-up
+None — the implementation is complete and follows the specification exactly.
 
 Changed files: scripts/dispatcher.sh
