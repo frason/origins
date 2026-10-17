@@ -1102,6 +1102,9 @@ set_issue_label "$iss_num" "agent-todo" "agent-doing" || true
 output_file="$STATE/worker_output_${iss_num}.txt"
 rm -f "$output_file"
 
+# Capture pre-run HEAD for hallucination check: allows detecting commits made during worker run
+pre_run_head=$(git rev-parse HEAD 2>/dev/null || true)
+
 # Surface karen's most recent verdict, if this issue already failed verification once —
 # otherwise a retry is built from the original issue body only, with zero memory of what
 # was already tried or why it was rejected, so it often repeats the same rejected fix.
@@ -1209,6 +1212,10 @@ fi
 git_changes=$(
   git diff --name-only HEAD 2>/dev/null || true
   git status --short 2>/dev/null | sed 's/^[A-Z? ][A-Z? ] //' || true
+  # Also include files changed in commits made during this run (guard for empty pre_run_head)
+  if [ -n "$pre_run_head" ]; then
+    git diff --name-only "$pre_run_head" HEAD 2>/dev/null || true
+  fi
 )
 
 # Check if any claimed file appears in git changes
