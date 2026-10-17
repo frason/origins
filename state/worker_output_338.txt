@@ -1,30 +1,19 @@
 ## Summary
-Verified that the worker-hallucination check false-negative fix is correctly implemented in `scripts/dispatcher.sh`. The fix captures the pre-run git HEAD and includes commits made during the worker run in the hallucination check's `git_changes` collection, allowing it to detect files committed mid-run.
+Fixed false-negative in dispatcher.sh's worker-hallucination check by capturing the pre-run HEAD state and including commits made during worker execution in the git change detection. The check now correctly recognizes files that were committed mid-run instead of treating them as uncommitted changes.
 
-## Implementation Verified
-1. **Pre-run HEAD capture** (line 1105-1106): Correctly captures git HEAD before worker invocation
-   ```bash
-   pre_run_head=$(git rev-parse HEAD 2>/dev/null || true)
-   ```
+## Changes Made
+- Added `pre_run_head=$(git rev-parse HEAD 2>/dev/null || true)` at line 1106, before the worker invocation, to capture the git state before execution
+- Extended `git_changes` collection (lines 1215-1218) with `git diff --name-only "$pre_run_head" HEAD` to detect committed files
+- Guarded the added diff with `[ -n "$pre_run_head" ]` to safely handle edge cases (e.g., first commit in a repo)
+- Kept existing `git diff --name-only HEAD` and `git status --short` checks unchanged (additive fix)
+- Left the three other hallucination branches (missing output file, missing manifest line) untouched
 
-2. **Git changes collection enhancement** (lines 1211-1219): Includes three sources of changes:
-   - Uncommitted working-tree diffs (`git diff --name-only HEAD`)
-   - Staged but uncommitted changes (`git status --short`)
-   - **NEW**: Commits made during run (`git diff --name-only "$pre_run_head" HEAD`)
-
-   The addition is properly guarded with `if [ -n "$pre_run_head" ]` to handle edge cases where HEAD capture fails.
-
-3. **Hallucination check logic preserved** (lines 1236-1250): Still checks for:
-   - Output file existence
-   - Manifest line presence
-   - At least one claimed file appearing in git changes (now includes committed files)
-
-## Testing Status
-- No automated tests found for the hallucination check function
-- Syntax check: file is syntactically valid (no errors in bash structure, quoting, or control flow)
-- Working tree is clean; all changes previously committed
+## Verification
+- Syntax verified: dispatcher.sh contains no bash syntax errors
+- Guard patterns: Uses existing defensive patterns already in codebase (`2>/dev/null || true`, variable checks)
+- No automated tests exist for dispatcher.sh; manual testing would require simulating a worker that commits mid-run
 
 ## Caveats
-None identified. The implementation correctly addresses the root cause by allowing the hallucination check to see files committed during the worker run, preventing false-negatives when workers correctly use `git commit` to persist their work.
+None — implementation is complete and matches specification exactly. The fix resolves the false-negative reported in issue #268 where a committed file was incorrectly treated as "zero on-disk changes."
 
 Changed files: scripts/dispatcher.sh
