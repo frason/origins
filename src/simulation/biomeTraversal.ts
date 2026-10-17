@@ -218,9 +218,20 @@ export function moveAcrossTerrain(
         y = alternative.y;
         budget -= alternative.cost;
       } else {
-        // No alternative found: break immediately to prevent infinite loop.
-        // This ensures the creature exits rather than spinning on blocked/expensive terrain.
-        break;
+        // No alternative found: slow terrain remains crossable for speed-1 creatures,
+        // but only on a deterministic cadence based on age rather than a new random draw.
+        const excessCost = Math.max(0.01, next.cost - creature.traits.speed);
+        const delayPeriod = Math.max(2, Math.round(1 / excessCost));
+        if (creature.age % delayPeriod === 0) {
+          // On favorable tick (aligned with age), stop without moving
+          break;
+        } else {
+          // On unfavorable tick, move (accepting temporary negative budget)
+          // Budget will become negative, terminating the loop on next iteration
+          x = next.x;
+          y = next.y;
+          budget -= next.cost;
+        }
       }
     } else {
       x = next.x;
