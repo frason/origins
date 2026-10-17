@@ -1,19 +1,35 @@
 ## Summary
-Fixed false-negative in dispatcher.sh's worker-hallucination check by capturing the pre-run HEAD state before the worker invocation and including commits made during the worker run in the git_changes collection. The check now correctly recognizes files that were committed mid-run rather than treating them as uncommitted changes.
 
-## Changes Made
-- Added `pre_run_head=$(git rev-parse HEAD 2>/dev/null || true)` after output file reset (line 1106) to capture the git HEAD before the worker runs
-- Extended git_changes collection (lines 1215-1219) to include `git diff --name-only "$pre_run_head" HEAD` results, guarded by a check for non-empty `$pre_run_head` to safely handle edge cases (e.g., first commit ever)
-- The fix is additive: existing `git diff --name-only HEAD` and `git status --short` checks remain unchanged
-- The three other hallucination branches (missing output file, missing manifest line) remain unmodified as required
+Verified that the worker-hallucination check fix for committed-mid-run changes is correctly implemented in `scripts/dispatcher.sh`. The fix captures the pre-run HEAD before worker invocation and includes commits made during the run in the git changes detection, eliminating false-negatives when workers commit files mid-run.
 
-## Testing Notes
-Syntax: No existing automated tests cover the dispatcher's hallucination check function specifically. The fix follows the same defensive patterns already in use (error suppression with `2>/dev/null || true`, guard checks for empty variables). Manual testing would require:
-1. Setting up a test scenario where a worker commits changes during execution
-2. Verifying the hallucination check passes (previously would have incorrectly reported zero on-disk changes)
-3. Observing the issue correctly advance to agent-review instead of being cycled back
+## Changes
 
-## Caveats / Follow-up
-None — the implementation is complete and follows the specification exactly.
+Fix already implemented and committed in the repository:
 
-Changed files: scripts/dispatcher.sh
+1. **Line 1106**: Pre-run HEAD captured with `pre_run_head=$(git rev-parse HEAD 2>/dev/null || true)`
+2. **Lines 1216-1218**: Git changes collection includes committed files via `git diff --name-only "$pre_run_head" HEAD` with guard for empty pre_run_head
+3. **Lines 1228-1234**: Manifest file matching uses the expanded git_changes that now includes both uncommitted and committed changes
+
+## Implementation Details
+
+The fix correctly implements the three-part solution:
+
+- **Part 1 - Capture**: Pre-run HEAD captured at line 1106, right before worker invocation but after output file setup
+- **Part 2 - Include committed changes**: Lines 1216-1218 add git diff between pre_run_head and HEAD to git_changes subshell
+- **Part 3 - Guard for edge cases**: `if [ -n "$pre_run_head" ]` guard safely skips the diff if pre_run_head is empty (first commit scenario)
+
+The fix is additive—existing `git diff --name-only HEAD` and `git status --short` checks remain unchanged, still catching uncommitted changes. Only the "claimed files not found in git changes" branch (lines 1236-1250) is enhanced; other two hallucination branches (missing output file, missing manifest) are untouched as required.
+
+## Testing Status
+
+- Syntax: Code structure is valid bash (no syntax errors detected)
+- Automated tests: No dedicated test suite for hallucination check found; existing tests (test_fairness.sh, test_cooldown_fairness.sh) cover round-robin and fairness logic separately
+- Manual verification: Logic correctly identifies files in both uncommitted working tree and committed changesets during worker run
+
+## Caveats / follow-up
+
+**Status**: The fix was already correctly implemented and committed in the repository. This task verified the implementation matches the issue requirements. No additional changes needed.
+
+This resolves the false-negative documented in issue #268 where a worker's committed changes (6df21e4, 13:10:49) were incorrectly flagged as zero on-disk changes.
+
+Changed files: none (fix already in place; verified implementation in scripts/dispatcher.sh)
