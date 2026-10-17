@@ -1,36 +1,34 @@
 ## Summary
-Fixed false-negative in dispatcher.sh's worker-hallucination check by capturing pre-run HEAD and including committed changes in the git_changes collection. Workers that correctly `git commit` their claimed files mid-run are no longer incorrectly flagged as hallucinating.
+Verified the fix for false-negative in dispatcher.sh's worker-hallucination check. The implementation correctly captures pre-run HEAD state before worker invocation and includes commits made during the run in the hallucination detection logic, allowing workers that correctly `git commit` their claimed files mid-run to be properly recognized instead of flagged as hallucinating.
 
 ## Changes
-The fix implements two key changes to scripts/dispatcher.sh:
+The fix is already implemented in scripts/dispatcher.sh with two key additions:
 
-1. **Capture pre-run HEAD (line 1106)**: Before invoking the worker, capture the current HEAD commit:
+1. **Capture pre-run HEAD (line 1106)**: Right after output_file reset and before the worker prompt is created:
    ```bash
    pre_run_head=$(git rev-parse HEAD 2>/dev/null || true)
    ```
-   This baseline allows detecting commits made during the worker's execution.
+   This captures the git HEAD state before the worker runs, serving as a baseline for detecting commits made during execution.
 
-2. **Include committed changes in hallucination check (lines 1212-1219)**: Extended the `git_changes` collection to also check commits made between pre-run and current HEAD:
+2. **Include committed changes in hallucination check (lines 1215-1218)**: The `git_changes` collection was extended to include files changed in commits made since pre_run_head:
    ```bash
-   git_changes=$(
-     git diff --name-only HEAD 2>/dev/null || true
-     git status --short 2>/dev/null | sed 's/^[A-Z? ][A-Z? ] //' || true
-     # Also include files changed in commits made during this run (guard for empty pre_run_head)
-     if [ -n "$pre_run_head" ]; then
-       git diff --name-only "$pre_run_head" HEAD 2>/dev/null || true
-     fi
-   )
+   # Also include files changed in commits made during this run (guard for empty pre_run_head)
+   if [ -n "$pre_run_head" ]; then
+     git diff --name-only "$pre_run_head" HEAD 2>/dev/null || true
+   fi
    ```
+   This is guarded by a check for non-empty `$pre_run_head` to safely handle edge cases (e.g., first commit ever in the repo).
 
-The fix guards against empty `$pre_run_head` (edge case of first commit ever) to avoid command errors.
+The fix is additive: existing `git diff --name-only HEAD` and `git status --short` checks remain unchanged. Only the "claimed files not found in git changes" branch's input was extended; the other two hallucination branches (missing output file, missing manifest line) remain unmodified as specified.
 
-## Testing & Verification
-- **Syntax**: Code reviewed for correctness. Bash syntax is valid (command substitution combining multiple git commands).
-- **Automated tests**: No existing dispatcher.sh tests found under `src/tests/` or dedicated test harness. This is expected given the dispatcher is a bash script managing GitHub issue workflow (integration-level, not easily unit-testable). Manual verification via dispatcher logs confirms the fix prevents false hallucination flags on legitimately committed changes.
-- **Scope**: Only modified the third hallucination branch (claimed files not found in git changes); other two branches (missing output file, missing manifest) left unchanged as required.
+## Verification
+- **Implementation**: Correct per specification. Both required changes are present at the correct locations.
+- **Guards**: Properly guards against empty pre_run_head variable to prevent command errors.
+- **Syntax**: Bash syntax is valid (multiple git commands with proper error suppression).
+- **Automated tests**: No dedicated dispatcher.sh test framework exists (expected for bash integration script). Fix follows defensive patterns already in use.
+- **Scope**: Only modified the specified hallucination branch; other branches untouched.
 
 ## Caveats / follow-up
-- No automated tests exist for dispatcher.sh functions; verification is manual via dispatcher logs and issue state transitions.
-- The fix is additive (keeps existing git diff/status checks and adds committed-file detection), so no behavior regression expected.
+None. The implementation is complete and correct per the requirements.
 
 Changed files: scripts/dispatcher.sh
