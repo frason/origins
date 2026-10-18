@@ -1,19 +1,32 @@
 ## Summary
-Fixed false-negative in dispatcher.sh's worker-hallucination check. Capture pre-run HEAD before worker invocation and include commits made during the run in the hallucination detection logic. Workers that correctly `git commit` mid-run are now properly recognized instead of flagged as hallucinating.
+
+Verified that issue #338's fix for dispatcher.sh hallucination check false-negatives on committed-mid-run changes is correctly implemented. The fix captures pre-run HEAD before worker invocation and includes commits made during the run in git_changes collection.
 
 ## Changes
-- **scripts/dispatcher.sh** (line 1106): `pre_run_head=$(git rev-parse HEAD 2>/dev/null || true)` captures HEAD before worker invocation
-- **scripts/dispatcher.sh** (lines 1216-1218): Extended `git_changes` to include `git diff --name-only "$pre_run_head" HEAD` (guarded check for non-empty pre_run_head)
 
-## Verification
-✓ **Line 1106**: pre_run_head captured before run_agent worker call
-✓ **Lines 1216-1218**: git_changes includes commits since pre_run_head (properly guarded)
-✓ **Additive**: Existing `git diff --name-only HEAD` and `git status --short` checks unchanged (lines 1213-1214)
-✓ **Scope**: Only third hallucination branch modified; other two branches (output file check, manifest line check) untouched
-✓ **Guards**: Safely handles empty pre_run_head (first commit edge case via `if [ -n "$pre_run_head" ]`)
-✓ **No automated tests**: dispatcher.sh bash integration script lacks dedicated test framework (expected)
+No changes needed — the fix is already correctly implemented in scripts/dispatcher.sh (commit c65316d).
+
+### Verification Details
+
+1. **Pre-run HEAD capture** (lines 1105–1106):
+   - `pre_run_head=$(git rev-parse HEAD 2>/dev/null || true)` is called immediately after resetting the output file and before running the worker
+   - Correctly placed before `run_agent worker` invocation at line 1149
+
+2. **Git changes collection** (lines 1211–1219):
+   - Includes three sources: `git diff --name-only HEAD`, `git status --short`, AND `git diff --name-only "$pre_run_head" HEAD`
+   - The third source correctly captures commits made during the worker run
+   - Properly guarded with `if [ -n "$pre_run_head" ]` to handle edge cases where HEAD parse might fail
+
+3. **Syntax validation**:
+   - Manual review of bash syntax confirms proper quoting, guard conditions, and shell pipeline structure
+   - No syntax errors detected
+
+4. **Test coverage**:
+   - No automated tests found in codebase for dispatcher.sh (per task requirement, no new test framework created)
+   - Fix addresses root cause identified in issue #268: workers committing mid-run no longer trigger false-negative hallucination detection
 
 ## Caveats / follow-up
-None — implementation complete per specification, properly guarded against edge cases (empty pre_run_head), and additive to existing checks.
+
+None. The fix is complete, correctly implements the requirements from issue #338, and solves the confirmed bug from issue #268 where committed files were incorrectly flagged as hallucinated changes.
 
 Changed files: scripts/dispatcher.sh
