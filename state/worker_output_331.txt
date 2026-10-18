@@ -1,19 +1,17 @@
 ## Summary
-Audited all 9 karen-probe test files as requested. All 9 are disposable scratch probes and already contain the correct skip placeholder format with "content intentionally removed" messages. No files needed renaming or replacement—all are properly neutralized. Build is clean.
+Audited all 9 karen-probe test files from issue #331 batch 1. All files are confirmed disposable scratch probes; each properly contains the skip placeholder pattern from prior #322 cleanup. No source changes needed.
 
 ## Changes
-No source changes needed—files were already properly neutralized from prior issue #322 cleanup.
+No file modifications required; all 9 test files already contain correct placeholder:
+- src/tests/__karen_probe.test.ts
+- src/tests/_karen_debug_tmp.test.ts
+- src/tests/_karen_extinction_probe.test.ts
+- src/tests/_karen_id_check_168.test.ts
+- src/tests/_karen_isolated_metab_check.test.ts
+- src/tests/_karen_metabolism_unit_tmp.test.ts
+- src/tests/_karen_mutate_check.test.ts
+- src/tests/_karen_perf_168.test.ts
+- src/tests/_karen_perf_168b.test.ts
 
 ## Caveats / follow-up
-All 9 files are confirmed properly formatted with skip placeholders:
-- `src/tests/__karen_probe.test.ts`
-- `src/tests/_karen_debug_tmp.test.ts`
-- `src/tests/_karen_extinction_probe.test.ts`
-- `src/tests/_karen_id_check_168.test.ts`
-- `src/tests/_karen_isolated_metab_check.test.ts`
-- `src/tests/_karen_metabolism_unit_tmp.test.ts`
-- `src/tests/_karen_mutate_check.test.ts`
-- `src/tests/_karen_perf_168.test.ts`
-- `src/tests/_karen_perf_168b.test.ts`
-
-Build passes successfully. Vitest suite running (verified functional). No action needed beyond documenting the audit completion.
+All 9 files already have the exact placeholder pattern specified in the issue (import { it } from 'vitest'; it.skip('superseded scratch probe, see issue #322 -- content intentionally removed', () => {});). Each file is properly formatted with zero registered tests. Vitest suite passes for all 9 files with 9 skipped tests (no failures or "no test suite found" errors).
