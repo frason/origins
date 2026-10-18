@@ -1149,10 +1149,10 @@ fi
 if ! run_agent worker "$effective_worker_model" "$tmp"; then
   rm -f "$tmp"
   log "  worker failed — cycling #$iss_num back to agent-todo"
+  set_issue_label "$iss_num" "agent-doing" "agent-todo" || true
   gh issue comment "$iss_num" --repo "$REPO" \
     --body "⚠️ **Worker run failed** (claude exited non-zero). Cycling back to \`agent-todo\` — check \`logs/dispatcher.log\` for the error." \
     >/dev/null 2>&1 || true
-  set_issue_label "$iss_num" "agent-doing" "agent-todo" || true
   # Fairness cooldown: brief grace period before reselecting crashed issues.
   # Set issue to cooldown for 1 pass (gives time for error to stabilize/be investigated).
   # Round-robin selection ensures even with cooldown, all other ready issues get fair turns.
@@ -1176,10 +1176,10 @@ rm -f "$tmp"
 if [ ! -f "$output_file" ]; then
   # Output file missing entirely — treat as hallucination
   log "  worker hallucination detected — issue #$iss_num produced no output file"
+  set_issue_label "$iss_num" "agent-doing" "agent-todo" || true
   gh issue comment "$iss_num" --repo "$REPO" \
     --body "⚠️ **Worker hallucination detected**: No output file written (\`state/worker_output_${iss_num}.txt\` missing). Cycling back to \`agent-todo\`." \
     >/dev/null 2>&1 || true
-  set_issue_label "$iss_num" "agent-doing" "agent-todo" || true
   # Apply crash cooldown
   cooldown_file="$STATE/cooldown.json"
   cd_now=$(cat "$cooldown_file" 2>/dev/null | jq -c 'if type=="array" then {} else . end' 2>/dev/null || echo '{}')
@@ -1195,10 +1195,10 @@ manifest=$(grep '^Changed files:' "$output_file" 2>/dev/null | tail -1 | sed 's/
 if [ -z "$manifest" ]; then
   # No manifest line — treat as incomplete/hallucinated work
   log "  worker hallucination detected — issue #$iss_num produced no 'Changed files:' manifest line"
+  set_issue_label "$iss_num" "agent-doing" "agent-todo" || true
   gh issue comment "$iss_num" --repo "$REPO" \
     --body "⚠️ **Worker hallucination detected**: No \`Changed files:\` manifest line found in output. Cycling back to \`agent-todo\`." \
     >/dev/null 2>&1 || true
-  set_issue_label "$iss_num" "agent-doing" "agent-todo" || true
   # Apply crash cooldown
   cooldown_file="$STATE/cooldown.json"
   cd_now=$(cat "$cooldown_file" 2>/dev/null | jq -c 'if type=="array" then {} else . end' 2>/dev/null || echo '{}')
@@ -1236,10 +1236,10 @@ EOF
 if [ "$any_found" -eq 0 ]; then
   # No claimed files found in git changes — hallucination
   log "  worker hallucination detected — issue #$iss_num claimed changes [$manifest] but made zero on-disk changes"
+  set_issue_label "$iss_num" "agent-doing" "agent-todo" || true
   gh issue comment "$iss_num" --repo "$REPO" \
     --body "⚠️ **Worker hallucination detected**: Claimed edits to [\`${manifest}\`] but \`git status\` shows no matching changes. Cycling back to \`agent-todo\`." \
     >/dev/null 2>&1 || true
-  set_issue_label "$iss_num" "agent-doing" "agent-todo" || true
   # Apply crash cooldown
   cooldown_file="$STATE/cooldown.json"
   cd_now=$(cat "$cooldown_file" 2>/dev/null | jq -c 'if type=="array" then {} else . end' 2>/dev/null || echo '{}')
@@ -1255,12 +1255,11 @@ else
   summary="_Worker completed issue #${iss_num} but did not write its output file._"
 fi
 
+set_issue_label "$iss_num" "agent-doing" "agent-review" || true
 gh issue comment "$iss_num" --repo "$REPO" \
   --body "## Worker Summary
 
 ${summary}" >/dev/null 2>&1 || true
-
-set_issue_label "$iss_num" "agent-doing" "agent-review" || true
 log "  issue #$iss_num complete — moved to agent-review"
 
 # keep the activity log bounded
