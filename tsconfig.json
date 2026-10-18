@@ -15,7 +15,7 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
-    "types": ["vitest/globals", "@testing-library/jest-dom"]
+    "types": ["vitest/globals", "@testing-library/jest-dom", "node"]
   },
   "include": ["src"],
   "exclude": [
@@ -26,7 +26,9 @@
     "src/tests/karenCheck164.test.ts",
     "src/tests/phase0HarnessSaveSlotIntegration.test.tsx",
     "src/tests/phase0SaveLoadIntegration.test.ts",
-    "src/tests/saveSlotSystem.test.ts"
+    "src/tests/saveSlotSystem.test.ts",
+    "src/diagnostic.ts",
+    "src/tests/diagnose*.test.ts"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
