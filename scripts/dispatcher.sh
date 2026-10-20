@@ -1234,19 +1234,50 @@ $paths
 EOF
 
 if [ "$any_found" -eq 0 ]; then
-  # No claimed files found in git changes — hallucination
-  log "  worker hallucination detected — issue #$iss_num claimed changes [$manifest] but made zero on-disk changes"
-  set_issue_label "$iss_num" "agent-doing" "agent-todo" || true
-  gh issue comment "$iss_num" --repo "$REPO" \
-    --body "⚠️ **Worker hallucination detected**: Claimed edits to [\`${manifest}\`] but \`git status\` shows no matching changes. Cycling back to \`agent-todo\`." \
-    >/dev/null 2>&1 || true
-  # Apply crash cooldown
-  cooldown_file="$STATE/cooldown.json"
-  cd_now=$(cat "$cooldown_file" 2>/dev/null | jq -c 'if type=="array" then {} else . end' 2>/dev/null || echo '{}')
-  updated_cooldown=$(printf '%s' "$cd_now" | jq --argjson n "$iss_num" '.[$n|tostring] = 1')
-  printf '%s' "$updated_cooldown" > "$cooldown_file" 2>/dev/null || echo "{\"$iss_num\": 1}" > "$cooldown_file"
-  log "  issue #$iss_num hallucination — added to worker-selection cooldown for 1 pass"
-  exit 0
+  # No claimed files found in git changes. Before flagging hallucination, check for legitimate
+  # diagnosis-only cases: if the manifest matches a "no changes" pattern (case-insensitive) AND
+  # the output file itself appears in git status, treat as a legitimate diagnosis submission.
+  # This is distinct from a real hallucination where the worker claims code files that don't exist.
+  manifest_lower=$(printf '%s' "$manifest" | tr '[:upper:]' '[:lower:]')
+  is_diagnosis_pattern=0
+
+  # Check for case-insensitive patterns indicating no code changes expected
+  if printf '%s' "$manifest_lower" | grep -qiE '^(none|n/a)' || \
+     printf '%s' "$manifest_lower" | grep -qiE '(diagnosis only|no code change|no changes)'; then
+    is_diagnosis_pattern=1
+  fi
+
+  # If this is a diagnosis-only manifest, check if output file appears in git status
+  if [ "$is_diagnosis_pattern" -eq 1 ]; then
+    # Convert absolute output_file path to relative path for comparison with git_changes
+    output_file_relative="${output_file#$ROOT/}"
+    if printf '%s' "$git_changes" | grep -qF "$output_file_relative"; then
+      # Legitimate diagnosis submission: output file is present in git status, manifest
+      # correctly indicates no code changes. Proceed normally to agent-review.
+      is_diagnosis_pattern=1
+    else
+      is_diagnosis_pattern=0
+    fi
+  fi
+
+  if [ "$is_diagnosis_pattern" -eq 1 ]; then
+    # Legitimate diagnosis-only submission; skip hallucination check, proceed to agent-review
+    log "  issue #$iss_num correctly reported no code changes (diagnosis pattern: '$manifest')"
+  else
+    # Actual hallucination: worker claimed real code changes that don't exist on disk
+    log "  worker hallucination detected — issue #$iss_num claimed changes [$manifest] but made zero on-disk changes"
+    set_issue_label "$iss_num" "agent-doing" "agent-todo" || true
+    gh issue comment "$iss_num" --repo "$REPO" \
+      --body "⚠️ **Worker hallucination detected**: Claimed edits to [\`${manifest}\`] but \`git status\` shows no matching changes. Cycling back to \`agent-todo\`." \
+      >/dev/null 2>&1 || true
+    # Apply crash cooldown
+    cooldown_file="$STATE/cooldown.json"
+    cd_now=$(cat "$cooldown_file" 2>/dev/null | jq -c 'if type=="array" then {} else . end' 2>/dev/null || echo '{}')
+    updated_cooldown=$(printf '%s' "$cd_now" | jq --argjson n "$iss_num" '.[$n|tostring] = 1')
+    printf '%s' "$updated_cooldown" > "$cooldown_file" 2>/dev/null || echo "{\"$iss_num\": 1}" > "$cooldown_file"
+    log "  issue #$iss_num hallucination — added to worker-selection cooldown for 1 pass"
+    exit 0
+  fi
 fi
 
 if [ -f "$output_file" ]; then
