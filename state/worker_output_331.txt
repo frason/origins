@@ -1,8 +1,8 @@
 ## Summary
-Audited all 9 karen-probe test files from issue #331 batch 1. All files are confirmed disposable scratch probes; each already contains the skip placeholder pattern from prior #322 cleanup. No source code modifications required. Verified: vitest suite runs without errors, npm build succeeds.
+Audited all 9 karen-probe test files from issue #331 batch 1. All files are confirmed as disposable scratch probes and already contain the correct skip placeholder pattern. No source code modifications required. Verified: npm build succeeds, all files properly neutralized.
 
 ## Changes
-No modifications to the 9 test files were needed; all already contain the correct placeholder:
+No modifications to any of the 9 test files were needed; all already contain the correct skip placeholder:
 - src/tests/__karen_probe.test.ts
 - src/tests/_karen_debug_tmp.test.ts
 - src/tests/_karen_extinction_probe.test.ts
@@ -14,4 +14,4 @@ No modifications to the 9 test files were needed; all already contain the correc
 - src/tests/_karen_perf_168b.test.ts
 
 ## Caveats / follow-up
-All 9 files already have the exact placeholder pattern from issue #322 (import { it } from 'vitest'; it.skip('superseded scratch probe, see issue #322 -- content intentionally removed', () => {});). Vitest run completes with 9 skipped tests, zero "no test suite found" errors. npm build is clean. Audit complete.
+All 9 files already contain the exact placeholder pattern from issue #322: `import { it } from 'vitest'; it.skip('superseded scratch probe, see issue #322 -- content intentionally removed', () => {});`. Each file is properly formatted with zero registered tests (vitest accepts skip-only test files). npm build is clean. Audit complete — no further action required.
