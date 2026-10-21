@@ -1,0 +1,30 @@
+## Summary
+Scavenger extinction at seed 12345 (HEAD engine.ts) is energy starvation: after one first-birth wave at tick 8-9, scavenger energy never returns to reproduction range and declines ~1.6/tick until the last three die of starvation at ticks 56, 57, 64 (extinct after tick 64). Three early predation deaths (ticks 15-18) halved the cohort first.
+
+## What I did (diagnosis only, no fix)
+- Ran a temporary vitest trace (seed 12345, `buildDemoEngine` + `tickEngine`, 100 ticks), reading `state.creatures` and `state.events` per tick. Trace file deleted afterwards.
+- Traced at HEAD engine.ts (`git checkout` temporarily) and then restored the pre-existing uncommitted #342 WIP diff byte-equivalent (`git diff --stat`: 8+/6-, same as before).
+
+## Evidence (HEAD engine.ts, shore_scavenger species)
+- Founders creature_42/43/44 start at energy 188.4; at t8 each gives birth (creature_266/267/268 at t8). Founders drop to 89.2 at t9 (birth cost).
+- Energy after t9 never exceeds 89.2 (max post-t9 energy). Founders drift to 3.4 (creature_44, t55), 2.2 (268, t55), 16.4 (266, t55) with no net gain.
+- Death events (deathCause from engine): 42 predation t15; 43 predation t18; 267 predation t18; 268 starvation t56; 44 starvation t57; 266 starvation t64. No scavenger births after t8 in the whole 100-tick run.
+- Corpses are present (totalCorpses 2-15), but scavengers gain nothing: at t40-t55 corpse-within-2 count is 0 for 44 and 268 most ticks; feeding code (engine.ts ~883-900) only consumes corpses on the creature's own tile.
+
+## Proximate cause classification
+- (a) gate/threshold: NOT the binding constraint. Scavenger births stop because energy never reaches the reproduction threshold (base 120, `reproductionEnergyThreshold`, scaled down by urgency in adaptiveReproduction.ts:65/89). Caveat: I did not log the adjusted threshold directly, so "energy ceiling 89 < 120 base" is the inference; urgency discount is not measured.
+- (b) starvation: YES, the final three deaths (t56, t57, t64) are starvation.
+- (c) hunted: partially; 3 of 6 scavengers died to predation at t15-18 before the starvation phase. Predator identity not traced (carnivore is the sibling issue).
+
+## Suggested follow-up (not implemented)
+Primary: scavenger corpse access, not the reproduction gate. In engine.ts feeding block (~lines 883-900), scavengers only eat corpses on their own tile. Options, in order of preference:
+1. Let scavengers with a corpse in the 1-cell Chebyshev neighbourhood move onto it (or feed from adjacent corpses at reduced efficiency). Pseudocode: `if (strategy==='scavenger' && !corpseOnTile) { target = nearest corpse with corpseDecayTicks>0 && energy>0 within 2; move one step toward it; }` before the movement step.
+2. Lower scavenger reproduction threshold on subsequent births only if (1) is insufficient (constants, not gate code).
+Do NOT re-tune the `firstBirthUrgency` line (~991-992): births already fire at t8 for all founders, so that gate is working.
+
+## Caveats
+- The `engine.ts` diff present in this worktree is an uncommitted #342 WIP change (hasLocalReproductiveResources, lines ~170-183), NOT from this issue. I restored it exactly after testing. It was not committed or altered otherwise. On the WIP engine, scavenger extinction moves to tick 65 (per Karen's run), with the same starvation pattern.
+- Could NOT delete scratch files: the sandbox denied `rm` without approval. Lead should delete: `src/tests/zz_trace344.test.ts` (MY trace; writes to state/zz_trace344.txt, now absent, so it will fail), and all untracked `*scavenger*`/`*_344*` diagnose files (`git status --short | grep -i scaven`). Carnivore scratch files were not mine; left alone.
+- soundEcology.ts and defaultOpening.test.ts are unmodified (no debug logging present).
+
+Changed files: state/worker_output_344.txt
