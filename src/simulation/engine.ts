@@ -170,17 +170,19 @@ export function hasLocalReproductiveResources(
     )
     : [];
   const hasNearbyCorpse = hasCorpse || nearbyCorpses.length > 0;
-  const hasGeneratedCorpse = nearby.some((other) =>
-    (other.lifecycleState === 'dead' || other.lifecycleState === 'corpse') &&
+  // First-birth scavengers must find a generated (non-starter) corpse in their search range.
+  // Starter carrion alone does not satisfy the recurring-carrion requirement (#342, per #341).
+  const hasGeneratedNearbyCorpse = nearbyCorpses.some((other) =>
     !other.lineageId.endsWith('_starter_carrion')
   );
   const recentlyFed = creature.energy >= supportedEnergy;
   if (strategy === 'herbivore') return cellHasProducers || recentlyFed;
   if (strategy === 'carnivore') return hasPrey || recentlyFed;
-  // Scavengers can use any nearby corpse for reproduction, including starter carrion.
-  // This allows founders to reproduce from initial carrion and sustain themselves until
-  // generated corpses from hunting/kills become available. #319 fix.
-  if (strategy === 'scavenger') return hasNearbyCorpse || recentlyFed;
+  // Subsequent scavenger births may use any nearby corpse, including starter carrion.
+  // First births require generated carrion so starter carrion is not a permanent reproduction source.
+  if (strategy === 'scavenger') {
+    return (isFirstBirth ? hasGeneratedNearbyCorpse : hasNearbyCorpse) || recentlyFed;
+  }
   return cellHasProducers || hasPrey || hasCorpse || recentlyFed;
 }
 

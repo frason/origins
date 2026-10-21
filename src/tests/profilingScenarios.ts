@@ -269,7 +269,6 @@ async function runProfilingScenarios(): Promise<void> {
   if (typeof globalThis !== 'undefined' && globalThis.process?.argv) {
     try {
       // Dynamic import to avoid compile-time dependency on fs
-      // @ts-expect-error fs module only available in Node.js
       const fsModule = await import('fs');
       const fs = fsModule.promises;
       await fs.writeFile('state/profiling-results.json', JSON.stringify(jsonResults, null, 2));

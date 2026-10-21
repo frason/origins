@@ -28,7 +28,9 @@
     "src/tests/phase0SaveLoadIntegration.test.ts",
     "src/tests/saveSlotSystem.test.ts",
     "src/diagnostic.ts",
-    "src/tests/diagnose*.test.ts"
+    "src/tests/diagnose*.test.ts",
+    "src/tests/detailed_carnivore_trace.test.ts",
+    "src/tests/diagnose_carnivore.ts"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
