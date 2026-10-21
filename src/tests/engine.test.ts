@@ -917,22 +917,26 @@ describe('Simulation Engine', () => {
         }
       }
 
-      // Tick 1: herbivore feeds, creating feeding sound
-      engine = tickEngine(engine);
-
-      // Tick 2: carnivore detects the feeding sound from tick 1
-      engine = tickEngine(engine);
-
-      // Check for sound-detection or sound-investigate events from carnivore
-      const detectionEvents = engine.events.filter(
-        (e) =>
-          (e.type === 'sound-detection' || e.type === 'sound-investigate') &&
-          e.speciesId === 'carnivore_species'
-      );
+      // Detection is probabilistic (~0.28 per roll for this feeding sound at distance 0),
+      // so the carnivore gets one roll per active sound per tick. The herbivore keeps
+      // feeding, so listen across several ticks (within the sound persistence window)
+      // and collect carnivore detection events from all of them.
+      const detectionEvents: SimEvent[] = [];
+      for (let i = 0; i < 5; i++) {
+        engine = tickEngine(engine);
+        detectionEvents.push(
+          ...engine.events.filter(
+            (e) =>
+              (e.type === 'sound-detection' || e.type === 'sound-investigate') &&
+              e.speciesId === 'carnivore_species'
+          )
+        );
+        if (detectionEvents.length > 0) break;
+      }
 
       // Carnivore should have detected the feeding sound
       expect(detectionEvents.length).toBeGreaterThan(0);
-      expect(engine.tick).toBe(2);
+      expect(engine.tick).toBeGreaterThanOrEqual(2);
     });
 
     it('scavenger attraction: scavenger detects corpse sounds and investigates', () => {

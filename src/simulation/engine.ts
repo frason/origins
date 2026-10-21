@@ -577,9 +577,6 @@ export function tickEngine(
   // for future use but not applied during iteration to avoid silently changing outcomes.
   const aliveCreatures = creatures.filter(c => c.lifecycleState === 'alive');
 
-  // Get audio perception stream for sound detection
-  const audioStream = rngStreams.getStream(RNG_STREAMS.SOUND);
-
   for (const creature of aliveCreatures) {
     const pressure = localPressure.get(creature.id);
     creature.localResourcePressure = pressure?.pressure ?? 0;
@@ -610,8 +607,12 @@ export function tickEngine(
       sound => chebyshevDistance(sound.x, sound.y, creature.x, creature.y) <= effectiveHearingRange
     );
 
+    // Per-entity audio perception stream: keeps each creature's detection rolls stable
+    // regardless of other creatures' births/deaths or iteration order (#341 diagnosis).
+    const entityAudioStream = rngStreams.getEntityStream(RNG_STREAMS.SOUND, creature.id);
+
     // Detect active sounds for this creature (audio perception)
-    const detectedSounds = detectActiveSounds(creature, spatiallyBoundedSounds, state.tick, audioStream.fn);
+    const detectedSounds = detectActiveSounds(creature, spatiallyBoundedSounds, state.tick, entityAudioStream.fn);
 
     // Emit sound-detection event if creature detected any sounds
     if (detectedSounds.length > 0) {
