@@ -1,0 +1,26 @@
+## Summary
+Audited the 8 karen-probe test files from #334. All 8 are disposable scratch probes and are already neutralized to the exact `it.skip` placeholder. Their content is byte-identical to HEAD, so this commit records the audit and makes no source change.
+
+## Changes
+- src/tests/_karen_verify_270_energy_v2_tmp.test.ts: placeholder (already at HEAD, unchanged)
+- src/tests/_karen_verify_270_tmp.test.ts: placeholder (already at HEAD, unchanged)
+- src/tests/_karen_verify_169_alertbanner.test.tsx: placeholder (already at HEAD, unchanged)
+- src/tests/debug_opening.test.ts: placeholder (already at HEAD, unchanged)
+- src/tests/karenBenchRenderSnapshot.test.ts: placeholder (already at HEAD, unchanged)
+- src/tests/karenCheck164.test.ts: placeholder (already at HEAD, unchanged)
+- src/tests/karenVerify166.test.ts: placeholder (already at HEAD, unchanged)
+- src/tests/tmp_karen_debug267.test.ts: placeholder (already at HEAD, unchanged)
+- state/worker_output_334.txt: this summary (new)
+- Commit: empty-content commit referencing #334 (`--allow-empty` not needed; this file is the change)
+
+## Verification
+- `npm run build`: clean ("✓ built in 11.05s"; only chunk-size warnings).
+- `npx vitest run` (full suite, run on the current working tree): Test Files 10 failed | 247 passed | 40 skipped (297); Tests 11 failed | 2221 passed | 40 skipped. Failures seen in the tail: scenario.test.ts (filterScenarios count, scenario validation), worldViewSpike.test.tsx (missing data-direction="isometric"), and one snapshot. None are among the 8 target files, which are all skipped.
+- No "no test suite found" errors appear in the run output.
+
+## Caveats / follow-up
+- Baseline: I did not run a clean-HEAD baseline. The working tree contains many uncommitted/untracked changes from other sessions (e.g. src/simulation/engine.ts modified, many diagnose_*/tmp_* test files untracked). The 8 files contribute zero diff vs HEAD, so this commit cannot introduce any of the failures. The 10 failing files are pre-existing in the working tree and need a separate fix (outside #334 scope).
+- Full list of 10 failing files was not captured in full (only the tail of the run). Re-run with a reporter if needed.
+- `rm`/`git rm` were not used (blocked per #294).
+
+Changed files: state/worker_output_334.txt
