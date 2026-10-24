@@ -43,14 +43,15 @@ function engineStateSnapshot(state: EngineState) {
 
 describe('Scenario Framework', () => {
   describe('Scenario Library - Three Representative Scenarios', () => {
-    it('has three built-in scenarios with distinct difficulties', () => {
+    it('has four built-in scenarios (three representative + mixed water/land demo)', () => {
       const scenarios = listScenarios();
-      expect(scenarios).toHaveLength(3);
+      expect(scenarios).toHaveLength(4);
 
       const ids = scenarios.map((s) => s.id).sort();
       expect(ids).toContain('recovery-from-monoculture-v1');
       expect(ids).toContain('forecasting-population-v1');
       expect(ids).toContain('adaptive-speciation-v1');
+      expect(ids).toContain('mixed-water-land-v1');
     });
 
     it('Recovery scenario is moderate difficulty with recovery goals', () => {
@@ -80,7 +81,8 @@ describe('Scenario Framework', () => {
       expect(easy[0].id).toBe('forecasting-population-v1');
 
       const moderate = filterScenarios({ difficulty: 'moderate' });
-      expect(moderate).toHaveLength(1);
+      expect(moderate).toHaveLength(2);
+      expect(moderate.map((s) => s.id)).toContain('mixed-water-land-v1');
 
       const hard = filterScenarios({ difficulty: 'hard' });
       expect(hard).toHaveLength(1);
@@ -97,7 +99,7 @@ describe('Scenario Framework', () => {
   });
 
   describe('Scenario Validation', () => {
-    it('all three scenarios pass validation', () => {
+    it('all built-in scenarios pass validation', () => {
       for (const scenario of listScenarios()) {
         const validation = validateScenario(scenario);
         if (!validation.isValid) {

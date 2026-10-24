@@ -484,7 +484,7 @@ const MIXED_WATER_LAND_SCENARIO: Scenario = {
         strategy: 'herbivore',
         origin: { x: 30, y: 20 },
         speciesId: 'land_herbivores',
-        founderCount: 4,
+        founderCount: 3,
       },
       {
         type: 'introduce-species',
