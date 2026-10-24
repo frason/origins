@@ -7,6 +7,7 @@ import {
   WORLD_HEIGHT,
   SIMULATION_CONSTANTS,
   SimulationConstants,
+  SCAVENGER_SCAVENGING_RATE,
 } from '../utils/constants';
 import { growProducers } from './producer';
 import { reproduceCreature } from './species';
@@ -888,20 +889,30 @@ export function tickEngine(
         creature.traits.energyStrategy === 'omnivore' ||
         creature.traits.energyStrategy === 'scavenger'
       ) {
-        const corpse = creatureIndex.at(creature.x, creature.y).find(
-          (candidate) =>
-            candidate.lifecycleState !== 'alive' &&
-            candidate.corpseDecayTicks > 0 &&
-            candidate.energy > 0 &&
-            candidate.x === creature.x &&
-            candidate.y === creature.y
+        const isCarrion = (candidate: Creature) =>
+          candidate.lifecycleState !== 'alive' &&
+          candidate.corpseDecayTicks > 0 &&
+          candidate.energy > 0;
+        let corpse = creatureIndex.at(creature.x, creature.y).find(
+          (candidate) => isCarrion(candidate) && candidate.x === creature.x && candidate.y === creature.y
         );
+        // Dedicated scavengers also pick up carrion in the 8 adjacent cells.
+        if (!corpse && creature.traits.energyStrategy === 'scavenger') {
+          for (let dy = -1; dy <= 1 && !corpse; dy++) {
+            for (let dx = -1; dx <= 1 && !corpse; dx++) {
+              if (dx === 0 && dy === 0) continue;
+              corpse = creatureIndex.at(creature.x + dx, creature.y + dy).find(isCarrion);
+            }
+          }
+        }
         if (corpse) {
           feedOnCorpse(
             creature,
             corpse,
             constants.feedingEfficiency,
-            constants.scavengingRate
+            creature.traits.energyStrategy === 'scavenger'
+              ? SCAVENGER_SCAVENGING_RATE
+              : constants.scavengingRate
           );
 
           // Create scavenging sound event

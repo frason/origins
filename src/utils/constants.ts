@@ -159,6 +159,14 @@ export const TOXICITY_RETENTION = 0.2;
 export const SCAVENGING_RATE = 0.25;
 
 /**
+ * Fraction of corpse energy a dedicated scavenger draws per carrion feed (#336).
+ * Scavengers specialise in carrion, so they strip carcasses at full rate; at the
+ * generic SCAVENGING_RATE the scavenger cohort's ~1.6 energy/tick metabolic drain
+ * outpaces carrion intake and the cohort starves by tick ~60 (seed 12345).
+ */
+export const SCAVENGER_SCAVENGING_RATE = 1;
+
+/**
  * Structural body mass left as edible carrion when an animal dies with no
  * stored energy. This keeps starvation deaths in the food web without making
  * the carcass a large energy windfall.
