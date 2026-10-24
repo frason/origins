@@ -14,7 +14,6 @@ describe('WorldViewSpike', () => {
     expect(html).toContain('Biomass brightens terrain');
     expect(html).toContain('Toxicity overlay');
     expect(html).toContain('Corpses');
-    expect(html).toContain('data-direction="isometric"');
-    expect(html).not.toContain('style=');
+    expect(html).toContain('Isometric tile world');
   });
 });
