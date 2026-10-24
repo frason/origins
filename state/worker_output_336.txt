@@ -1,0 +1,22 @@
+## BLOCKED — defaultOpening.test.ts still fails (seed 12345, tick 100: scavenger missing)
+
+## Summary
+Applied #344's suggested corpse-access fix (scavengers also eat carrion in the 8 adjacent cells), then tested it. It did not fix the failure: with 50% efficiency the scavenger cohort dies by tick 60; with full efficiency tick 60 passes but tick 100 still fails with scavenger missing. Both variants were reverted. No passing fix was found within this issue's scope, so no fix is committed.
+
+## Changes
+- state/worker_output_336.txt (this report) only. src/simulation/engine.ts is back to its pre-task state (only the pre-existing duplicated comment line remains in the working tree; not mine).
+- Temporary probe src/tests/tmp_336_probe.test.ts was created during diagnosis. Removal was refused by the sandbox (rm needs approval); the lead should delete it.
+
+## Evidence (seed 12345, per-tick trace of HEAD + uncommitted engine.ts)
+- Scavenger cohort: 3 -> 5 after first births at t10 (energy ~175 -> ~88), then declines ~1.5-2 energy/tick. Extinct at t60 (baseline) or t61.
+- Corpses are NOT absent: 10-17 corpses with energy>0 and decay>0 exist from t40 on. Most are omnivore corpses at distance 3-9 from scavengers. Scavenger vision is 8, so they are scanned and targeted.
+- Scavengers do move toward corpses (e.g., creature_42 moved (19,22) -> (24,27) over t40-t50), but at the trait speed they arrive slowly, and omnivores also feed on corpses on-tile.
+- Feeding economics: feedOnCorpse takes SCAVENGING_RATE (0.25) of corpse energy per feed, times FEEDING_EFFICIENCY (0.8), and cuts decay by 3. A ~20-energy corpse therefore supports one scavenger for only ~10 ticks. Supply of corpses is well below the cohort's drain, so this is a food-supply/economy problem, not just access.
+
+## Caveats / follow-up
+- #343's carnivore diagnosis claimed carnivores do not die by t100 for seed 12345; not re-verified here.
+- Likely needed (needs lead/design decision, out of this issue's scope): corpse-supply or scavenger energy-economy change (e.g., scavenger metabolism, scavengingRate, or per-feed corpse yield), or a re-diagnosis of why omnivore/herbivore deaths produce too little carrion for five scavengers. Changing constants touches other tests and was not attempted.
+- tsc --noEmit is clean on the restored tree.
+- Test result on restored tree: 1 failed | 1 passed (seed 12345 at tick 100, scavenger missing).
+
+Changed files: state/worker_output_336.txt
