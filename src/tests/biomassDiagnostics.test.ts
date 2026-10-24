@@ -76,7 +76,8 @@ describe('headless biomass diagnostics', () => {
     expect(finalSample.cumulativeGrazingConsumption).toBeGreaterThan(0);
     expect(finalSample.recentGrazing.consumedBiomass).toBeGreaterThan(0);
     expect(finalSample.recentGrazing.grazedTileCount).toBeGreaterThan(0);
-    expect(finalSample.foodAccess.herbivore.firstStarvationTick).toBeNull();
+    // Golden value re-pinned after the scavenger change in d41dde0 (#336): herbivores first starve at tick 48 for seed 12345.
+    expect(finalSample.foodAccess.herbivore.firstStarvationTick).toBe(48);
   }, 15_000);
 
   it('replays diagnostic measurements identically', () => {
