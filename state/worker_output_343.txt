@@ -1,0 +1,38 @@
+## Summary
+Carnivores do NOT go extinct by tick 100 for seed 12345 (4 alive at tick 100; the failing assertion is scavenger, the sibling issue). The carnivore founders are on a net-negative energy budget: kills are rare, they almost never reproduce, and their founders sit at E≈7–10 at tick 100, so extinction is ~10–30 ticks away.
+
+## Evidence (seed 12345, traced per tick via tickEngine + decideTick, rng stubbed to 0.5 for scan-only probes)
+- Carnivore alive count: 3 (t1–36) → 4 (t37 birth of creature_1172) → 3 (t38 predation) → 4 → 3 (t60 starvation) → 3 (t69–70 starvation) → 4 (t93) → 4 (t100).
+- Carnivore avg energy: 178 (t1) → 89 (t37) → 34 (t100), a steady drain of ~2.4/tick. Founder creature_39: E 180→7.1 at t100, age 100, offspringCount 0 throughout. creature_40 died of starvation/predation by ~t60–90.
+- Reproduction: only 1 carnivore birth in 100 ticks. Founders never reach the reproduction energy threshold again after ~t25 (decision gate: canReproduce + hasLocalReproductiveResources in engine.ts ~1000–1040; carnivore needs prey within 1 cell or energy ≥ resourceThreshold).
+- Scan is NOT empty: foodCreatures (prey in vision) is ≥1 for carnivores on most ticks (sum 1–18/tick). So proximate cause is not "no food visible".
+- Decision tally, carnivore-ticks over 100 ticks (328 total): idle 125, move-to-food 61, flee 66, drink 42, search 34.
+  - flee: 66 ticks, nearly all with threats = other carnivore/omnivore (creature.ts scanEnvironment treats carnivore AND omnivore as threats for any non-scavenger, including carnivore→carnivore). flee outranks feeding in decideTick (creature.ts ~line 470–490).
+  - drink: 42 ticks. drink outranks feeding (creature.ts ~line 466–470, isDehydrated && canDrink). creature_40 drank 14 consecutive ticks (t15–t28) with 5–7 prey in vision while energy fell 150→104.
+- Experiment A (TEMPORARY, reverted): excluded carnivore→carnivore from threats. Result: carnivores alive at t100 = 2 (baseline 4); carnivore decisions shifted to more drink/move-to-food but energy still declined. Not sufficient; do not ship as-is.
+
+## Proximate cause
+(b)+(c)+(a) combined, not a single gate: an energy deficit. Successful feeding is rare, and two priority rules (flee-from-fellow-predator, drink-preempts-feeding) suppress hunting for roughly 1/3 of carnivore-ticks. With near-zero surplus, founders never reproduce, so the lineage collapses on the starvation clock.
+The reproduction gate (firstBirthUrgency, engine.ts ~994) is NOT the carnivore cause: carnivores are not on the firstBirthUrgency path (only scavenger or timing.urgency>0), and the founders are below the energy threshold, not blocked by the gate.
+
+## Suggested fix (for follow-up issue, NOT yet tested)
+Primary candidate (test before shipping): creature.ts decideTick, ~line 466–470. Let predators eat before drinking when prey is adjacent or in reach:
+```
+- if (isDehydrated && canDrink) {
++ if (isDehydrated && canDrink &&
++     !((creature.traits.energyStrategy === 'carnivore' || creature.traits.energyStrategy === 'omnivore')
++       && scan.foodCreatures.length > 0 && creature.energy < creature.traits.size * MAX_ENERGY_MULTIPLIER * 0.5)) {
+    decision = 'drink';
+```
+Rationale: hydration gates only until drink; this lets hungry predators with visible prey hunt first. Needs a before/after run of defaultOpening.test.ts (all seeds) and the carnivore trace.
+Secondary: consider not counting same-strategy carnivores as flee threats (Experiment A) only together with the drink change; A alone was negative.
+
+## Caveats / follow-up
+- The issue's premise ("carnivore goes extinct by tick 100") is not correct for seed 12345; scavenger is the one missing at tick 100 (scavenger count hits 0 at t61 in the same run — sibling issue #344/#342 scope).
+- Probe rng was stubbed (0.5) for decision-only scans, so tallies are approximate; the engine tick itself uses the real RNG streams.
+- Drink-fix candidate is unvalidated; diagnosis is based on traces only.
+- Cleanup NOT completed: `rm` requires interactive approval in this session, so deletions were refused. Still present (untracked, must be removed by a human or a session with approval): src/tests/diag343_probe.test.ts and src/tests/diag343_probe2.test.ts (created by this worker; they write /tmp traces only), plus src/tests/tmp_carn_probe_343.test.ts, src/tests/zz_trace343.test.ts, state/trace343_scratch.txt (left by the prior attempt).
+- Source is clean: creature.ts experiment was reverted (`git diff -- src/simulation` is empty). No engine.ts changes.
+- Other untracked diagnose/trace files from prior sessions remain in the repo; not created by this worker and not removed.
+
+Changed files: state/worker_output_343.txt
