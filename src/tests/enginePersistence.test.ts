@@ -78,9 +78,11 @@ describe('event compaction during persistence', () => {
     const persisted = createPersistedEngineState(state);
     const estimatedBytes = persisted.eventCompactionMetadata?.estimatedSerializedBytes ?? 0;
 
-    // Sanity check: estimated size should be positive and reasonable
+    // The estimate must match the real UTF-8 size of the persisted events array.
+    // (A flat per-event constant previously diverged from the real size by ~55%.)
+    const actualBytes = new TextEncoder().encode(JSON.stringify(persisted.state.events)).length;
     expect(estimatedBytes).toBeGreaterThan(0);
-    expect(estimatedBytes).toBeLessThan(100_000); // Shouldn't be huge for short runs
+    expect(estimatedBytes).toBe(actualBytes);
   });
 
   it('preserves event continuity on round-trip save/load', () => {

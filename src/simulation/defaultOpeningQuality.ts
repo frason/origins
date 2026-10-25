@@ -61,7 +61,8 @@ export function measureDefaultOpeningQuality(
         if (state.creatures.some((candidate) =>
           candidate.lifecycleState === 'alive' &&
           candidate.traits.energyStrategy === 'scavenger' &&
-          candidate.x === creature.x && candidate.y === creature.y
+          // Engine pickup reach: same cell or any of the 8 adjacent cells (#336)
+          Math.max(Math.abs(candidate.x - creature.x), Math.abs(candidate.y - creature.y)) <= 1
         )) {
           generatedCarrionScavengerAccessEvents++;
         }

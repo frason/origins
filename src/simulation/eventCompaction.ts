@@ -236,19 +236,19 @@ function aggregateEventsByBucket(events: SimEvent[]): SimEvent[] {
  * Estimate serialized size (bytes) of an event array.
  * Used for memory budgeting and observability.
  */
+const UTF8_ENCODER = new TextEncoder();
+
+/**
+ * Exact UTF-8 byte size of `JSON.stringify(events)` for the given event array.
+ * Computed from the real JSON encoding of each event (plus separators and the
+ * enclosing brackets), so it matches the persisted payload byte-for-byte.
+ */
 export function estimateEventsSerializedSize(events: SimEvent[]): number {
-  // Base estimate: each event ~200–500 bytes JSON-serialized
-  // Milestone events tend larger (with detail, traitChanges, etc.)
-  let bytes = 0;
-  for (const event of events) {
-    const classification = eventClassification(event);
-    if (classification === 'milestone') {
-      bytes += 400; // Larger: includes trait changes, ecosystem state
-    } else if (classification === 'compactable' && (event as AggregateEvent).aggregatedCount) {
-      bytes += 150; // Aggregates are small
-    } else {
-      bytes += 250; // Standard detail events
-    }
+  if (events.length === 0) return 2; // "[]"
+  let bytes = 2; // enclosing "[" and "]"
+  for (let i = 0; i < events.length; i++) {
+    if (i > 0) bytes += 1; // comma separator
+    bytes += UTF8_ENCODER.encode(JSON.stringify(events[i])).length;
   }
   return bytes;
 }
