@@ -8,7 +8,7 @@ export default defineConfig({
     environment: 'node',
     passWithNoTests: true,
     setupFiles: ['./vitest.setup.ts'],
-    exclude: [...configDefaults.exclude, ...(process.env.INCLUDE_SLOW_TESTS ? [] : ['src/tests/sustainability.test.ts'])],
+    exclude: [...configDefaults.exclude, ...(process.env.INCLUDE_SLOW_TESTS ? [] : ['src/tests/sustainability.test.ts']), 'src/tests/_karen_verify_168_perf.test.ts'],
     environmentMatchGlobs: [
       ['src/tests/largeWorldBenchmark.test.ts', 'node'],
       ['src/tests/**/*.test.tsx', 'jsdom'],

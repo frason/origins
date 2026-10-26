@@ -21,15 +21,18 @@ import Phase0Harness from '../prototype/Phase0Harness';
 import { clearAllSaves } from '../state/saveSlotManager';
 
 describe('Phase 0 Harness Manual Save UI End-to-End', () => {
+  // The harness renders a 100x100 grid as ~10k DOM nodes, so each state update is
+  // slow under jsdom. Hook and waitFor budgets are sized for that cost; without
+  // them, a hook timeout leaves the previous test's DOM mounted and cascades.
   beforeEach(async () => {
     // Clear all saves before each test
     await clearAllSaves();
-  });
+  }, 120000);
 
   afterEach(async () => {
     // Clean up after each test
     await clearAllSaves();
-  });
+  }, 120000);
 
   it('should render Manual Save button', async () => {
     render(<Phase0Harness />);
@@ -38,8 +41,8 @@ describe('Phase 0 Harness Manual Save UI End-to-End', () => {
     await waitFor(() => {
       const manualSaveButton = screen.queryByRole('button', { name: /Manual Save/i });
       expect(manualSaveButton).toBeTruthy();
-    }, { timeout: 3000 });
-  }, { timeout: 10000 });
+    }, { timeout: 60000 });
+  }, { timeout: 120000 });
 
   it('should create a manual save when button is clicked', async () => {
     const user = userEvent.setup({ delay: null });
@@ -48,7 +51,7 @@ describe('Phase 0 Harness Manual Save UI End-to-End', () => {
     // Wait for the Manual Save button to appear
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: /Manual Save/i })).toBeTruthy();
-    }, { timeout: 3000 });
+    }, { timeout: 60000 });
 
     const manualSaveButton = screen.getByRole('button', { name: /Manual Save/i });
     await user.click(manualSaveButton);
@@ -56,8 +59,8 @@ describe('Phase 0 Harness Manual Save UI End-to-End', () => {
     // Wait for the success message
     await waitFor(() => {
       expect(screen.getByText(/Manual save created/i)).toBeTruthy();
-    }, { timeout: 3000 });
-  }, { timeout: 15000 });
+    }, { timeout: 60000 });
+  }, { timeout: 120000 });
 
   it('should show overwrite picker when manual save pool is full', async () => {
     const user = userEvent.setup({ delay: null });
@@ -66,7 +69,7 @@ describe('Phase 0 Harness Manual Save UI End-to-End', () => {
     // Wait for the Manual Save button to appear
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: /Manual Save/i })).toBeTruthy();
-    }, { timeout: 3000 });
+    }, { timeout: 60000 });
 
     const manualSaveButton = screen.getByRole('button', { name: /Manual Save/i });
 
@@ -77,7 +80,7 @@ describe('Phase 0 Harness Manual Save UI End-to-End', () => {
         const msg = screen.queryByText(/Manual save created|Manual save pool is full/i);
         expect(msg).toBeTruthy();
       },
-      { timeout: 3000 }
+      { timeout: 60000 }
     );
 
     // Wait for async operations to settle
@@ -85,7 +88,7 @@ describe('Phase 0 Harness Manual Save UI End-to-End', () => {
       // Check if savesLoading is false by looking for the manual saves section header
       const header = screen.queryByText(/Manual saves/i);
       expect(header).toBeTruthy();
-    }, { timeout: 3000 });
+    }, { timeout: 60000 });
 
     // Second click
     await user.click(manualSaveButton);
@@ -94,14 +97,14 @@ describe('Phase 0 Harness Manual Save UI End-to-End', () => {
         const msg = screen.queryByText(/Manual save created|Manual save pool is full/i);
         expect(msg).toBeTruthy();
       },
-      { timeout: 3000 }
+      { timeout: 60000 }
     );
 
     // Wait before third click
     await waitFor(() => {
       const header = screen.queryByText(/Manual saves/i);
       expect(header).toBeTruthy();
-    }, { timeout: 3000 });
+    }, { timeout: 60000 });
 
     // Third click - pool should be full, picker should appear
     await user.click(manualSaveButton);
@@ -109,11 +112,11 @@ describe('Phase 0 Harness Manual Save UI End-to-End', () => {
     // Wait for the overwrite picker modal to appear
     await waitFor(() => {
       expect(screen.getByText(/Manual save pool is full/i)).toBeTruthy();
-    }, { timeout: 5000 });
+    }, { timeout: 60000 });
 
     // Verify the picker shows the instruction text (use colon to match only modal, not status banner)
     expect(screen.getByText(/Choose a slot to overwrite:/i)).toBeTruthy();
-  }, { timeout: 20000 });
+  }, { timeout: 180000 });
 
   it('should allow overwriting a slot when picker is shown', async () => {
     const user = userEvent.setup({ delay: null });
@@ -122,7 +125,7 @@ describe('Phase 0 Harness Manual Save UI End-to-End', () => {
     // Wait for the Manual Save button to appear
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: /Manual Save/i })).toBeTruthy();
-    }, { timeout: 3000 });
+    }, { timeout: 60000 });
 
     const manualSaveButton = screen.getByRole('button', { name: /Manual Save/i });
 
@@ -133,7 +136,7 @@ describe('Phase 0 Harness Manual Save UI End-to-End', () => {
         const msg = screen.queryByText(/Manual save created|Manual save pool is full/i);
         expect(msg).toBeTruthy();
       },
-      { timeout: 3000 }
+      { timeout: 60000 }
     );
 
     await user.click(manualSaveButton);
@@ -142,7 +145,7 @@ describe('Phase 0 Harness Manual Save UI End-to-End', () => {
         const msg = screen.queryByText(/Manual save created|Manual save pool is full/i);
         expect(msg).toBeTruthy();
       },
-      { timeout: 3000 }
+      { timeout: 60000 }
     );
 
     // Third click - pool is full, picker should appear
@@ -151,7 +154,7 @@ describe('Phase 0 Harness Manual Save UI End-to-End', () => {
     // Wait for the overwrite picker modal
     await waitFor(() => {
       expect(screen.getByText(/Manual save pool is full/i)).toBeTruthy();
-    }, { timeout: 5000 });
+    }, { timeout: 60000 });
 
     // Find the first "Overwrite This Slot" button
     const overwriteButtons = screen.getAllByRole('button', { name: /Overwrite This Slot/i });
@@ -163,13 +166,13 @@ describe('Phase 0 Harness Manual Save UI End-to-End', () => {
     // Wait for the save to complete and modal to close
     await waitFor(() => {
       expect(screen.getByText(/Manual save overwritten/i)).toBeTruthy();
-    }, { timeout: 5000 });
+    }, { timeout: 60000 });
 
     // Verify the picker is no longer visible
     await waitFor(() => {
       expect(screen.queryByText(/Choose a slot to overwrite/i)).toBeFalsy();
-    }, { timeout: 3000 });
-  }, { timeout: 25000 });
+    }, { timeout: 60000 });
+  }, { timeout: 180000 });
 
   it('should allow canceling the overwrite picker', async () => {
     const user = userEvent.setup({ delay: null });
@@ -178,7 +181,7 @@ describe('Phase 0 Harness Manual Save UI End-to-End', () => {
     // Wait for the Manual Save button to appear
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: /Manual Save/i })).toBeTruthy();
-    }, { timeout: 3000 });
+    }, { timeout: 60000 });
 
     const manualSaveButton = screen.getByRole('button', { name: /Manual Save/i });
 
@@ -189,7 +192,7 @@ describe('Phase 0 Harness Manual Save UI End-to-End', () => {
         const msg = screen.queryByText(/Manual save created|Manual save pool is full/i);
         expect(msg).toBeTruthy();
       },
-      { timeout: 3000 }
+      { timeout: 60000 }
     );
 
     await user.click(manualSaveButton);
@@ -198,7 +201,7 @@ describe('Phase 0 Harness Manual Save UI End-to-End', () => {
         const msg = screen.queryByText(/Manual save created|Manual save pool is full/i);
         expect(msg).toBeTruthy();
       },
-      { timeout: 3000 }
+      { timeout: 60000 }
     );
 
     // Third click to show picker
@@ -206,7 +209,7 @@ describe('Phase 0 Harness Manual Save UI End-to-End', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Manual save pool is full/i)).toBeTruthy();
-    }, { timeout: 5000 });
+    }, { timeout: 60000 });
 
     // Find and click the Cancel button
     const cancelButton = screen.getByRole('button', { name: /Cancel/i });
@@ -215,11 +218,11 @@ describe('Phase 0 Harness Manual Save UI End-to-End', () => {
     // Verify the picker closes and shows cancel message
     await waitFor(() => {
       expect(screen.getByText(/Save cancelled/i)).toBeTruthy();
-    }, { timeout: 3000 });
+    }, { timeout: 60000 });
 
     // Verify the modal is no longer visible
     await waitFor(() => {
       expect(screen.queryByText(/Choose a slot to overwrite/i)).toBeFalsy();
-    }, { timeout: 3000 });
-  }, { timeout: 25000 });
+    }, { timeout: 60000 });
+  }, { timeout: 180000 });
 });

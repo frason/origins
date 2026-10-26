@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { World } from '../simulation/world';
 import { ResourceLedger, PHASE0_ECONOMY_CONSTANTS } from '../simulation/pivot/economy';
 import {
@@ -169,7 +169,7 @@ export default function Phase0Harness() {
   const stateRef = useRef<Phase0HarnessState | null>(null);
   const checkpointsRef = useRef<SimulationCheckpoint<{ tick: number }>[]>([]);
 
-  const [state, setState] = useState<Phase0HarnessState>(initializePhase0State());
+  const [state, setState] = useState<Phase0HarnessState>(() => initializePhase0State());
   const [message, setMessage] = useState<string>('');
   const [checkpointTicks, setCheckpointTicks] = useState<number[]>([]);
   const [autoSaves, setAutoSaves] = useState<SaveSlot[]>([]);
@@ -585,6 +585,47 @@ export default function Phase0Harness() {
 
   const gridCellSize = 8;
 
+  // The 100x100 grid is ~10k DOM nodes. Memoize it so unrelated state updates (messages,
+  // save lists, etc.) do not re-create and reconcile every cell; it only depends on the
+  // scout position and waypoint.
+  const scoutX = state.scout.x;
+  const scoutY = state.scout.y;
+  const waypointX = state.scout.waypoint?.x ?? null;
+  const waypointY = state.scout.waypoint?.y ?? null;
+  const gridRows = useMemo(() => Array.from({ length: 100 }, (_, y) => (
+    <div key={y} style={{ display: 'flex' }}>
+      {Array.from({ length: 100 }, (_, x) => {
+        const isBase = x === BASE_X && y === BASE_Y;
+        const isScout = x === scoutX && y === scoutY;
+        const isWaypoint = waypointX !== null && waypointY !== null && x === waypointX && y === waypointY;
+        const distance = chebyshevDistance(x, y, BASE_X, BASE_Y);
+        const inBubble = distance <= BUBBLE_RADIUS;
+
+        let bg = '#ffffff';
+        if (isBase) bg = '#0f0';
+        else if (isScout) bg = '#00f';
+        else if (isWaypoint) bg = '#f00';
+        else if (inBubble) bg = '#efe';
+        else bg = '#f0f0f0';
+
+        return (
+          <div
+            key={`${x}-${y}`}
+            onClick={() => setWaypointFromGrid(x, y)}
+            style={{
+              width: gridCellSize,
+              height: gridCellSize,
+              backgroundColor: bg,
+              border: '1px solid #ddd',
+              cursor: 'pointer',
+            }}
+            title={`(${x}, ${y})`}
+          />
+        );
+      })}
+    </div>
+  )), [scoutX, scoutY, waypointX, waypointY, setWaypointFromGrid]);
+
   return (
     <div style={{ padding: '20px', fontFamily: 'monospace', fontSize: '12px' }}>
       <h1>Phase 0 Debug Harness</h1>
@@ -814,39 +855,7 @@ export default function Phase0Harness() {
               padding: '2px',
             }}
           >
-            {Array.from({ length: 100 }, (_, y) => (
-              <div key={y} style={{ display: 'flex' }}>
-                {Array.from({ length: 100 }, (_, x) => {
-                  const isBase = x === BASE_X && y === BASE_Y;
-                  const isScout = x === state.scout.x && y === state.scout.y;
-                  const isWaypoint = state.scout.waypoint && x === state.scout.waypoint.x && y === state.scout.waypoint.y;
-                  const distance = chebyshevDistance(x, y, BASE_X, BASE_Y);
-                  const inBubble = distance <= BUBBLE_RADIUS;
-
-                  let bg = '#ffffff';
-                  if (isBase) bg = '#0f0';
-                  else if (isScout) bg = '#00f';
-                  else if (isWaypoint) bg = '#f00';
-                  else if (inBubble) bg = '#efe';
-                  else bg = '#f0f0f0';
-
-                  return (
-                    <div
-                      key={`${x}-${y}`}
-                      onClick={() => setWaypointFromGrid(x, y)}
-                      style={{
-                        width: gridCellSize,
-                        height: gridCellSize,
-                        backgroundColor: bg,
-                        border: '1px solid #ddd',
-                        cursor: 'pointer',
-                      }}
-                      title={`(${x}, ${y})`}
-                    />
-                  );
-                })}
-              </div>
-            ))}
+            {gridRows}
           </div>
           <div style={{ marginTop: '5px', fontSize: '10px' }}>
             Green = Base, Blue = Scout, Red = Waypoint, Light Green = Bubble, Pink = Outside
