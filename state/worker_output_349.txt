@@ -1,0 +1,15 @@
+## Summary
+Wrote docs/design-seasons.md for epic #121: calendar mapping (pure function of tick, configurable year length, default 960 ticks), signed-latitude seasonal curves with opposing hemispheres and an equator with no swing, SEASON_EFFECTS data-table multipliers for growth, evaporation, metabolism and breeding, save/load and determinism rules, UI needs, 7 ordered child issues with dependencies, and 9 open questions with recommended defaults.
+
+## Changes
+- docs/design-seasons.md (created; docs only, no src/ changes)
+- state/worker_output_349.txt (this summary)
+
+## Caveats / follow-up
+- Read #121 body via gh CLI; GitHub MCP plugin is unavailable (auth error), so no MCP calls were made.
+- Design recommends an integer sine table instead of Math.sin for cross-engine determinism; needs lead confirmation.
+- Migration is listed in #121 but only scoped into child 4 as a dormancy/breeding bias; full migration needs a lead decision (Q3).
+- Doc recommends keeping ENGINE_SAVE_VERSION=1 with missing season block = disabled; the save-migration owner should confirm.
+- Hydrology/producer function signatures were checked only at grep level; child issues must re-read those files.
+
+Changed files: docs/design-seasons.md, state/worker_output_349.txt
