@@ -1,0 +1,23 @@
+## Summary
+Added pure integer/fixed-point seasonal curves (insolation, daylight, seasonalTemp, snowCover) backed by a frozen integer sine table. `Math.sin` is not called at runtime; a test spies on it to enforce this. Tests cover equator stability, hemisphere opposition, and zero-tilt-means-no-seasons.
+
+## Changes
+- src/simulation/seasonCurves.ts (new): frozen 257-entry quarter-wave sine table (round(10000·sin) at 1024 steps, generated once at authoring time and pasted as literals); `sineBP` (16-bit phase, integer linear interpolation, exactly odd by construction); `insolationBP`, `daylightBP`, `seasonalTempBP`, `snowCoverBP`; helpers `yearFractionToPhase`, `latitudeToPhase`, `sinLatitudeBP`, `tiltFactorBP`; `SEASON_CURVE_CONSTANTS`.
+- src/tests/seasonCurves.test.ts (new): 26 tests (table shape and accuracy vs Math.sin within 2 BP as a test-only reference, exact oddness, equator stability, hemisphere opposition sums to exactly 10000, zero tilt constant, pole saturation, snow ramp, year wrap, integer/range outputs, no Math.sin calls, purity, input validation).
+- state/worker_output_352.txt (this file).
+
+Verification: `npx tsc --noEmit` clean. `npx vitest run src/tests/seasonCurves.test.ts src/tests/seasons.test.ts` → 49/49 pass. Full suite not run.
+
+Design notes:
+- Outputs are integer basis points (0..10000), not floats. Floats only appear at the entry conversion (degrees or year fraction to integer phase, one multiply and floor).
+- Signature: `(latDeg, yearFraction, axialTiltDeg)`; `seasonalTempBP` and `snowCoverBP` also take `baseTempBP` as an integer in [0,10000]. Callers must convert TerrainCell.temperature to BP.
+- Signed latitude, not the generation latitude. The curves use `sin φ · s` as specified, so no half-year shift is applied for the south. Opposition comes from the sign of sin φ.
+- `yearFraction` must be in [0,1). Invalid inputs throw RangeError.
+
+Caveats / follow-up:
+- `SEASON_CURVE_CONSTANTS` (tempAmplitudeBP 2500, freezeThresholdBP 2000, freezeBandBP 1000) are my proposed defaults. The design doc does not specify them. Lead or the design owner should confirm before child #3/#4 wire them in.
+- Table size: the design says "for example 1024 entries". I used 1024 full-period steps stored as a 257-entry quarter table with symmetry. Confirm this matches the table-size decision noted in design open question 7.
+- Nothing is wired into the engine, producers, or world. This is pure curves only, as scoped.
+- The working tree has many unrelated pre-existing modified and untracked files from other sessions. I did not touch them and did not commit.
+
+Changed files: src/simulation/seasonCurves.ts, src/tests/seasonCurves.test.ts, state/worker_output_352.txt
