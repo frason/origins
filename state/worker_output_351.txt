@@ -1,0 +1,15 @@
+## Summary
+Wrote docs/design-producers.md for epic #122: per-tile aggregated producer populations, growth/competition/dispersal/extinction rules, mutation/gene-flow/speciation, save/load and determinism, UI, performance, 8 ordered child issues, and 10 open questions with defaults. Docs only.
+
+## Changes
+- docs/design-producers.md (new)
+- state/worker_output_351.txt (new)
+
+## Caveats / follow-up
+- Read epic #122 via the gh CLI; the GitHub MCP plugin failed to connect, so no MCP call was used.
+- Grounded against existing src/simulation files (producer.ts, producerTypes.ts, rng.ts, enginePersistence.ts) by reading names/exports only. No src/ files modified.
+- Trait names and constants (MAX_POPULATIONS_PER_TILE, GENE_FLOW_RATE, SPECIATION_DISTANCE, etc.) are proposals to be finalised by child issues.
+- Child issues are not created; the lead should create them from the list.
+- Save design relies on enginePersistence.ts's strict version check; children 1 and 5 must confirm the optional-block approach.
+
+Changed files: docs/design-producers.md, state/worker_output_351.txt
