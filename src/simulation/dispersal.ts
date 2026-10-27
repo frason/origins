@@ -7,6 +7,9 @@ import {
   type LocalResourcePressure,
 } from './localResourcePressure';
 import type { World } from './world';
+import type { SeasonConfig } from './seasons';
+import { BP_ONE } from './seasonCurves';
+import { seasonalMigrationBias, type SeasonalSignalsAt } from './seasonResponses';
 
 /** Two deterministic 500-creature ticks under parallel test-suite contention. */
 export const DISPERSAL_500_CREATURE_BUDGET_MS = 10_000;
@@ -69,18 +72,38 @@ export function shouldEvaluateDispersal(
     && tick % interval === dispersalEvaluationPhase(creature.id, interval);
 }
 
+/**
+ * Optional seasonal migration bias (#354). When supplied and the creature's own cell is
+ * cold-stressed, candidate cells that are warmer than the current cell gain score. When absent
+ * or disabled, selection is exactly the pre-season ordering.
+ */
+export interface DispersalSeasonalBias {
+  signalsAt: SeasonalSignalsAt;
+  cfg: SeasonConfig;
+}
+
+/** Score weight per unit of warmth gained (BP difference / BP_ONE). Tunable; proposal default. */
+export const MIGRATION_WARMTH_WEIGHT = 1;
+
 /** Select from at most sixteen stable destinations; no RNG or world mutation. */
 export function findDispersalTarget(
   creature: Creature,
   world: World,
   spatialIndex: CreatureSpatialIndex,
   currentPressure: LocalResourcePressure,
-  policy: DispersalPolicy
+  policy: DispersalPolicy,
+  seasonal?: DispersalSeasonalBias
 ): DispersalTarget | null {
   const range = Math.max(2, Math.min(50, Math.floor(policy.range)));
   const reachable = reachableTerrainCells(world, creature.x, creature.y, range, creature.traits);
   const currentCell = world.getCell(creature.x, creature.y);
   const currentHabitatCost = getCellEnvironmentalStress(creature.traits, currentCell, false).totalCost;
+  const seasonalSignal = seasonal
+    ? seasonal.signalsAt(creature.x, creature.y, currentCell)
+    : null;
+  const migrationBias = seasonal && seasonalSignal
+    ? seasonalMigrationBias(seasonalSignal.seasonalTempBP, seasonal.cfg)
+    : 0;
   const candidates = candidateCoordinates(creature, world, range)
     .filter((candidate) => reachable.has(`${candidate.x},${candidate.y}`))
     .map((candidate) => {
@@ -97,11 +120,19 @@ export function findDispersalTarget(
         world.getCell(candidate.x, candidate.y),
         false
       ).totalCost;
+      const warmthGain = migrationBias > 0 && seasonal
+        ? (seasonal.signalsAt(candidate.x, candidate.y, world.getCell(candidate.x, candidate.y)).seasonalTempBP
+          - seasonalSignal!.seasonalTempBP) / BP_ONE
+        : 0;
+      const score = migrationBias > 0
+        ? (currentPressure.pressure - pressure) + migrationBias * MIGRATION_WARMTH_WEIGHT * warmthGain
+        : currentPressure.pressure - pressure;
       return {
         ...candidate,
         pressure,
         pressureImprovement: currentPressure.pressure - pressure,
         habitatCost,
+        score,
       };
     })
     .filter((candidate) =>
@@ -109,7 +140,8 @@ export function findDispersalTarget(
       && candidate.habitatCost <= currentHabitatCost + 0.1
     )
     .sort((a, b) =>
-      b.pressureImprovement - a.pressureImprovement
+      b.score - a.score
+      || b.pressureImprovement - a.pressureImprovement
       || a.habitatCost - b.habitatCost
       || a.y - b.y
       || a.x - b.x

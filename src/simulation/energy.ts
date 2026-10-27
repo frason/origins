@@ -45,14 +45,17 @@ export function getProducerBiteCapacity(creature: Pick<Creature, 'traits'>): num
  */
 export function applyMetabolism(
   creature: Creature,
-  baseMetabolism: number = BASE_METABOLISM
+  baseMetabolism: number = BASE_METABOLISM,
+  seasonalMultiplier: number = 1
 ): void {
   // Core metabolic cost: BASE_METABOLISM × size × metabolism multiplier × stalking multiplier
+  // × seasonal multiplier (#354; 1 when seasons are disabled). Applied to the base cost only.
   const baseCost =
     baseMetabolism *
     creature.traits.size *
     creature.traits.metabolism *
-    creature.stalkingMetabolismMultiplier;
+    creature.stalkingMetabolismMultiplier *
+    seasonalMultiplier;
 
   // Additional costs for sensory/cognitive traits
   // Brain size: +5% per point ABOVE default (neural tissue is metabolically expensive)

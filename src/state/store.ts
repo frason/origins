@@ -30,6 +30,7 @@ import type { WorldBranch, BranchCollection } from '../simulation/worldBranch';
 import { tickEngineWithDisaster } from '../simulation/applyDisasterCommand';
 import type { DisasterCommand } from '../simulation/disasterCommand';
 import type { EngineState } from '../simulation/engine';
+import type { SeasonConfig } from '../simulation/seasons';
 
 // Cell interface for world state
 export interface CellSnapshot {
@@ -149,6 +150,9 @@ export interface SaveSlotStatus {
 export interface StoreState {
   worldState: WorldSnapshot | null;
   tick: number;
+  /** Season config of the live engine (#354 UI); null when the world has no seasons. */
+  seasonConfig: SeasonConfig | null;
+  setSeasonConfig: (config: SeasonConfig | null) => void;
   isRunning: boolean;
   speed: number;
   speciesList: SpeciesSummary[];
@@ -207,6 +211,10 @@ export interface StoreState {
 export const useStore = create<StoreState>((set) => ({
   worldState: null,
   tick: 0,
+  seasonConfig: null,
+  setSeasonConfig: (config: SeasonConfig | null) => {
+    set({ seasonConfig: config });
+  },
   isRunning: false,
   speed: 1,
   speciesList: [],

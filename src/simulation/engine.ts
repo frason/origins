@@ -12,6 +12,12 @@ import {
 import { growProducers } from './producer';
 import { applySeasonalEvaporation, createSeasonalEvaporationAt, createSeasonalGrowthAt } from './seasonEffects';
 import type { SeasonConfig } from './seasons';
+import {
+  createSeasonalSignalsAt,
+  seasonalBreedingAllowed,
+  seasonalMetabolismMultiplier,
+  type SeasonalSignalsAt,
+} from './seasonResponses';
 import { reproduceCreature } from './species';
 import {
   introducedSpeciesId,
@@ -557,6 +563,11 @@ export function tickEngine(
     ? createSeasonalEvaporationAt(state.seasonConfig, state.tick, newWorld.height)
     : undefined;
   if (seasonEvaporationAt) applySeasonalEvaporation(newWorld, seasonEvaporationAt);
+  // Seasons (#354): per-cell temperature/snow/hemisphere signals for creature responses
+  // (metabolism, breeding window, migration bias). Undefined when disabled.
+  const seasonSignalsAt: SeasonalSignalsAt | undefined = state.seasonConfig
+    ? createSeasonalSignalsAt(state.seasonConfig, state.tick, newWorld.height)
+    : undefined;
 
   // Step 2.5: Hydration Decline (per tick, before decision-making)
   for (const creature of creatures) {
@@ -609,7 +620,10 @@ export function tickEngine(
         newWorld,
         creatureIndex,
         pressure,
-        dispersalPolicy
+        dispersalPolicy,
+        seasonSignalsAt && state.seasonConfig
+          ? { signalsAt: seasonSignalsAt, cfg: state.seasonConfig }
+          : undefined
       );
       if (target) {
         creature.dispersalTargetX = target.x;
@@ -962,7 +976,13 @@ export function tickEngine(
   // Step 6: Energy Updates (Metabolism)
   for (const creature of creatures) {
     if (creature.lifecycleState === 'alive') {
-      applyMetabolism(creature, constants.baseMetabolism);
+      // Seasons (#354): cold and dormancy scale the base metabolic cost. 1 when disabled.
+      let seasonalMetabolism = 1;
+      if (seasonSignalsAt && state.seasonConfig) {
+        const signals = seasonSignalsAt(creature.x, creature.y, newWorld.getCell(creature.x, creature.y));
+        seasonalMetabolism = seasonalMetabolismMultiplier(signals, state.seasonConfig);
+      }
+      applyMetabolism(creature, constants.baseMetabolism, seasonalMetabolism);
       // Apply hydration-based metabolism penalty (low hydration increases energy cost)
       const hydrationPenalty = getHydrationMetabolismPenalty(
         creature,
@@ -1054,8 +1074,16 @@ export function tickEngine(
       hasResources &&
       creature.energy < adjustedThreshold
     ) restrainedCandidates++;
+    // Seasons (#354): breeding window gate. Always open when seasons are disabled.
+    const breedingOpen = !seasonSignalsAt || !state.seasonConfig || seasonalBreedingAllowed(
+      seasonSignalsAt(creature.x, creature.y, newWorld.getCell(creature.x, creature.y)),
+      creature.id,
+      state.tick,
+      state.seasonConfig
+    );
     if (
       birthSlots > 0 &&
+      breedingOpen &&
       !dominantReproductionSuppressed &&
       canReproduce(
         creature,

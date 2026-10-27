@@ -12,10 +12,17 @@
  * hemisphere-adjusted year fraction; names are display-only and never used here.
  */
 
-import type { Hemisphere, SeasonConfig } from './seasons';
-import { hemisphereYearFraction } from './seasons';
-import { BP_ONE } from './seasonCurves';
-import { SEASON_EFFECTS } from './seasonEffects';
+import {
+  assertValidSeasonConfig,
+  calendarAt,
+  hemisphereForLatitude,
+  hemisphereYearFraction,
+  latitudeDegForRow,
+  type Hemisphere,
+  type SeasonConfig,
+} from './seasons';
+import { BP_ONE, seasonalTempBP, snowCoverBP } from './seasonCurves';
+import { SEASON_EFFECTS, temperatureToBP } from './seasonEffects';
 
 /** Precision used when rounding a multiplier before it leaves this module. */
 const MULTIPLIER_PRECISION = 1e6;
@@ -172,4 +179,75 @@ export function seasonalMigrationBias(
   if (seasonalTempBP >= table.reproductionColdFloorBP) return 0;
   const ramp = 1 - seasonalTempBP / table.reproductionColdFloorBP;
   return roundMultiplier(clamp(table.migrationColdBiasWeight * ramp, 0, 1));
+}
+
+/** Per-cell seasonal signals for one tick (basis points unless noted). */
+export interface SeasonalCellSignals {
+  seasonalTempBP: number;
+  snowCoverBP: number;
+  yearFraction: number;
+  hemisphere: Hemisphere;
+}
+
+/** Signals for a cell at grid row `y`; `cell.temperature` is the base (non-seasonal) temperature. */
+export type SeasonalSignalsAt = (x: number, y: number, cell: { temperature: number }) => SeasonalCellSignals;
+
+/**
+ * Per-cell seasonal signal lookup for one tick, or undefined when seasons are disabled.
+ * Engine code calls this once per tick so creatures never recompute the calendar.
+ */
+export function createSeasonalSignalsAt(
+  cfg: SeasonConfig,
+  tick: number,
+  height: number,
+): SeasonalSignalsAt | undefined {
+  if (!cfg.enabled) return undefined;
+  assertValidSeasonConfig(cfg);
+  const { yearFraction } = calendarAt(tick, cfg);
+  return (_x, y, cell) => {
+    const latDeg = latitudeDegForRow(y, height, cfg.gridMaxLatitudeDeg);
+    const baseTempBP = temperatureToBP(cell.temperature);
+    return {
+      seasonalTempBP: seasonalTempBP(baseTempBP, latDeg, yearFraction, cfg.axialTiltDeg),
+      snowCoverBP: snowCoverBP(baseTempBP, latDeg, yearFraction, cfg.axialTiltDeg),
+      yearFraction,
+      hemisphere: hemisphereForLatitude(latDeg),
+    };
+  };
+}
+
+/** FNV-1a 32-bit hash of a string, mapped to [0, 1). Pure: no RNG stream is consumed. */
+function unitHash(text: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash / 0x100000000;
+}
+
+/**
+ * Whether a creature may breed this tick under the seasonal breeding window.
+ *
+ * - Disabled seasons: always true (pre-season behaviour).
+ * - Multiplier 0 (cold): false. Multiplier 1: true.
+ * - Fractional multipliers: a deterministic per-(creature, tick) draw below the multiplier,
+ *   so the same seed replays identically and no RNG stream is advanced.
+ */
+export function seasonalBreedingAllowed(
+  signals: SeasonalCellSignals,
+  creatureId: string,
+  tick: number,
+  cfg: SeasonGate,
+  table: Readonly<SeasonResponseTable> = SEASON_RESPONSES,
+): boolean {
+  if (!cfg.enabled) return true;
+  const mult = breedingWindowMultiplier(
+    { yearFraction: signals.yearFraction, hemisphere: signals.hemisphere, seasonalTempBP: signals.seasonalTempBP },
+    cfg,
+    table,
+  );
+  if (mult <= 0) return false;
+  if (mult >= 1) return true;
+  return unitHash(`${creatureId}:${tick}`) < mult;
 }

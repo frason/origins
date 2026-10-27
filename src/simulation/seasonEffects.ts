@@ -133,7 +133,7 @@ export function seasonalEvaporationMultiplier(
 /** Per-cell seasonal growth multiplier: receives grid x, row y and the cell's static terrain. */
 export type SeasonalGrowthAt = (x: number, y: number, cell: { temperature: number }) => number;
 
-function temperatureToBP(temperature: number): number {
+export function temperatureToBP(temperature: number): number {
   const clamped = Math.min(1, Math.max(0, Number.isFinite(temperature) ? temperature : 0));
   return Math.round(clamped * BP_ONE);
 }

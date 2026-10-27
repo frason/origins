@@ -14,7 +14,7 @@ import { EngineWorkerManager } from './simulation/engineWorkerManager';
 import type { EnergyStrategy } from './utils/traits';
 import type { FounderTraitOverrides } from './simulation/founderTraits';
 import type { DisasterCommand } from './simulation/disasterCommand';
-import { buildDemoEngine } from './simulation/demoWorld';
+import { buildSeasonsDemoEngine } from './simulation/demoWorld';
 import { createFreshWorldSeed, DEFAULT_WORLD_SEED } from './ui/worldSeed';
 import EventTimeline from './ui/EventTimeline';
 import LineageHistory from './ui/LineageHistory';
@@ -31,6 +31,7 @@ import type { WorldRecipe } from './ui/worldRecipe';
 import { snapshotEngine } from './state/snapshot';
 import { getUiFrameInterval } from './ui/framePacing';
 import SimWindow from './ui/SimWindow';
+import SeasonPanel from './ui/SeasonPanel';
 import EvolutionRibbon from './ui/EvolutionRibbon';
 import SettingsPanel from './ui/SettingsPanel';
 import { worldNameFromSeed } from './ui/worldName';
@@ -147,6 +148,7 @@ export default function App() {
     const store = useStore.getState();
     store.setWorldState(snapshotEngine(engine));
     store.setTick(engine.tick);
+    store.setSeasonConfig(engine.seasonConfig ?? null);
     if (engine.tick > 0 && !engine.creatures.some((creature) => creature.lifecycleState === 'alive')) {
       store.setRunning(false);
     }
@@ -265,7 +267,7 @@ export default function App() {
       previousCreatureCount: 0,
       previousDeathCount: 0,
     };
-    const engine = buildDemoEngine(worldSeed, store.constants);
+    const engine = buildSeasonsDemoEngine(worldSeed, store.constants);
     engineRef.current = engine;
     previousEngineRef.current = null;
     lineageTrackerRef.current = createLineageTracker();
@@ -298,7 +300,7 @@ export default function App() {
       previousCreatureCount: 0,
       previousDeathCount: 0,
     };
-    const engine = buildDemoEngine(seed, store.constants);
+    const engine = buildSeasonsDemoEngine(seed, store.constants);
     engineRef.current = engine;
     previousEngineRef.current = null;
     lineageTrackerRef.current = createLineageTracker();
@@ -636,7 +638,7 @@ export default function App() {
       const storage = browserStorage();
       const restoreResult = storage ? restoreBrowserWorld(storage) : null;
       const restored = restoreResult?.state ?? null;
-      const engine = restored ?? buildDemoEngine(worldSeed, store.constants);
+      const engine = restored ?? buildSeasonsDemoEngine(worldSeed, store.constants);
       engineRef.current = engine;
       if (restoreResult?.recoveredFromInvalidSave) {
         setRecoveryNotice('A saved world could not be restored, so Origins started a new world. You can import an exported world save from World controls.');
@@ -858,6 +860,7 @@ export default function App() {
           <main aria-label="Ecosystem world" className="app-shell__world" data-view-mode={show2dView ? '2d' : '3d'}>
             {!show2dView && <LiveThreeWorldView />}
             {show2dView && <WorldView />}
+            <SeasonPanel />
             <WorldLegend open={legendOpen} onToggle={() => setLegendOpen(!legendOpen)} />
             <TileInfoPanel onOpenLineages={() => openSettings('remember')} />
           </main>
