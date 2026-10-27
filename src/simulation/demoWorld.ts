@@ -5,9 +5,14 @@ import { buildStarterCreatures } from './starterWorld';
 import { StreamedRng } from './rng';
 import type { SimulationConstants } from '../utils/constants';
 import { createEcosystemHistorySample } from './ecosystemHistory';
+import { DEFAULT_SEASON_CONFIG, type SeasonConfig } from './seasons';
 
 /** Build the playable demo world from an explicit seed so players can replay it exactly. */
-export function buildDemoEngine(seed: number, constants: SimulationConstants): EngineState {
+export function buildDemoEngine(
+  seed: number,
+  constants: SimulationConstants,
+  seasonConfig?: SeasonConfig
+): EngineState {
   Creature.resetIdCounter();
   const streamedRng = new StreamedRng(seed, 0);
   const engine = createEngine(
@@ -17,7 +22,8 @@ export function buildDemoEngine(seed: number, constants: SimulationConstants): E
     ),
     constants.worldWidth,
     constants.worldHeight,
-    constants
+    constants,
+    seasonConfig
   );
   for (let y = 0; y < engine.world.height; y++) {
     for (let x = 0; x < engine.world.width; x++) {
@@ -30,4 +36,12 @@ export function buildDemoEngine(seed: number, constants: SimulationConstants): E
   }
   engine.history[0] = createEcosystemHistorySample(0, engine.creatures, [], engine.world);
   return engine;
+}
+
+/**
+ * Seasons-enabled demo world (#357): the standard demo world with the default seasonal climate
+ * cycle (960-tick year, 23.5° tilt, grid latitude ±45°). The same seed reproduces the same world.
+ */
+export function buildSeasonsDemoEngine(seed: number, constants: SimulationConstants): EngineState {
+  return buildDemoEngine(seed, constants, { ...DEFAULT_SEASON_CONFIG });
 }
