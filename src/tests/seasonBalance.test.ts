@@ -146,5 +146,8 @@ describe('seasons demo: seeded balance (#357)', () => {
     expect(second).toEqual(first);
   });
 
-  it.todo('no mass extinction across 10 years - blocked on base demo viability, see research issue');
+  // BLOCKED (#121 completion criterion unmet): the 20x20 seasons demo (seed 4242) reaches 0 living
+  // creatures by tick 480 with seasons ON, and also with seasons OFF (checked 2026-10-27). Base demo
+  // viability is owned by research issue #358 and is out of scope for the seasons epic.
+  it.todo('no mass extinction across 10 years - blocked on base demo viability (#358)');
 });
