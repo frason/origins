@@ -1,0 +1,21 @@
+## Summary
+Added pure creature seasonal responses (breeding window, cold metabolism, dormancy metabolism, migration bias) in a new module, each gated by `SeasonConfig.enabled` and returning neutral values when disabled. Tests cover breeding windows and cold metabolism; `npx tsc --noEmit` is clean and the four season test files pass (85 tests).
+
+## Changes
+- src/simulation/seasonResponses.ts (new): `SEASON_RESPONSES` table (design defaults), `breedingQuartileIndex`, `breedingWindowMultiplier`, `coldMetabolismMultiplier`, `dormancyMetabolismMultiplier`, `seasonalMetabolismMultiplier`, `seasonalMigrationBias`.
+- src/tests/seasonResponses.test.ts (new): 21 tests: quartile mapping, north/south flip, equator neutrality, cold-floor zeroing of breeding, cold metabolism 1.3 to 1.0 linear and monotonic, dormancy threshold, disabled-gate neutrality, determinism, input validation.
+- state/worker_output_354.txt (new): this summary.
+
+## Design choices
+- Breeding window keyed by quartile index (0 winter, 1 spring, 2 summer, 3 autumn) of the hemisphere-adjusted year fraction. Spring/summer 1.0, autumn 0.6, winter 0.2. Equator returns 1. Seasonal temp below 2500 BP returns 0.
+- Cold metabolism is `1 + 0.3 * (1 - temp)`, so 0.3 extra at temp 0 and 0 at temp 1.
+- Dormancy metabolism uses 0.35 when snow cover is at or above `SEASON_EFFECTS.growthDormantAtSnowBP` (8500 BP), so dormancy shares the producer threshold.
+- Migration is a bias only (design Q3 default): `[0,1]`, zero at or above the cold floor, rising to 1 at temp 0.
+- Only `enabled` gates the responses; `seasonalTempBP` and `snowCoverBP` are taken as inputs from `seasonCurves.ts`.
+
+## Caveats / follow-up
+- Engine wiring is NOT done. `SeasonConfig` is not plumbed into `engine.ts`, `energy.ts`, or the reproduction path (`canReproduce`, `applyMetabolism`), and no per-creature lat/temp lookup is wired. The responses exist as pure functions only. Wiring them into the tick loop needs a follow-up owned by the engine/save-migration child (#355 area).
+- `seasonalMigrationBias` has no movement consumer yet. Full migration is out of scope per Q3.
+- Working tree already contained other sessions' uncommitted changes (e.g. `src/simulation/producer.ts`, `state/*`, `debug_*.ts`). I did not touch them.
+
+Changed files: src/simulation/seasonResponses.ts, src/tests/seasonResponses.test.ts, state/worker_output_354.txt
