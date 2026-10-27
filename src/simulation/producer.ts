@@ -156,7 +156,8 @@ export function calculateProducerGrowth(
   energyType: EnergyType,
   growthRate: number = PRODUCER_GROWTH_RATE,
   useBiomeProductivity: boolean = false,
-  useNutrientCycle: boolean = false
+  useNutrientCycle: boolean = false,
+  seasonGrowthMultiplier: number = 1
 ): {
   growth: number;
   carryingCapacity: number;
@@ -199,11 +200,16 @@ export function calculateProducerGrowth(
   // base growth × energy type efficiency × biome productivity × substrate affinity ×
   // water suitability × salinity suitability × moisture suitability ×
   // toxicity penalty × capacity remaining
+  if (!Number.isFinite(seasonGrowthMultiplier) || seasonGrowthMultiplier < 0) {
+    throw new RangeError(`seasonGrowthMultiplier must be a finite non-negative number, got ${seasonGrowthMultiplier}`);
+  }
+
+  // Seasonal multiplier is 1 when seasons are disabled (pre-season behaviour).
   let potentialGrowth = growthRate * cell.energy * energyMultiplier
     * biomeMultiplier * toxicityMultiplier
     * substrateAffinityMultiplier * waterSuitabilityMultiplier
     * salinitySuitabilityMultiplier * moistureSuitabilityMultiplier
-    * capacityRemaining;
+    * capacityRemaining * seasonGrowthMultiplier;
 
   let nextNutrients = Math.max(0, cell.nutrients);
   let maintenanceLoss = 0;
@@ -258,14 +264,18 @@ export function growProducers(
   energyType: EnergyType,
   growthRate: number = PRODUCER_GROWTH_RATE,
   useBiomeProductivity: boolean = false,
-  useNutrientCycle: boolean = false
+  useNutrientCycle: boolean = false,
+  seasonGrowthMultiplier: number = 1,
+  seasonGrowthAt?: (x: number, y: number, cell: Cell) => number
 ): void {
   for (let y = 0; y < world.height; y++) {
     for (let x = 0; x < world.width; x++) {
       const cell = world.getCell(x, y);
+      // Per-cell seasonal multiplier (latitude-dependent) overrides the scalar when provided.
+      const cellSeasonMultiplier = seasonGrowthAt ? seasonGrowthAt(x, y, cell) : seasonGrowthMultiplier;
 
       const growth = calculateProducerGrowth(
-        cell, energyType, growthRate, useBiomeProductivity, useNutrientCycle
+        cell, energyType, growthRate, useBiomeProductivity, useNutrientCycle, cellSeasonMultiplier
       );
       world.setCell(x, y, {
         producerBiomass: growth.nextBiomass,

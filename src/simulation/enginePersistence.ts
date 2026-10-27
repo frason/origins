@@ -5,6 +5,7 @@ import type { Phase0State } from './checkpointTimeline';
 import { AdaptationMetricsTracker } from './adaptationMetrics';
 import { RNG_STREAM_VERSION } from './rng';
 import { compactEvents, EVENT_COMPACTION_VERSION, estimateEventsSerializedSize } from './eventCompaction';
+import { assertValidSeasonConfig, type SeasonConfig } from './seasons';
 
 export const ENGINE_SAVE_VERSION = 1;
 export const EVENT_COMPACTION_VERSION_STORED = EVENT_COMPACTION_VERSION;
@@ -64,6 +65,8 @@ export function createPersistedEngineState(state: EngineState): PersistedEngineS
       events: compactedEvents.map((event) => ({ ...event })),
       speciesProfiles: state.speciesProfiles.map((profile) => ({ ...profile, founderTraits: { ...profile.founderTraits } })),
       incipientSpecies: state.incipientSpecies.map((candidate) => ({ ...candidate, founderTraits: { ...candidate.founderTraits } })),
+      // Omitted for legacy worlds so their saves stay byte-identical (seasons off).
+      ...(state.seasonConfig ? { seasonConfig: { ...state.seasonConfig } } : {}),
     },
     eventCompactionMetadata: {
       originalEventCount,
@@ -109,7 +112,14 @@ export function deserializeEngineState(value: string): EngineState {
     return Creature.getIdCounter();
   })();
   Creature.setIdCounter(creatureIdCounter);
+  // Old saves carry no season block and load with seasons disabled (undefined).
+  let seasonConfig: SeasonConfig | undefined;
+  if (saved.seasonConfig) {
+    assertValidSeasonConfig(saved.seasonConfig);
+    seasonConfig = { ...saved.seasonConfig };
+  }
   return {
+    ...(seasonConfig ? { seasonConfig } : {}),
     world: World.fromJSON(saved.world), creatures, creatureIdCounter,
     tick: saved.tick, seed: saved.seed,
     events: saved.events, constants: saved.constants, history: saved.history,

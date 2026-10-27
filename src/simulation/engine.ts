@@ -10,6 +10,8 @@ import {
   SCAVENGER_SCAVENGING_RATE,
 } from '../utils/constants';
 import { growProducers } from './producer';
+import { applySeasonalEvaporation, createSeasonalEvaporationAt, createSeasonalGrowthAt } from './seasonEffects';
+import type { SeasonConfig } from './seasons';
 import { reproduceCreature } from './species';
 import {
   introducedSpeciesId,
@@ -212,6 +214,11 @@ export interface EngineState {
   adaptationMetrics: AdaptationMetricsTracker;
   /** Recent adaptation observations from the current tick */
   lastAdaptationObservations: AdaptationObservation[];
+  /**
+   * Seasonal climate config (#353). Absent or enabled=false means pre-season behaviour:
+   * every seasonal multiplier is 1 and the tick is unchanged.
+   */
+  seasonConfig?: SeasonConfig;
 }
 
 export interface SpeciesIntroduction {
@@ -354,7 +361,8 @@ export function createEngine(
   initialCreatures: Creature[],
   worldWidth: number = WORLD_WIDTH,
   worldHeight: number = WORLD_HEIGHT,
-  constantOverrides: Partial<SimulationConstants> = {}
+  constantOverrides: Partial<SimulationConstants> = {},
+  seasonConfig?: SeasonConfig
 ): EngineState {
   // Create constants with proper world dimensions
   const constants = {
@@ -422,6 +430,7 @@ export function createEngine(
     soundEventCounter: 0,
     adaptationMetrics: new AdaptationMetricsTracker(),
     lastAdaptationObservations: [],
+    ...(seasonConfig ? { seasonConfig: { ...seasonConfig } } : {}),
   };
 }
 
@@ -537,7 +546,17 @@ export function tickEngine(
   const newSounds: SoundEvent[] = [];
 
   // Step 2: Producer Growth
-  growProducers(newWorld, 'solar', constants.producerGrowthRate, true, true);
+  // Seasons (#353): undefined when disabled, so growth stays at the pre-season multiplier of 1.
+  const seasonGrowthAt = state.seasonConfig
+    ? createSeasonalGrowthAt(state.seasonConfig, state.tick, newWorld.height)
+    : undefined;
+  growProducers(newWorld, 'solar', constants.producerGrowthRate, true, true, 1, seasonGrowthAt);
+  // Seasons (#353): per-tick evaporation of standing water, scaled by seasonal temperature.
+  // Skipped entirely when seasons are disabled, so pre-season worlds are unchanged.
+  const seasonEvaporationAt = state.seasonConfig
+    ? createSeasonalEvaporationAt(state.seasonConfig, state.tick, newWorld.height)
+    : undefined;
+  if (seasonEvaporationAt) applySeasonalEvaporation(newWorld, seasonEvaporationAt);
 
   // Step 2.5: Hydration Decline (per tick, before decision-making)
   for (const creature of creatures) {
@@ -1492,6 +1511,7 @@ export function tickEngine(
     incipientSpecies,
     activeSounds,
     soundEventCounter,
+    ...(state.seasonConfig ? { seasonConfig: state.seasonConfig } : {}),
     adaptationMetrics: state.adaptationMetrics,
     lastAdaptationObservations: adaptationObservations,
   };
