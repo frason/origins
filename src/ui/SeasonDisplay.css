@@ -1,0 +1,56 @@
+.season-calendar-bar,
+.season-forecast-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.season-calendar-bar__hemispheres {
+  display: inline-flex;
+  gap: 0.75rem;
+}
+
+.season-calendar-bar__equator {
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.season-calendar-bar__track {
+  flex: 1 1 8rem;
+  height: 0.4rem;
+  border-radius: 0.2rem;
+  background: rgba(127, 127, 127, 0.25);
+  overflow: hidden;
+}
+
+.season-calendar-bar__fill {
+  height: 100%;
+  background: currentColor;
+}
+
+.season-forecast-strip__changes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.season-forecast-strip__boundary {
+  opacity: 0.7;
+}
+
+.season-tile-tooltip {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.3rem;
+  background: rgba(20, 20, 20, 0.92);
+  color: #f5f5f5;
+  font-size: 0.8rem;
+  pointer-events: none;
+  white-space: nowrap;
+}
