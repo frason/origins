@@ -308,6 +308,13 @@ export interface VisionScan {
   foodCreatures: Creature[];
 }
 
+/**
+ * Minimum producer biomass a herbivore/omnivore will treat as a food target (#359).
+ * Matches the threshold used by hasLocalReproductiveResources in engine.ts.
+ * Local to creature.ts on purpose; not a balance constant.
+ */
+const MIN_FORAGE_BIOMASS = 5;
+
 export function scanEnvironment(
   creature: Creature,
   world: World,
@@ -412,7 +419,9 @@ export function scanEnvironment(
         const distance = chebyshevDistance(creature.x, creature.y, x, y);
         if (distance <= creature.traits.visionRange) {
           const cell = world.getCell(x, y);
-          if (cell.producerBiomass > 0 && reachable.has(`${x},${y}`)) {
+          // Biomass-aware foraging (#359): near-empty cells (< MIN_FORAGE_BIOMASS) are
+          // trailing-edge residue that cannot sustain intake, so they are not food targets.
+          if (cell.producerBiomass >= MIN_FORAGE_BIOMASS && reachable.has(`${x},${y}`)) {
             foodLocations.push({
               x,
               y,
