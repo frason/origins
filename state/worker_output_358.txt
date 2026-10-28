@@ -1,0 +1,27 @@
+## Summary
+Diagnosed the default demo collapse from existing probe data plus direct code reading. The root cause is herbivore foraging target selection (any cell with biomass > 0 counts as food, nearest one chosen), not energy, nutrients, or reproduction cost. Report: docs/demo-collapse-diagnosis.md.
+
+## BLOCKED on fresh probes
+- Every attempt to execute code (tsx, npx, vitest, node_modules/.bin/tsx, output redirection) returned "requires approval". No new probes were run.
+- Numbers come from state/probe358_s4242_100.txt (seed 4242, 100x100, seasons off, 400 ticks). Its t120 (29 alive) and t240 (3 alive) match the issue, so it is likely the same run, but it was not regenerated.
+- The 20x20 / 12-seed claim was NOT verified.
+- Fix ranking is a hypothesis. No counterfactual was tested.
+
+## Changes
+- docs/demo-collapse-diagnosis.md (created): trophic collapse order, trajectory table, dominant cause, ranked candidate fixes.
+- state/worker_output_358.txt (this summary).
+- No simulation source, constants, or test files changed. No probe files created by this worker.
+
+## Key findings
+- Collapse order: omnivore t80, scavenger t100, carnivore t180, herbivore t280 (herbivores peak ~41 at t80, the real driver).
+- Producers grow monotonically (109k to 725k total biomass). Nutrients are flat (~450k, under 0.2% drop).
+- Herbivores sit on cells with biomass < 5 (about 97-99% of cells are above 5). Mean local biomass falls 9.2 to 0.8 by t100.
+- Code path: creature.ts scanEnvironment (~line 415) and findNearestTarget (~line 580) ignore biomass magnitude.
+- Deaths over 400 ticks: starvation 61, predation 14, environmental-stress 3.
+
+## Caveats / follow-up
+- GIT ISSUE: report committed as bd2a4b0 on local `main` by mistake (unpushed). Branch `issue-358-demo-collapse-diagnosis` points at it. Reset needed: `git branch -f main f3f7caf` (f3f7caf = previous main HEAD). Reset/restore need approval, so I did not run it.
+- Lead should approve tsx/vitest execution, then re-run: `npx tsx scripts/probe-demo-collapse-358.ts 20 960 4242,1,2 40 detail` (and 100x100), to confirm the numbers and test fix 1 in a scratch copy.
+- Top candidate issue: biomass-aware food target in src/simulation/creature.ts.
+
+Changed files: docs/demo-collapse-diagnosis.md, state/worker_output_358.txt
